@@ -271,3 +271,23 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") 
     "io.delta" %% "delta-core" % deltaVersion % "test" excludeAll ExclusionRule("org.apache.hadoop")
   )
 )
+
+lazy val alpine = (project in file("alpine")) settings (
+  name := "alpine",
+  commonSettings,
+
+  libraryDependencies ++= Seq(
+    "org.apache.hadoop" % "hadoop-client" % hadoopVersion,
+
+    "com.github.mjakubowski84" %% "parquet4s-core" % "0.11.0",
+
+    // https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind
+    "com.fasterxml.jackson.core" % "jackson-databind" % "2.11.2",
+
+    // https://mvnrepository.com/artifact/com.fasterxml.jackson.module/jackson-module-scala
+    "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.11.2",
+
+    // "org.scalatest" %% "scalatest" % "3.0.5" % "test",
+    "io.delta" %% "delta-core" % deltaVersion excludeAll (ExclusionRule("org.apache.hadoop"))
+  )
+)
