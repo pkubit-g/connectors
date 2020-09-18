@@ -64,7 +64,9 @@ object DeltaLog {
   }
 
   // TODO: forTable w dataPath: File
-  // TODO: forTable w dataPath: Path
+  def forTable(hadoopConf: Configuration, dataPath: Path): DeltaLog = {
+    apply(hadoopConf, new Path(dataPath, "_delta_log"))
+  }
   // TODO: forTable w dataPath: String & clock
   // TODO: forTable w dataPath: File & clock
   // TODO: forTable w dataPath: Path & clock

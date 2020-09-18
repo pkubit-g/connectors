@@ -279,15 +279,24 @@ lazy val alpine = (project in file("alpine")) settings (
   libraryDependencies ++= Seq(
     "org.apache.hadoop" % "hadoop-client" % hadoopVersion,
 
+    // Parquet reader
     "com.github.mjakubowski84" %% "parquet4s-core" % "0.11.0",
 
     // https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind
-    "com.fasterxml.jackson.core" % "jackson-databind" % "2.11.2",
+    "com.fasterxml.jackson.core" % "jackson-databind" % "2.6.7.3",
 
     // https://mvnrepository.com/artifact/com.fasterxml.jackson.module/jackson-module-scala
-    "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.11.2",
+    "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.6.7.1",
 
-    // "org.scalatest" %% "scalatest" % "3.0.5" % "test",
-    "io.delta" %% "delta-core" % deltaVersion excludeAll (ExclusionRule("org.apache.hadoop"))
+    // Adding test classifier seems to break transitive resolution of the core dependencies
+    "org.apache.spark" %% "spark-sql"% sparkVersion % "test",
+
+    // Test Dependencies
+    "org.scalatest" %% "scalatest" % "3.0.5" % "test",
+    "org.apache.spark" %% "spark-catalyst" % sparkVersion % "test" classifier "tests",
+    "org.apache.spark" %% "spark-core" % sparkVersion % "test" classifier "tests",
+    "org.apache.spark" %% "spark-sql" % sparkVersion % "test" classifier "tests",
+    "io.delta" %% "delta-core" % deltaVersion % "test"
+      excludeAll (ExclusionRule("org.apache.hadoop"))
   )
 )

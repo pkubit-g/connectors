@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package exception
+package main.scala.exception
 
 import java.io.FileNotFoundException
 

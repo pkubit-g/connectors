@@ -27,11 +27,11 @@ class InMemoryLogReplay(
   var currentProtocolVersion: Protocol = null
   var currentVersion: Long = -1
   var currentMetaData: Metadata = null
-  val transactions = new scala.collection.mutable.HashMap[String, SetTransaction]()
-  val activeFiles = new scala.collection.mutable.HashMap[URI, AddFile]()
   var sizeInBytes: Long = 0
   var numMetadata: Long = 0
   var numProtocol: Long = 0
+  private val transactions = new scala.collection.mutable.HashMap[String, SetTransaction]()
+  private val activeFiles = new scala.collection.mutable.HashMap[URI, AddFile]()
   private val tombstones = new scala.collection.mutable.HashMap[URI, RemoveFile]()
 
   def append(version: Long, actions: Iterator[Action]): Unit = {
@@ -72,8 +72,12 @@ class InMemoryLogReplay(
     }
   }
 
-  private def getTombstones: Iterable[FileAction] = {
-    tombstones.values.filter(_.delTimestamp > minFileRetentionTimestamp)
+  def getTransactions: Map[String, SetTransaction] = transactions.toMap
+
+  def getActiveFiles: Map[URI, AddFile] = activeFiles.toMap
+
+  def getTombstones: Map[URI, RemoveFile] = {
+    tombstones.filter(_._2.delTimestamp > minFileRetentionTimestamp).toMap
   }
 
   def numRemoves: Long = getTombstones.size
@@ -83,6 +87,6 @@ class InMemoryLogReplay(
     Option(currentProtocolVersion).toIterator ++
     Option(currentMetaData).toIterator ++
     transactions.values.toIterator ++
-    (activeFiles.values ++ getTombstones).toSeq.sortBy(_.path).iterator
+    (activeFiles.values ++ getTombstones.values).toSeq.sortBy(_.path).iterator
   }
 }

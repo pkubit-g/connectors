@@ -21,7 +21,7 @@ import java.net.URI
 import scala.main.util.JsonUtils
 
 import com.github.mjakubowski84.parquet4s.ParquetReader
-import actions.{AddFile, InMemoryLogReplay, Metadata, Protocol, SetTransaction, SingleAction}
+import actions.{AddFile, InMemoryLogReplay, Metadata, Protocol, RemoveFile, SetTransaction, SingleAction}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
@@ -69,14 +69,15 @@ class Snapshot(
     State(
       replay.currentProtocolVersion,
       replay.currentMetaData,
-      replay.transactions.values.toSeq,
-      replay.activeFiles.toMap,
+      replay.getTransactions.values.toSeq,
+      replay.getActiveFiles,
+      replay.getTombstones,
       replay.sizeInBytes,
-      replay.activeFiles.size,
+      replay.getActiveFiles.size,
       replay.numMetadata,
       replay.numProtocol,
       replay.numRemoves,
-      replay.transactions.size
+      replay.getTransactions.size
     )
   }
 
@@ -90,6 +91,7 @@ class Snapshot(
   def numOfRemoves: Long = state.numOfRemoves
   def numOfSetTransactions: Long = state.numOfSetTransactions
   def allFiles: Set[AddFile] = state.activeFiles.values.toSet
+  def tombstones: Set[RemoveFile] = state.tombstones.values.toSet
 }
 
 object Snapshot {
@@ -110,6 +112,7 @@ object Snapshot {
       metadata: Metadata,
       setTransactions: Seq[SetTransaction],
       activeFiles: scala.collection.immutable.Map[URI, AddFile],
+      tombstones: scala.collection.immutable.Map[URI, RemoveFile],
       sizeInBytes: Long,
       numOfFiles: Long,
       numOfMetadata: Long,
@@ -134,6 +137,12 @@ class InitialSnapshot(
 
   override protected lazy val state: Snapshot.State = {
     val protocol = Protocol()
-    Snapshot.State(protocol, metadata, Nil, Map.empty[URI, AddFile], 0L, 0L, 1L, 1L, 0L, 0L)
+    Snapshot.State(
+      protocol,
+      metadata,
+      Nil,
+      Map.empty[URI, AddFile],
+      Map.empty[URI, RemoveFile],
+      0L, 0L, 1L, 1L, 0L, 0L)
   }
 }
