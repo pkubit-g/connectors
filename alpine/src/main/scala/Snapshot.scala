@@ -21,7 +21,7 @@ import java.net.URI
 import scala.main.util.JsonUtils
 
 import com.github.mjakubowski84.parquet4s.ParquetReader
-import actions.{AddFile, InMemoryLogReplay, Metadata, Protocol, RemoveFile, SetTransaction, SingleAction}
+import main.scala.actions.{AddFile, InMemoryLogReplay, Metadata, Protocol, RemoveFile, SetTransaction, SingleAction}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 

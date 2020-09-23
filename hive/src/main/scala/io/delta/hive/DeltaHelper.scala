@@ -14,36 +14,30 @@
  * limitations under the License.
  */
 
-package org.apache.spark.sql.delta
+package io.delta.hive
 
 import java.net.URI
 import java.util.Locale
 
-import scala.collection.mutable
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 import scala.util.control.NonFatal
 
-import io.delta.hive.{DeltaStorageHandler, PartitionColumnInfo}
-import org.apache.hadoop.fs._
+import main.scala.types._
+import main.scala.util.SchemaUtils
+import main.scala.{DeltaLog, Snapshot}
+import main.scala.actions.AddFile
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{BlockLocation, FileStatus, FileSystem, LocatedFileStatus, Path}
 import org.apache.hadoop.hive.metastore.api.MetaException
-import org.apache.hadoop.hive.ql.plan.TableScanDesc
 import org.apache.hadoop.hive.serde2.typeinfo._
 import org.apache.hadoop.mapred.JobConf
-import org.apache.spark.internal.Logging
-import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.delta.actions.{AddFile, SingleAction}
-import org.apache.spark.sql.delta.schema.SchemaUtils
-import org.apache.spark.sql.types._
+import org.slf4j.LoggerFactory
 
-object DeltaHelper extends Logging {
+object DeltaHelper {
 
-  /**
-   * List the file paths in the Delta table. The provided `JobConf` may consider pushed partition
-   * filters to do the partition pruning.
-   *
-   * The return value has two parts: all of the files matching the pushed partition filter and the
-   * mapping from file path to its partition information.
-   */
+  private val LOG = LoggerFactory.getLogger(getClass.getName)
+
   def listDeltaFiles(
       nonNormalizedPath: Path,
       job: JobConf): (Array[FileStatus], Map[URI, Array[PartitionColumnInfo]]) = {
@@ -56,33 +50,11 @@ object DeltaHelper extends Logging {
     // TODO The assumption about Path in Hive is too strong, we should try to see if we can fail if
     // `pushProjectionsAndFilters` doesn't find a table for a Delta split path.
     val rootPath = fs.makeQualified(nonNormalizedPath)
-    val snapshotToUse = loadDeltaLatestSnapshot(rootPath)
+    val snapshotToUse = loadDeltaLatestSnapshot(job, rootPath)
 
     val hiveSchema = TypeInfoUtils.getTypeInfoFromTypeString(
       job.get(DeltaStorageHandler.DELTA_TABLE_SCHEMA)).asInstanceOf[StructTypeInfo]
     DeltaHelper.checkTableSchema(snapshotToUse.metadata.schema, hiveSchema)
-
-    // get the partition prune exprs
-    val filterExprSerialized = job.get(TableScanDesc.FILTER_EXPR_CONF_STR)
-
-    val convertedFilterExpr = DeltaPushFilter.partitionFilterConverter(filterExprSerialized)
-    if (convertedFilterExpr.forall { filter =>
-      DeltaTableUtils.isPredicatePartitionColumnsOnly(
-        filter,
-        snapshotToUse.metadata.partitionColumns,
-        spark)
-    }) {
-      // All of filters are based on partition columns. The partition columns may be changed because
-      // we cannot guarantee that we were using the same Delta Snapshot to generate the filters. But
-      // as long as the pushed filters are based on a subset of latest partition columns, it should
-      // be *correct*, even if we may not push all of partition filters and the query may be a bit
-      // slower.
-    } else {
-      throw new MetaException(s"The pushed filters $filterExprSerialized are not all based on" +
-        "partition columns. This may happen when the partition columns of a Delta table have " +
-        "been changed when running this query. Please try to re-run the query to pick up the " +
-        "latest partition columns.")
-    }
 
     // The default value 128M is the same as the default value of
     // "spark.sql.files.maxPartitionBytes" in Spark. It's also the default parquet row group size
@@ -97,27 +69,56 @@ object DeltaHelper extends Logging {
         partitionColumns.contains(t.name)
       }.sortBy(_._2).toArray
 
-    // selected files to Hive to be processed
-    val files = DeltaLog.filterFileList(
-      snapshotToUse.metadata.partitionColumns, snapshotToUse.allFiles.toDF(), convertedFilterExpr)
-      .as[AddFile](SingleAction.addFileEncoder)
-      // Drop unused potential huge fields
-      .map(add => add.copy(stats = null, tags = null))(SingleAction.addFileEncoder)
-      .collect().map { f =>
+    val files = snapshotToUse
+      .allFiles
+      .map(add => add.copy(stats = null, tags = null))
+      .map { f =>
         val status = toFileStatus(fs, rootPath, f, blockSize)
         localFileToPartition +=
           status.getPath.toUri -> partitionColumnWithIndex.map { case (t, index) =>
             // TODO Is `catalogString` always correct? We may need to add our own conversion rather
             // than relying on Spark.
-            new PartitionColumnInfo(index, t.dataType.catalogString, f.partitionValues(t.name))
+            PartitionColumnInfo(index, t.dataType.catalogString, f.partitionValues(t.name))
           }
         status
       }
+
     val loadEndMs = System.currentTimeMillis()
     logOperationDuration("fetching file list", rootPath, snapshotToUse, loadEndMs - loadStartMs)
-    logInfo(s"Found ${files.size} files to process " +
+    LOG.info(s"Found ${files.size} files to process " +
       s"in the Delta Lake table ${hideUserInfoInPath(rootPath)}")
-    (files, localFileToPartition.toMap)
+
+    (files.toArray, localFileToPartition.toMap)
+  }
+
+  def getPartitionCols(hadoopConf: Configuration, rootPath: Path): Seq[String] = {
+    loadDeltaLatestSnapshot(hadoopConf, rootPath).metadata.partitionColumns
+  }
+
+  def loadDeltaLatestSnapshot(hadoopConf: Configuration, rootPath: Path): Snapshot = {
+    val loadStartMs = System.currentTimeMillis()
+    val snapshot = DeltaLog.forTable(hadoopConf, rootPath).update()
+    val loadEndMs = System.currentTimeMillis()
+    logOperationDuration("loading snapshot", rootPath, snapshot, loadEndMs - loadStartMs)
+    if (snapshot.version < 0) {
+      throw new MetaException(
+        s"${hideUserInfoInPath(rootPath)} does not exist or it's not a Delta table")
+    }
+    snapshot
+  }
+
+  @throws(classOf[MetaException])
+  def checkTableSchema(alpineSchema: StructType, hiveSchema: StructTypeInfo): Unit = {
+    val alpineType = normalizeSparkType(alpineSchema).asInstanceOf[StructType]
+    val hiveType = hiveTypeToSparkType(hiveSchema).asInstanceOf[StructType]
+    if (alpineType != hiveType) {
+      val diffs =
+        SchemaUtils.reportDifferences(existingSchema = alpineType, specifiedSchema = hiveType)
+      throw metaInconsistencyException(
+        alpineSchema,
+        hiveSchema,
+        diffs.mkString("\n"))
+    }
   }
 
   /**
@@ -168,42 +169,6 @@ object DeltaHelper extends Logging {
     }
   }
 
-  def getPartitionCols(rootPath: Path): Seq[String] = {
-    loadDeltaLatestSnapshot(rootPath).metadata.partitionColumns
-  }
-
-  /** Load the latest Delta [[Snapshot]] from the path. */
-  def loadDeltaLatestSnapshot(rootPath: Path): Snapshot = {
-    val loadStartMs = System.currentTimeMillis()
-    val snapshot = DeltaLog.forTable(spark, rootPath).update()
-    val loadEndMs = System.currentTimeMillis()
-    logOperationDuration("loading snapshot", rootPath, snapshot, loadEndMs - loadStartMs)
-    if (snapshot.version < 0) {
-      throw new MetaException(
-        s"${hideUserInfoInPath(rootPath)} does not exist or it's not a Delta table")
-    }
-    snapshot
-  }
-
-  /**
-   * Verify the underlying Delta table schema is the same as the Hive schema defined in metastore.
-   */
-  @throws(classOf[MetaException])
-  def checkTableSchema(deltaSchema: StructType, hiveSchema: StructTypeInfo): Unit = {
-    val deltaType = normalizeSparkType(deltaSchema).asInstanceOf[StructType]
-    val hiveType = hiveTypeToSparkType(hiveSchema).asInstanceOf[StructType]
-    if (deltaType != hiveType) {
-      val diffs =
-        SchemaUtils.reportDifferences(existingSchema = deltaType, specifiedSchema = hiveType)
-      throw metaInconsistencyException(
-        deltaSchema,
-        hiveSchema,
-        // `reportDifferences` doesn't report the column order difference so we report a special
-        // error message for this case.
-        if (diffs.isEmpty) "Column order is different" else diffs.mkString("\n"))
-    }
-  }
-
   /**
    * Normalize the Spark type so that we can compare it with user specified Hive schema.
    * - Field names will be converted to lower case.
@@ -214,9 +179,7 @@ object DeltaHelper extends Logging {
       case structType: StructType =>
         StructType(structType.fields.map(f => StructField(
           name = f.name.toLowerCase(Locale.ROOT),
-          dataType = normalizeSparkType(f.dataType),
-          nullable = true,
-          metadata = Metadata.empty
+          dataType = normalizeSparkType(f.dataType)
         )))
       case arrayType: ArrayType =>
         ArrayType(normalizeSparkType(arrayType.elementType), containsNull = true)
@@ -299,11 +262,11 @@ object DeltaHelper extends Logging {
   }
 
   private def logOperationDuration(
-      ops: String,
-      path: Path,
-      snapshot: Snapshot,
-      durationMs: Long): Unit = {
-    logInfo(s"Delta Lake table '${hideUserInfoInPath(path)}' (" +
+    ops: String,
+    path: Path,
+    snapshot: Snapshot,
+    durationMs: Long): Unit = {
+    LOG.info(s"Delta Lake table '${hideUserInfoInPath(path)}' (" +
       s"version: ${snapshot.version}, " +
       s"size: ${snapshot.sizeInBytes}, " +
       s"add: ${snapshot.numOfFiles}, " +
@@ -326,32 +289,8 @@ object DeltaHelper extends Logging {
       case NonFatal(e) =>
         // This path may have illegal format, and we can not remove its user info and reassemble the
         // uri.
-        logError("Path contains illegal format: " + path, e)
+        LOG.error("Path contains illegal format: " + path, e)
         path
     }
-  }
-
-  /**
-   * Start a special Spark cluster using local mode to process Delta's metadata. The Spark UI has
-   * been disabled and `SparkListener`s have been removed to reduce the memory usage of Spark.
-   * `DeltaLog` cache size is also set to "1" if the user doesn't specify it, to cache only the
-   * recent accessed `DeltaLog`.
-   */
-  def spark: SparkSession = {
-    // TODO Configure `spark` to pick up the right Hadoop configuration.
-    if (System.getProperty("delta.log.cacheSize") == null) {
-      System.setProperty("delta.log.cacheSize", "1")
-    }
-    val sparkSession = SparkSession.builder()
-      .master("local[*]")
-      .appName("Delta Connector")
-      .config("spark.ui.enabled", "false")
-      .getOrCreate()
-    // Trigger codes that add `SparkListener`s before stopping the listener bus. Otherwise, they
-    // would fail to add `SparkListener`s.
-    sparkSession.sharedState
-    sparkSession.sessionState
-    sparkSession.sparkContext.listenerBus.stop()
-    sparkSession
   }
 }

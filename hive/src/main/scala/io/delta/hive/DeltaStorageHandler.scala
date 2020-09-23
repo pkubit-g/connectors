@@ -20,6 +20,7 @@ import java.util.{ArrayList => JArrayList}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
+
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.hive.metastore.HiveMetaHook
 import org.apache.hadoop.hive.metastore.MetaStoreUtils
@@ -41,7 +42,6 @@ import org.apache.hadoop.hive.serde2.AbstractSerDe
 import org.apache.hadoop.hive.serde2.Deserializer
 import org.apache.hadoop.hive.serde2.typeinfo.{StructTypeInfo, TypeInfo, TypeInfoFactory, TypeInfoUtils}
 import org.apache.hadoop.mapred.{InputFormat, JobConf, OutputFormat}
-import org.apache.spark.sql.delta.{DeltaHelper, DeltaPushFilter}
 import org.slf4j.LoggerFactory
 
 class DeltaStorageHandler extends DefaultStorageHandler with HiveMetaHook
@@ -74,7 +74,7 @@ class DeltaStorageHandler extends DefaultStorageHandler with HiveMetaHook
     val hiveSchema = TypeInfoFactory.getStructTypeInfo(columnNames, columnTypes)
       .asInstanceOf[StructTypeInfo]
     val rootPath = tableProps.getProperty(META_TABLE_LOCATION)
-    val snapshot = DeltaHelper.loadDeltaLatestSnapshot(new Path(rootPath))
+    val snapshot = DeltaHelper.loadDeltaLatestSnapshot(getConf, new Path(rootPath))
     DeltaHelper.checkTableSchema(snapshot.metadata.schema, hiveSchema)
     jobProperties.put(DELTA_TABLE_PATH, rootPath)
     jobProperties.put(DELTA_TABLE_SCHEMA, hiveSchema.toString)
@@ -87,7 +87,8 @@ class DeltaStorageHandler extends DefaultStorageHandler with HiveMetaHook
     // Get the delta root path
     val deltaRootPath = jobConf.get(META_TABLE_LOCATION)
     // Get the partitionColumns of Delta
-    val partitionColumns = DeltaHelper.getPartitionCols(new Path(deltaRootPath))
+    // TODO: jobConf or getConf ??
+    val partitionColumns = DeltaHelper.getPartitionCols(jobConf, new Path(deltaRootPath))
     LOG.info("delta partitionColumns is " + partitionColumns.mkString(", "))
 
     val analyzer = newIndexPredicateAnalyzer(partitionColumns)
@@ -186,7 +187,7 @@ class DeltaStorageHandler extends DefaultStorageHandler with HiveMetaHook
       throw new MetaException("table location should be set when creating a Delta table")
     }
 
-    val snapshot = DeltaHelper.loadDeltaLatestSnapshot(new Path(deltaRootString))
+    val snapshot = DeltaHelper.loadDeltaLatestSnapshot(getConf, new Path(deltaRootString))
 
     // Extract the table schema in Hive to compare it with the latest table schema in Delta logs,
     // and fail the query if it was changed.

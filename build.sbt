@@ -165,7 +165,7 @@ lazy val assemblySettings = Seq(
   logLevel in assembly := Level.Info
 )
 
-lazy val hive = (project in file("hive")) settings (
+lazy val hive = (project in file("hive")) dependsOn(alpine) settings (
   name := "hive-delta",
   commonSettings,
   unmanagedJars in Compile += (packageBin in(core, Compile, packageBin)).value,
@@ -173,6 +173,17 @@ lazy val hive = (project in file("hive")) settings (
 
   // Ensures that the connector core jar is compiled before compiling this project
   (compile in Compile) := ((compile in Compile) dependsOn (packageBin in (core, Compile, packageBin))).value,
+
+  projectDependencies := {
+    Seq(
+      (projectID in alpine).value.excludeAll(
+        ExclusionRule(organization = "org.apache.parquet"),
+        ExclusionRule(organization = "org.json4s"),
+        ExclusionRule(organization = "com.fasterxml.jackson.module"),
+        ExclusionRule(organization = "com.fasterxml.jackson.core")
+      )
+    )
+  },
 
   // Minimal dependencies to compile the codes. This project doesn't run any tests so we don't need
   // any runtime dependencies.
@@ -288,8 +299,14 @@ lazy val alpine = (project in file("alpine")) settings (
     // https://mvnrepository.com/artifact/com.fasterxml.jackson.module/jackson-module-scala
     "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.6.7.1",
 
-    // Adding test classifier seems to break transitive resolution of the core dependencies
-    "org.apache.spark" %% "spark-sql"% sparkVersion % "test",
+    // Adding tests classifier seems to break transitive resolution of the core dependencies
+    "org.apache.spark" %% "spark-sql" % sparkVersion % "test",
+
+    // https://mvnrepository.com/artifact/org.json4s/json4s-jackson
+    "org.json4s" %% "json4s-jackson" % "3.5.3" excludeAll(
+      ExclusionRule(organization = "com.fasterxml.jackson.module"),
+      ExclusionRule(organization = "com.fasterxml.jackson.core")
+    ),
 
     // Test Dependencies
     "org.scalatest" %% "scalatest" % "3.0.5" % "test",

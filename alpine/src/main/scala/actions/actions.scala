@@ -25,6 +25,7 @@ import com.fasterxml.jackson.annotation.{JsonIgnore, JsonInclude, JsonRawValue}
 import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
 import com.fasterxml.jackson.databind.{JsonSerializer, SerializerProvider}
+import main.scala.types.{DataType, StructType}
 
 object Action {
   val readerVersion = 1
@@ -116,6 +117,13 @@ case class Metadata(
   configuration: Map[String, String] = Map.empty,
   @JsonDeserialize(contentAs = classOf[java.lang.Long])
   createdTime: Option[Long] = Some(System.currentTimeMillis())) extends Action {
+
+  /** Returns the schema as a [[StructType]] */
+  @JsonIgnore
+  lazy val schema: StructType =
+  Option(schemaString).map { s =>
+    DataType.fromJson(s).asInstanceOf[StructType]
+  }.getOrElse(StructType.apply(Nil))
 
   override def wrap: SingleAction = SingleAction(metaData = this)
 }
