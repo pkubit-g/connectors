@@ -16,11 +16,12 @@
 
 package main.scala
 
+import java.io.Closeable
 import java.net.URI
 
 import scala.main.util.JsonUtils
 
-import com.github.mjakubowski84.parquet4s.ParquetReader
+import com.github.mjakubowski84.parquet4s.{ParquetReader, RowParquetRecord}
 import main.scala.actions.{AddFile, InMemoryLogReplay, Metadata, Protocol, RemoveFile, SetTransaction, SingleAction}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -79,6 +80,15 @@ class Snapshot(
       replay.numRemoves,
       replay.getTransactions.size
     )
+  }
+
+  def open(): CloseIterator[Array[Any]] = {
+    allFiles.flatMap { f =>
+      ParquetReader.read[RowParquetRecord](s"${deltaLog.dataPath}/${f.path}")
+      // todo should we convert parquet type to scala type?
+    }
+
+    null
   }
 
   def protocol: Protocol = state.protocol
@@ -145,4 +155,8 @@ class InitialSnapshot(
       Map.empty[URI, RemoveFile],
       0L, 0L, 1L, 1L, 0L, 0L)
   }
+}
+
+trait CloseIterator[T] extends Iterator[T] with Closeable {
+
 }
