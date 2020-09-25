@@ -60,6 +60,7 @@ class CloseableParquetDataIterator(
     parseRow(parquetRowsIter.next())
   }
 
+  // TODO should we set fields to null here, too?
   override def close(): Unit = {
     if (null != parquetRows) {
       parquetRows.close()
