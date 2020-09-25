@@ -84,6 +84,7 @@ class CloseableParquetDataIterator(
         case _ => null
       }
 
-      (fieldName, scalaVal)}
+      (fieldName, scalaVal)
+    }
   }.toArray
 }

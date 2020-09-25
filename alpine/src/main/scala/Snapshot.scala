@@ -54,7 +54,7 @@ class Snapshot(
     val files = (logSegment.deltas ++ logSegment.checkpoints).map(_.getPath)
 
     // assertLogBelongsToTable
-    files.foreach {f =>
+    files.foreach { f =>
       if (f.toString.isEmpty || f.getParent != new Path(logPathURI)) {
         // scalastyle:off throwerror
         throw new AssertionError(s"File (${f.toString}) doesn't belong in the " +
