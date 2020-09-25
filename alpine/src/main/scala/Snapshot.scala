@@ -16,13 +16,13 @@
 
 package main.scala
 
-import java.io.Closeable
 import java.net.URI
 
 import scala.main.util.JsonUtils
 
-import com.github.mjakubowski84.parquet4s.{ParquetReader, RowParquetRecord}
+import com.github.mjakubowski84.parquet4s.{BinaryValue, IntValue, NullValue, ParquetReader, RowParquetRecord}
 import main.scala.actions.{AddFile, InMemoryLogReplay, Metadata, Protocol, RemoveFile, SetTransaction, SingleAction}
+import main.scala.types._
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
@@ -82,13 +82,36 @@ class Snapshot(
     )
   }
 
-  def open(): CloseIterator[Array[Any]] = {
-    allFiles.flatMap { f =>
-      ParquetReader.read[RowParquetRecord](s"${deltaLog.dataPath}/${f.path}")
-      // todo should we convert parquet type to scala type?
-    }
+  def open(): ClosableIterator[Array[(String, Any)]] = {
+    new CloseableParquetDataIterator(
+      allFiles.map(_.path),
+      deltaLog.dataPath.toString,
+      metadata.schema)
 
-    null
+//    allFiles.flatMap { f =>
+//      val parquetRowsIter = ParquetReader
+//        .read[RowParquetRecord](s"${deltaLog.dataPath}/${f.path}")
+//      val parsedRowsData = parquetRowsIter.map { row =>
+//        metadata.schema.iterator.map { case StructField(fieldName, dataType, nullable, _) =>
+//          val parquetValue = row.get(fieldName)
+//
+//          if (parquetValue == NullValue && !nullable) {
+//            throw new Exception("todo")
+//          }
+//
+//          val scalaVal = (parquetValue, dataType) match {
+//            case (x: IntValue, _: IntegerType) => x.value
+//            case (x: BinaryValue, _: StringType) => x.value.toStringUsingUTF8
+//            case (x: BinaryValue, _: BinaryType) => x.value.getBytes
+//            case _ => null
+//          }
+//
+//          (fieldName, scalaVal)
+//        }.toArray
+//      }
+//      parquetRowsIter.close()
+//      parsedRowsData
+//    }.iterator
   }
 
   def protocol: Protocol = state.protocol
@@ -155,8 +178,4 @@ class InitialSnapshot(
       Map.empty[URI, RemoveFile],
       0L, 0L, 1L, 1L, 0L, 0L)
   }
-}
-
-trait CloseIterator[T] extends Iterator[T] with Closeable {
-
 }
