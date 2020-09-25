@@ -208,7 +208,7 @@ lazy val hive = (project in file("hive")) dependsOn(alpine) settings (
   )
 )
 
-lazy val hiveMR = (project in file("hive-mr")) dependsOn(hive % "test->test") settings (
+lazy val hiveMR = (project in file("hive-mr")) dependsOn(hive_catalyst % "test->test") settings (
   name := "hive-mr",
   commonSettings,
   unmanagedJars in Compile += (packageBin in(core, Compile, packageBin)).value,
@@ -315,5 +315,84 @@ lazy val alpine = (project in file("alpine")) settings (
     "org.apache.spark" %% "spark-sql" % sparkVersion % "test" classifier "tests",
     "io.delta" %% "delta-core" % deltaVersion % "test"
       excludeAll (ExclusionRule("org.apache.hadoop"))
+  )
+)
+
+lazy val alpine_catalyst = (project in file("alpine_catalyst")) settings (
+  name := "alpine-catalyst",
+  commonSettings,
+
+  libraryDependencies ++= Seq(
+    "org.apache.hadoop" % "hadoop-client" % hadoopVersion,
+
+    // Parquet reader
+    "com.github.mjakubowski84" %% "parquet4s-core" % "0.11.0",
+
+    // https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind
+    "com.fasterxml.jackson.core" % "jackson-databind" % "2.6.7.3",
+
+    // https://mvnrepository.com/artifact/com.fasterxml.jackson.module/jackson-module-scala
+    "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.6.7.1",
+
+    "org.apache.spark" %% "spark-catalyst" % sparkVersion,
+
+    // Adding tests classifier seems to break transitive resolution of the core dependencies
+    "org.apache.spark" %% "spark-sql" % sparkVersion % "test",
+
+    // https://mvnrepository.com/artifact/org.json4s/json4s-jackson
+    "org.json4s" %% "json4s-jackson" % "3.5.3" excludeAll(
+      ExclusionRule(organization = "com.fasterxml.jackson.module"),
+      ExclusionRule(organization = "com.fasterxml.jackson.core")
+    ),
+
+    // Test Dependencies
+    "org.scalatest" %% "scalatest" % "3.0.5" % "test",
+    "org.apache.spark" %% "spark-core" % sparkVersion % "test" classifier "tests",
+    "org.apache.spark" %% "spark-sql" % sparkVersion % "test" classifier "tests",
+    "io.delta" %% "delta-core" % deltaVersion % "test"
+      excludeAll (ExclusionRule("org.apache.hadoop"))
+  )
+)
+
+lazy val hive_catalyst = (project in file("hive_catalyst")) dependsOn(alpine_catalyst) settings (
+  name := "hive-delta-catalyst",
+  commonSettings,
+  unmanagedJars in Compile += (packageBin in(core, Compile, packageBin)).value,
+  autoScalaLibrary := false,
+
+  // Ensures that the connector core jar is compiled before compiling this project
+  (compile in Compile) := ((compile in Compile) dependsOn (packageBin in (core, Compile, packageBin))).value,
+
+  projectDependencies := {
+    Seq(
+      (projectID in alpine_catalyst).value.excludeAll(
+        ExclusionRule(organization = "org.apache.parquet"),
+        ExclusionRule(organization = "org.json4s"),
+        ExclusionRule(organization = "com.fasterxml.jackson.module"),
+        ExclusionRule(organization = "com.fasterxml.jackson.core")
+      )
+    )
+  },
+
+  // Minimal dependencies to compile the codes. This project doesn't run any tests so we don't need
+  // any runtime dependencies.
+  libraryDependencies ++= Seq(
+    "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
+    "org.apache.hive" % "hive-exec" % hiveVersion % "provided" excludeAll(
+      ExclusionRule(organization = "org.apache.spark"),
+      ExclusionRule(organization = "org.apache.parquet"),
+      ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm"),
+      ExclusionRule(organization = "com.google.protobuf")
+    ),
+    "org.apache.hive" % "hive-cli" % hiveVersion % "test" excludeAll(
+      ExclusionRule(organization = "org.apache.spark"),
+      ExclusionRule(organization = "org.apache.parquet"),
+      ExclusionRule("ch.qos.logback", "logback-classic"),
+      ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm"),
+      ExclusionRule(organization = "com.google.protobuf")
+    ),
+    "org.apache.spark" %% "spark-core" % sparkVersion % "test" classifier "tests",
+    "org.scalatest" %% "scalatest" % "3.0.5" % "test",
+    "io.delta" %% "delta-core" % deltaVersion % "test"
   )
 )
