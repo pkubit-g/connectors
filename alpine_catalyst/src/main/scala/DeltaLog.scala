@@ -47,7 +47,7 @@ class DeltaLog private(
     with ReadOnlyLogStoreProvider
     with SnapshotManagement {
 
-  private def tombstoneRetentionMillis: Long = 100000000000000000L // TODO TOMBSTONE_RETENTION
+  private def tombstoneRetentionMillis: Long = 1000000000L // TODO TOMBSTONE_RETENTION
 
   def minFileRetentionTimestamp: Long = clock.getTimeMillis() - tombstoneRetentionMillis
 
@@ -106,10 +106,12 @@ object DeltaLog {
     val columnFilter = rewrittenFilters.reduceLeftOption(And).getOrElse(Literal(true))
     val schema = Encoders.product[AddFile].schema
     val converter = CatalystTypeConverters.createToCatalystConverter(schema)
-    files.filter { file =>
+    val foo = files.filter { file =>
       val row = converter(file).asInstanceOf[InternalRow]
       columnFilter.eval(row).asInstanceOf[Boolean]
     }
+    val x = 5
+    foo
   }
 
   /**

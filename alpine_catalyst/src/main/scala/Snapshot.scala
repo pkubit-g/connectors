@@ -90,8 +90,8 @@ class Snapshot(
   def numOfProtocol: Long = state.numOfProtocol
   def numOfRemoves: Long = state.numOfRemoves
   def numOfSetTransactions: Long = state.numOfSetTransactions
-  def allFiles: Set[AddFile] = state.activeFiles.values.toSet
-  def tombstones: Set[RemoveFile] = state.tombstones.values.toSet
+  def allFiles: Seq[AddFile] = state.activeFiles.values.toSeq
+  def tombstones: Seq[RemoveFile] = state.tombstones.values.toSeq
 }
 
 object Snapshot {

@@ -93,8 +93,8 @@ object DeltaHelper {
         partitionColumns.contains(t.name)
       }.sortBy(_._2).toArray
 
-    val files = snapshotToUse
-      .allFiles
+    val files = DeltaLog.filterFileList(
+      snapshotToUse.metadata.partitionSchema, snapshotToUse.allFiles, convertedFilterExpr)
       .map(add => add.copy(stats = null, tags = null))
       .map { f =>
         val status = toFileStatus(fs, rootPath, f, blockSize)

@@ -165,48 +165,48 @@ lazy val assemblySettings = Seq(
   logLevel in assembly := Level.Info
 )
 
-lazy val hive = (project in file("hive")) dependsOn(alpine) settings (
-  name := "hive-delta",
-  commonSettings,
-  unmanagedJars in Compile += (packageBin in(core, Compile, packageBin)).value,
-  autoScalaLibrary := false,
-
-  // Ensures that the connector core jar is compiled before compiling this project
-  (compile in Compile) := ((compile in Compile) dependsOn (packageBin in (core, Compile, packageBin))).value,
-
-  projectDependencies := {
-    Seq(
-      (projectID in alpine).value.excludeAll(
-        ExclusionRule(organization = "org.apache.parquet"),
-        ExclusionRule(organization = "org.json4s"),
-        ExclusionRule(organization = "com.fasterxml.jackson.module"),
-        ExclusionRule(organization = "com.fasterxml.jackson.core")
-      )
-    )
-  },
-
-  // Minimal dependencies to compile the codes. This project doesn't run any tests so we don't need
-  // any runtime dependencies.
-  libraryDependencies ++= Seq(
-    "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
-    "org.apache.hive" % "hive-exec" % hiveVersion % "provided" excludeAll(
-      ExclusionRule(organization = "org.apache.spark"),
-      ExclusionRule(organization = "org.apache.parquet"),
-      ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm"),
-      ExclusionRule(organization = "com.google.protobuf")
-    ),
-    "org.apache.hive" % "hive-cli" % hiveVersion % "test" excludeAll(
-      ExclusionRule(organization = "org.apache.spark"),
-      ExclusionRule(organization = "org.apache.parquet"),
-      ExclusionRule("ch.qos.logback", "logback-classic"),
-      ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm"),
-      ExclusionRule(organization = "com.google.protobuf")
-    ),
-    "org.apache.spark" %% "spark-core" % sparkVersion % "test" classifier "tests",
-    "org.scalatest" %% "scalatest" % "3.0.5" % "test",
-    "io.delta" %% "delta-core" % deltaVersion % "test"
-  )
-)
+//lazy val hive = (project in file("hive")) dependsOn(alpine) settings (
+//  name := "hive-delta",
+//  commonSettings,
+//  unmanagedJars in Compile += (packageBin in(core, Compile, packageBin)).value,
+//  autoScalaLibrary := false,
+//
+//  // Ensures that the connector core jar is compiled before compiling this project
+//  (compile in Compile) := ((compile in Compile) dependsOn (packageBin in (core, Compile, packageBin))).value,
+//
+//  projectDependencies := {
+//    Seq(
+//      (projectID in alpine).value.excludeAll(
+//        ExclusionRule(organization = "org.apache.parquet"),
+//        ExclusionRule(organization = "org.json4s"),
+//        ExclusionRule(organization = "com.fasterxml.jackson.module"),
+//        ExclusionRule(organization = "com.fasterxml.jackson.core")
+//      )
+//    )
+//  },
+//
+//  // Minimal dependencies to compile the codes. This project doesn't run any tests so we don't need
+//  // any runtime dependencies.
+//  libraryDependencies ++= Seq(
+//    "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
+//    "org.apache.hive" % "hive-exec" % hiveVersion % "provided" excludeAll(
+//      ExclusionRule(organization = "org.apache.spark"),
+//      ExclusionRule(organization = "org.apache.parquet"),
+//      ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm"),
+//      ExclusionRule(organization = "com.google.protobuf")
+//    ),
+//    "org.apache.hive" % "hive-cli" % hiveVersion % "test" excludeAll(
+//      ExclusionRule(organization = "org.apache.spark"),
+//      ExclusionRule(organization = "org.apache.parquet"),
+//      ExclusionRule("ch.qos.logback", "logback-classic"),
+//      ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm"),
+//      ExclusionRule(organization = "com.google.protobuf")
+//    ),
+//    "org.apache.spark" %% "spark-core" % sparkVersion % "test" classifier "tests",
+//    "org.scalatest" %% "scalatest" % "3.0.5" % "test",
+//    "io.delta" %% "delta-core" % deltaVersion % "test"
+//  )
+//)
 
 lazy val hiveMR = (project in file("hive-mr")) dependsOn(hive_catalyst % "test->test") settings (
   name := "hive-mr",
@@ -241,7 +241,7 @@ lazy val hiveMR = (project in file("hive-mr")) dependsOn(hive_catalyst % "test->
   )
 )
 
-lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") settings (
+lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive_catalyst % "test->test") settings (
   name := "hive-tez",
   commonSettings,
   unmanagedJars in Compile += (packageBin in(core, Compile, packageBin)).value,

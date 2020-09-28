@@ -126,6 +126,11 @@ case class Metadata(
     DataType.fromJson(s).asInstanceOf[StructType]
   }.getOrElse(StructType.apply(Nil))
 
+  /** Returns the partitionSchema as a [[StructType]] */
+  @JsonIgnore
+  lazy val partitionSchema: StructType =
+    new StructType(partitionColumns.map(c => schema(c)).toArray)
+
   override def wrap: SingleAction = SingleAction(metaData = this)
 }
 
