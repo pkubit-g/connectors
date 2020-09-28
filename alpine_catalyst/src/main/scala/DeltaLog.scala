@@ -95,7 +95,22 @@ object DeltaLog {
       files: Seq[AddFile],
       partitionFilters: Seq[Expression],
       partitionColumnPrefixes: Seq[String] = Nil): Seq[AddFile] = {
-    val resolver: Resolver = (a: String, b: String) => a == b
+//    /**
+//     * TODO
+//     * Notes
+//     * Analysis: ensures that cols line up (for queryplans); so that
+//     * all LogicalPlan expressions are valid
+//     * - here, we do NOT have a logical plan. we have an expression taht we want to apply
+//     * - expression: is x == 2 ? for it to be evaluated, it needs to be
+//     * binded (row: column values); all the row knows is that these are the vals;
+//     * it doesn't know the field names
+//     *
+//     * binding maps the row values (row at some index) to their corresponding column names
+//     *
+//     * BindReferences:
+//     * for a given input row, what is the sequence of column names?
+//     */
+    val resolver = org.apache.spark.sql.catalyst.analysis.caseSensitiveResolution
 
     val rewrittenFilters = rewritePartitionFilters(
       partitionSchema,
@@ -103,12 +118,53 @@ object DeltaLog {
       partitionFilters,
       partitionColumnPrefixes)
 
+    // the expression that we need to bindD
+    // it needs to be provided the same schema (since that is the input)
+    // this is UNRESOLVED
+    // how do you resolve an unresolved expression w/o spark.sql?
+    // TODO ask burak
+
+//    val columnFilter = rewrittenFilters.reduceLeftOption(And).getOrElse(Literal(true))
+//    val columnFilter = rewrittenFilters.reduceLeftOption(And).getOrElse(Literal(true))
+
+    // TODO: no clue what is wrong here
+    // scalastyle:off nonascii
     val columnFilter = rewrittenFilters.reduceLeftOption(And).getOrElse(Literal(true))
-    val schema = Encoders.product[AddFile].schema
+    // scalastyle:on nonascii
+//    /**
+//     * spark.sql.Encoders are spark's version of serialization and des. java types to SQL types
+//     * at row level, processing engine doesn't understand java objects. only understands internal
+//     * format
+//     * thus need a serde between POJO
+//     *
+//     * product? scala interface called product; lets you create a serde for scala classes
+//     * product[Foo].schema is the structType describing the new spark catalyst typesß
+//     */
+
+    val encoder = Encoders.product[AddFile]
+    val schema = encoder.schema
+    val attributesList =
+      schema.fields.map(f => AttributeReference(f.name, f.dataType, f.nullable, f.metadata)()).toSeq
+
+    val resolvedFilter = columnFilter.transform {
+      case UnresolvedAttribute(nameParts) =>
+        attributesList.resolve(nameParts, resolver).get
+    }
+
+    // TODO create an attribute sequence from the schema
+    val boundFilter = BindReferences.bindReference(resolvedFilter, attributesList)
+
+    // take input with some schema into an internal row with that schema
     val converter = CatalystTypeConverters.createToCatalystConverter(schema)
     val foo = files.filter { file =>
       val row = converter(file).asInstanceOf[InternalRow]
-      columnFilter.eval(row).asInstanceOf[Boolean]
+      try {
+        boundFilter.eval(row).asInstanceOf[Boolean]
+      } catch {
+        case e: Exception =>
+          e.printStackTrace
+          throw e
+      }
     }
     val x = 5
     foo
