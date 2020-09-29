@@ -29,11 +29,19 @@ trait SnapshotManagement { self: DeltaLog =>
 
   def snapshot: Snapshot = currentSnapshot
 
-  // TODO: allow async update
+  // TODO: allow async update?
   def update(): Snapshot = {
     lockInterruptibly {
       updateInternal()
     }
+  }
+
+  def getSnapshotForVersionAsOf(version: Long): Snapshot = {
+    getSnapshotAt(version)
+  }
+
+  def getSnapshotForTimestampAsOf(timestamp: String): Snapshot = {
+    null
   }
 
   protected def updateInternal(): Snapshot = {
@@ -55,10 +63,13 @@ trait SnapshotManagement { self: DeltaLog =>
     currentSnapshot
   }
 
-  protected def getLogSegmentForVersion(startCheckpoint: Option[Long]): LogSegment = {
+  protected def getLogSegmentForVersion(
+      startCheckpoint: Option[Long],
+      versionToLoad: Option[Long] = None): LogSegment = {
     val newFiles = store.listFrom(checkpointPrefix(logPath, startCheckpoint.getOrElse(0L)))
       .filter { file => isCheckpointFile(file.getPath) || isDeltaFile(file.getPath) }
       .filterNot { file => isCheckpointFile(file.getPath) && file.getLen == 0 }
+      .takeWhile(f => versionToLoad.forall(v => getFileVersion(f.getPath) <= v))
       .toArray
 
     if (newFiles.isEmpty && startCheckpoint.isEmpty) {
@@ -66,14 +77,15 @@ trait SnapshotManagement { self: DeltaLog =>
     } else if (newFiles.isEmpty) {
       // The directory may be deleted and recreated and we may have stale state in our DeltaLog
       // singleton, so try listing from the first version
-      return getLogSegmentForVersion(None)
+      return getLogSegmentForVersion(None, versionToLoad)
     }
     val (checkpoints, deltas) = newFiles.partition(f => isCheckpointFile(f.getPath))
 
     // Find the latest checkpoint in the listing that is not older than the versionToLoad
-    val lastChkpoint = CheckpointInstance.MaxValue
+    val lastCheckpoint = versionToLoad.map(CheckpointInstance(_, None))
+      .getOrElse(CheckpointInstance.MaxValue)
     val checkpointFiles = checkpoints.map(f => CheckpointInstance(f.getPath))
-    val newCheckpoint = getLatestCompleteCheckpointFromList(checkpointFiles, lastChkpoint)
+    val newCheckpoint = getLatestCompleteCheckpointFromList(checkpointFiles, lastCheckpoint)
     if (newCheckpoint.isDefined) {
       // If there is a new checkpoint, start new lineage there.
       val newCheckpointVersion = newCheckpoint.get.version
@@ -89,6 +101,10 @@ trait SnapshotManagement { self: DeltaLog =>
         verifyDeltaVersions(deltaVersions)
         require(deltaVersions.head == newCheckpointVersion + 1, "Did not get the first delta " +
           s"file version: ${newCheckpointVersion + 1} to compute Snapshot")
+        versionToLoad.foreach { version =>
+          require(deltaVersions.last == version,
+            s"Did not get the last delta file version: $version to compute Snapshot")
+        }
       }
       val newVersion = deltaVersions.lastOption.getOrElse(newCheckpoint.get.version)
       val newCheckpointFiles = checkpoints.filter(f => newCheckpointPaths.contains(f.getPath))
@@ -123,6 +139,10 @@ trait SnapshotManagement { self: DeltaLog =>
         throw DeltaErrors.logFileNotFoundException(
           deltaFile(logPath, 0L), deltaVersions.last)
       }
+      versionToLoad.foreach { version =>
+        require(deltaVersions.last == version,
+          s"Did not get the last delta file version: $version to compute Snapshot")
+      }
 
       val latestCommit = deltas.last
 
@@ -136,6 +156,7 @@ trait SnapshotManagement { self: DeltaLog =>
     }
   }
 
+
   protected def getSnapshotAtInit: Snapshot = {
     try {
       val logSegment = getLogSegmentForVersion(lastCheckpoint.map(_.version))
@@ -148,7 +169,19 @@ trait SnapshotManagement { self: DeltaLog =>
     }
   }
 
-  protected def createSnapshot(segment: LogSegment, latestCommitTimestamp: Long): Snapshot = {
+  private def getSnapshotAt(version: Long): Snapshot = {
+    if (snapshot.version == version) return snapshot
+
+    val startingCheckpoint = findLastCompleteCheckpoint(CheckpointInstance(version, None))
+    val segment = getLogSegmentForVersion(startingCheckpoint.map(_.version), Some(version))
+
+    createSnapshot(
+      segment,
+      segment.lastCommitTimestamp
+    )
+  }
+
+  protected def createSnapshot(segment: LogSegment, lastCommitTimestamp: Long): Snapshot = {
     new Snapshot(
       hadoopConf,
       logPath,
@@ -156,7 +189,7 @@ trait SnapshotManagement { self: DeltaLog =>
       segment,
       minFileRetentionTimestamp,
       this,
-      latestCommitTimestamp)
+      lastCommitTimestamp)
   }
 
   protected def verifyDeltaVersions(versions: Array[Long]): Unit = {
