@@ -299,6 +299,9 @@ lazy val alpine = (project in file("alpine")) settings (
     // https://mvnrepository.com/artifact/com.fasterxml.jackson.module/jackson-module-scala
     "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.6.7.1",
 
+    // https://mvnrepository.com/artifact/org.apache.commons/commons-lang3
+    "org.apache.commons" % "commons-lang3" % "3.11",
+
     // Adding tests classifier seems to break transitive resolution of the core dependencies
     "org.apache.spark" %% "spark-sql" % sparkVersion % "test",
 

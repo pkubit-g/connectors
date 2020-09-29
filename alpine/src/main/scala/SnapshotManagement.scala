@@ -19,6 +19,7 @@ package main.scala
 import java.io.FileNotFoundException
 
 import exception.DeltaErrors
+import main.scala.util.DeltaTimeTravelUtils
 import main.scala.util.FileNames._
 import org.apache.hadoop.fs.{FileStatus, Path}
 
@@ -40,8 +41,11 @@ trait SnapshotManagement { self: DeltaLog =>
     getSnapshotAt(version)
   }
 
-  def getSnapshotForTimestampAsOf(timestamp: String): Snapshot = {
-    null
+  def getSnapshotForTimestampAsOf(timestampStr: String): Snapshot = {
+    val timestamp = DeltaTimeTravelUtils.parseTimestamp(timestampStr)
+    val historyManager = DeltaHistoryManager(self)
+    val latestCommit = historyManager.getActiveCommitAtTime(timestamp)
+    getSnapshotAt(latestCommit.version)
   }
 
   protected def updateInternal(): Snapshot = {

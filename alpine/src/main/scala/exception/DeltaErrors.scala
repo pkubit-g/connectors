@@ -43,4 +43,8 @@ object DeltaErrors {
       s"Couldn't find all part files of the checkpoint version: $version", ae)
   }
 
+  def noHistoryFound(logPath: Path): Throwable = {
+    // TODO more specific exception to throw?
+    new Exception(s"No commits found at $logPath")
+  }
 }
