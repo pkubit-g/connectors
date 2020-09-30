@@ -55,8 +55,10 @@ class DeltaTimeTravelSuite extends QueryTest
       def assertCorrectSnapshot(version: Long, expectedNumRows: Long): Unit = {
         val df = spark.read.format("delta").load(identifierWithVersion(tblLoc, version))
         val snapshot = alpineLog.getSnapshotForVersionAsOf(version)
+        val rowsFromSnapshot = readRowsFromSnapshotFiles(snapshot)
         checkAnswer(df.groupBy().count(), Row(expectedNumRows))
-        assert(readRowsFromSnapshotFiles(snapshot).size == expectedNumRows)
+        assert(rowsFromSnapshot.size == expectedNumRows)
+        assert(df.collect().toSet == rowsFromSnapshot)
       }
 
       val start = 1540415658000L
