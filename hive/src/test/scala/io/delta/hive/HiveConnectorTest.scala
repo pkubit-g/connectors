@@ -16,8 +16,6 @@
 
 package io.delta.hive
 
-import java.io.File
-
 import io.delta.hive.test.HiveTest
 import io.delta.tables.DeltaTable
 

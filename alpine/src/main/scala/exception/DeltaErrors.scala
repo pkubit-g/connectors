@@ -47,4 +47,10 @@ object DeltaErrors {
     // TODO more specific exception to throw?
     new Exception(s"No commits found at $logPath")
   }
+
+  def versionNotExistException(userVersion: Long, earliest: Long, latest: Long): Throwable = {
+    // TODO more specific exception to throw?
+    new Exception(s"Cannot time travel Delta table to version $userVersion. " +
+      s"Available versions: [$earliest, $latest].")
+  }
 }

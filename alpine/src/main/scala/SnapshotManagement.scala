@@ -38,6 +38,8 @@ trait SnapshotManagement { self: DeltaLog =>
   }
 
   def getSnapshotForVersionAsOf(version: Long): Snapshot = {
+    val historyManager = DeltaHistoryManager(self)
+    historyManager.checkVersionExists(version)
     getSnapshotAt(version)
   }
 

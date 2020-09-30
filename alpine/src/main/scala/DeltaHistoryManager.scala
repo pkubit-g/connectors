@@ -27,6 +27,15 @@ import org.apache.hadoop.fs.Path
 
 case class DeltaHistoryManager(deltaLog: DeltaLog) {
 
+  /** Check whether the given version can be recreated by replaying the DeltaLog. */
+  def checkVersionExists(version: Long): Unit = {
+    val earliest = getEarliestDeltaFileVersion // TODO OSS uses getEarliestReproducibleCommit
+    val latest = deltaLog.update().version
+    if (version < earliest || version > latest) {
+      throw DeltaErrors.versionNotExistException(version, earliest, latest)
+    }
+  }
+
   def getActiveCommitAtTime(
       timestamp: Timestamp
 //      canReturnLastCommit: Boolean,
@@ -34,7 +43,7 @@ case class DeltaHistoryManager(deltaLog: DeltaLog) {
 //      canReturnEarliestCommit: Boolean = false
   ): Commit = {
     val time = timestamp.getTime
-    val earliest = getEarliestDeltaFile
+    val earliest = getEarliestDeltaFileVersion
     val latestVersion = deltaLog.update().version
 
     // Search for the commit
@@ -59,7 +68,7 @@ case class DeltaHistoryManager(deltaLog: DeltaLog) {
     commit
   }
 
-  private def getEarliestDeltaFile: Long = {
+  private def getEarliestDeltaFileVersion: Long = {
     val earliestVersionOpt = deltaLog.store.listFrom(deltaFile(deltaLog.logPath, 0))
       .filter(f => isDeltaFile(f.getPath))
       .take(1).toArray.headOption
