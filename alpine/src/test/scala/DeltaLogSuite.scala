@@ -18,25 +18,65 @@ package test.scala
 
 import java.io.{File, FileNotFoundException}
 
+import com.github.mjakubowski84.parquet4s.ParquetReader
 import io.delta.tables.DeltaTable
 import main.scala.exception.{DeltaErrors => DeltaErrorsAlpine}
 import main.scala.{DeltaLog => DeltaLogAlpine}
 import org.apache.hadoop.fs.Path
 
 import org.apache.spark.network.util.JavaUtils
-import org.apache.spark.sql.QueryTest
+import org.apache.spark.sql.{QueryTest, Row}
 import org.apache.spark.sql.delta.DeltaLog
 import org.apache.spark.sql.delta.actions.{Action, AddFile, Metadata, Protocol, RemoveFile}
 import org.apache.spark.sql.delta.DeltaOperations.ManualUpdate
 import org.apache.spark.sql.delta.sources.DeltaSQLConf
 import org.apache.spark.sql.delta.util.{FileNames, JsonUtils}
 import org.apache.spark.sql.test.SharedSparkSession
+import org.apache.spark.sql.types._
 
 class DeltaLogSuite extends QueryTest
   with SharedSparkSession
   with ConversionUtils {
 
   private val testOp = ManualUpdate
+
+  case class NameData(firstname: String, middlename: String, lastname: String)
+  case class EmployeeData(name: NameData, id: String, gender: String, salary: Long)
+
+  test("foo") {
+    withTempDir { dir =>
+      val structureData = Seq(
+        Row(Row("James ", "", "Smith"), "36636", "M", 3100),
+        Row(Row("Michael ", "Rose", ""), "40288", "M", 4300),
+        Row(Row("Robert ", "", "Williams"), "42114", "M", 1400),
+        Row(Row("Maria ", "Anne", "Jones"), "39192", "F", 5500),
+        Row(Row("Jen", "Mary", "Brown"), "", "F", -1)
+      )
+
+      val structureSchema = new StructType()
+        .add("name", new StructType()
+          .add("firstname", StringType)
+          .add("middlename", StringType)
+          .add("lastname", StringType))
+        .add("id", StringType)
+        .add("gender", StringType)
+        .add("salary", IntegerType)
+
+      val df = spark.createDataFrame(spark.sparkContext.parallelize(structureData), structureSchema)
+      df.write.format("delta").save(dir.getCanonicalPath)
+      df.printSchema()
+      df.show()
+
+      val hadoopConf = spark.sessionState.newHadoopConf()
+      val alpineLog = DeltaLogAlpine.forTable(hadoopConf, new Path(dir.getCanonicalPath))
+
+      alpineLog.update().allFiles.foreach { f =>
+        val emp = ParquetReader.read[EmployeeData](alpineLog.dataPath + "/" + f.path)
+        val y = 5;
+      }
+      val x = 5
+    }
+  }
 
   test("checkpoint") {
     withTempDir { dir =>
