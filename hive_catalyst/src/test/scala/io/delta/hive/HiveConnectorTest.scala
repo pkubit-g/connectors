@@ -17,6 +17,7 @@
 package io.delta.hive
 
 import java.io.File
+import java.sql.Date
 
 import io.delta.hive.test.HiveTest
 import io.delta.tables.DeltaTable
@@ -282,8 +283,41 @@ abstract class HiveConnectorTest extends HiveTest with BeforeAndAfterEach {
 //    }
 //  }
 
-  test("read a partitioned table with a partition filter") {
-    // Create a Delta table
+  test("read a partitioned table with a partition filter - Int") {
+    withTable("deltaPartitionTbl") {
+      withTempDir { dir =>
+        val testData = (0 until 10).map(x => (x, s"foo${x % 2}"))
+
+        withSparkSession { spark =>
+          import spark.implicits._
+          testData.toDS.toDF("c1", "c2").write.format("delta")
+            .partitionBy("c1").save(dir.getCanonicalPath)
+        }
+
+        runQuery(
+          s"""
+             |create external table deltaPartitionTbl(c1 int, c2 string)
+             |stored by 'io.delta.hive.DeltaStorageHandler' location '${dir.getCanonicalPath}'
+         """.stripMargin
+        )
+
+        // Delete the partitions not needed in the below query to verify the partition pruning works
+        (0 until 10).filter(_ % 2 == 0).foreach { x =>
+          JavaUtils.deleteRecursively(new File(dir, s"c1=$x"))
+        }
+        assert(dir.listFiles.map(_.getName).filter(_.startsWith("c1="))
+          .forall(_.substring("c1=".length).toInt % 2 == 1))
+
+        (0 until 10).filter(_ % 2 == 1).foreach { x =>
+          checkAnswer(
+            s"select * from deltaPartitionTbl where c1=$x",
+            testData.filter(_._1 == x))
+        }
+      }
+    }
+  }
+
+  test("read a partitioned table with a partition filter - String") {
     withTable("deltaPartitionTbl") {
       withTempDir { dir =>
         val testData = (0 until 10).map(x => (x, s"foo${x % 2}"))
@@ -307,6 +341,38 @@ abstract class HiveConnectorTest extends HiveTest with BeforeAndAfterEach {
         checkAnswer(
           "select * from deltaPartitionTbl where c2 = 'foo0'",
           testData.filter(_._2 == "foo0"))
+      }
+    }
+  }
+
+  test("read a partitioned table with a partition filter - Date") {
+    withTable("deltaPartitionTbl") {
+      withTempDir { dir =>
+        val testData = (1 to 9).map(x => (x, Date.valueOf(s"2020-01-0$x")))
+
+        withSparkSession { spark =>
+          import spark.implicits._
+          testData.toDS.toDF("c1", "c2").write.format("delta")
+            .partitionBy("c2").save(dir.getCanonicalPath)
+        }
+
+        runQuery(
+          s"""
+             |create external table deltaPartitionTbl(c1 int, c2 date)
+             |stored by 'io.delta.hive.DeltaStorageHandler' location '${dir.getCanonicalPath}'
+         """.stripMargin
+        )
+
+        // Delete the partition not needed in the below query to verify the partition pruning works
+        (1 to 4).foreach { x =>
+          JavaUtils.deleteRecursively(new File(dir, s"c2=2020-01-0$x"))
+        }
+
+        assert(dir.listFiles.map(_.getName).filter(_.startsWith("c2="))
+          .forall(_.substring("c2=".length) >= "2020-01-05"))
+        checkAnswer(
+          "select * from deltaPartitionTbl where c2 >= '2020-01-05'",
+          testData.filter(_._2.compareTo(Date.valueOf("2020-01-05")) >= 0))
       }
     }
   }
