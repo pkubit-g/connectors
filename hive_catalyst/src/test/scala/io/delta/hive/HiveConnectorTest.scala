@@ -377,6 +377,46 @@ abstract class HiveConnectorTest extends HiveTest with BeforeAndAfterEach {
     }
   }
 
+  test("read a partitioned table with a multiple partition filters") {
+    withTable("deltaPartitionTbl") {
+      withTempDir { dir =>
+        val testData = (0 until 10).flatMap { x =>
+          (100 until 110).map { y => (x, y, s"foo-${x + y}")}
+        }
+
+        withSparkSession { spark =>
+          import spark.implicits._
+          testData.toDS.toDF("c1", "c2", "c3").write.format("delta")
+            .partitionBy("c1", "c2").save(dir.getCanonicalPath)
+        }
+
+        runQuery(
+          s"""
+             |create external table deltaPartitionTbl(c1 int, c2 int, c3 string)
+             |stored by 'io.delta.hive.DeltaStorageHandler' location '${dir.getCanonicalPath}'
+         """.stripMargin
+        )
+
+        // Delete the partitions not needed in the below query to verify the partition pruning works
+        // delete all c1 <= 4
+        (0 to 4).foreach { x =>
+          JavaUtils.deleteRecursively(new File(dir, s"c1=$x"))
+        }
+
+        // for the remaining c1 >= 5, delete all c2 <= 104
+        (5 to 9).foreach { x =>
+          (100 to 104).foreach { y =>
+            JavaUtils.deleteRecursively(new File(dir, s"c1=$x/c2=$y"))
+          }
+        }
+
+        checkAnswer(
+          "select * from deltaPartitionTbl where c1 >= 5 AND c2 >= 105",
+          testData.filter(x => x._1 >= 5 && x._2 >= 105))
+      }
+    }
+  }
+
 //  test("partition prune") {
 //    withTable("deltaPartitionTbl") {
 //      withTempDir { dir =>
