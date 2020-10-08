@@ -75,7 +75,7 @@ class DeltaStorageHandler extends DefaultStorageHandler with HiveMetaHook
       .asInstanceOf[StructTypeInfo]
     val rootPath = tableProps.getProperty(META_TABLE_LOCATION)
     val snapshot = DeltaHelper.loadDeltaLatestSnapshot(getConf, new Path(rootPath))
-    DeltaHelper.checkTableSchema(snapshot.metadata.schema, hiveSchema)
+    DeltaHelper.checkTableSchema(snapshot.getMetadata.getSchema, hiveSchema)
     jobProperties.put(DELTA_TABLE_PATH, rootPath)
     jobProperties.put(DELTA_TABLE_SCHEMA, hiveSchema.toString)
   }
@@ -200,7 +200,7 @@ class DeltaStorageHandler extends DefaultStorageHandler with HiveMetaHook
     }
     val hiveSchema = TypeInfoFactory.getStructTypeInfo(columnNames, columnTypes)
       .asInstanceOf[StructTypeInfo]
-    DeltaHelper.checkTableSchema(snapshot.metadata.schema, hiveSchema)
+    DeltaHelper.checkTableSchema(snapshot.getMetadata.getSchema, hiveSchema)
     tbl.getParameters.put("spark.sql.sources.provider", "DELTA")
     tbl.getSd.getSerdeInfo.getParameters.put("path", deltaRootString)
   }

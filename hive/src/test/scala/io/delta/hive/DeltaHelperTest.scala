@@ -2,7 +2,7 @@ package io.delta.hive
 
 import scala.collection.JavaConverters._
 
-import main.scala.types._
+import io.delta.alpine.types._
 import org.apache.hadoop.hive.metastore.api.MetaException
 import org.apache.hadoop.hive.ql.io.parquet.read.DataWritableReadSupport
 import org.apache.hadoop.hive.serde2.typeinfo.{StructTypeInfo, TypeInfoFactory}
@@ -16,10 +16,12 @@ class DeltaHelperTest extends SparkFunSuite {
     val colNames = DataWritableReadSupport.getColumnNames("c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15")
     val colTypeInfos = DataWritableReadSupport.getColumnTypes("tinyint:binary:boolean:int:bigint:string:float:double:smallint:date:timestamp:decimal(38,18):array<string>:map<string,bigint>:struct<f1:string,f2:bigint>")
     // scalastyle:on
-    val colDataTypes = Array(ByteType, BinaryType, BooleanType, IntegerType, LongType,
-      StringType, FloatType, DoubleType, ShortType, DateType, TimestampType, DecimalType(38, 18),
-      ArrayType(StringType, false), MapType(StringType, LongType, false),
-      StructType(Array(StructField("f1", StringType), StructField("f2", LongType))))
+    val colDataTypes = Array(new ByteType, new BinaryType, new BooleanType, new IntegerType,
+      new LongType, new StringType, new FloatType, new DoubleType, new ShortType, new DateType,
+      new TimestampType, new DecimalType(38, 18), new ArrayType(new StringType, false),
+      new MapType(new StringType, new LongType, false),
+      new StructType(
+        Array(new StructField("f1", new StringType), new StructField("f2", new LongType))))
 
     assert(colNames.size() == colTypeInfos.size() && colNames.size() == colDataTypes.size)
 
@@ -28,17 +30,19 @@ class DeltaHelperTest extends SparkFunSuite {
       .asInstanceOf[StructTypeInfo]
 
     val fields = colNames.asScala.zip(colDataTypes).map {
-      case (name, dataType) => StructField(name, dataType)
-    }
+      case (name, dataType) => new StructField(name, dataType)
+    }.toArray
 
-    val alpineSchema = StructType(fields)
+    val alpineSchema = new StructType(fields)
 
     DeltaHelper.checkTableSchema(alpineSchema, hiveSchema)
   }
 
   test("DeltaHelper checkTableSchema incorrect throws") {
-    val fields = Array(StructField("c1", IntegerType), StructField("c2", StringType))
-    val alpineSchema = StructType(fields)
+    val fields = Array(
+      new StructField("c1", new IntegerType),
+      new StructField("c2", new StringType))
+    val alpineSchema = new StructType(fields)
 
     def createHiveSchema(colNamesStr: String, colTypesStr: String): StructTypeInfo = {
       val colNames = DataWritableReadSupport.getColumnNames(colNamesStr)
