@@ -21,7 +21,7 @@ import collection.JavaConverters._
 import io.delta.alpine.actions.{AddFile, Format, Metadata}
 import io.delta.alpine.internal.actions.{AddFile => AddFileInternal, Format => FormatInternal, Metadata => MetadataInternal}
 
-object ConversionUtils {
+private[internal] object ConversionUtils {
   def convertAddFile(internal: AddFileInternal): AddFile = {
     new AddFile(
       internal.path,
