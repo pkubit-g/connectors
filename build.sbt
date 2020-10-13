@@ -291,7 +291,7 @@ lazy val alpine = (project in file("alpine")) settings (
     "org.apache.hadoop" % "hadoop-client" % hadoopVersion,
 
     // Parquet reader
-    "com.github.mjakubowski84" %% "parquet4s-core" % "0.11.0",
+    "com.github.mjakubowski84" %% "parquet4s-core" % "1.4.0",
 
     // https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind
     "com.fasterxml.jackson.core" % "jackson-databind" % "2.6.7.3",

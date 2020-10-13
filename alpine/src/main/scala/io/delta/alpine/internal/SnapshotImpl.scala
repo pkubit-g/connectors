@@ -24,6 +24,8 @@ import com.github.mjakubowski84.parquet4s.ParquetReader
 import io.delta.alpine
 import io.delta.alpine.internal.actions._
 import io.delta.alpine.{DeltaLog, Snapshot}
+import io.delta.alpine.data.{CloseableIterator, RowParquetRecord => RowParquetRecordJ}
+import io.delta.alpine.internal.data.CloseableParquetDataIterator
 import io.delta.alpine.internal.util.{ConversionUtils, JsonUtils}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -53,6 +55,11 @@ private[internal] class SnapshotImpl(
   override def getDeltaLog: DeltaLog = deltaLog
   override def getTimestamp: Long = timestamp
 
+  override def open(): CloseableIterator[RowParquetRecordJ] =
+    CloseableParquetDataIterator(
+      allFilesScala.map(_.path),
+      deltaLog.dataPath.toString)
+
   def allFilesScala: Seq[AddFile] = state.activeFiles.values.toSeq
   def protocolScala: Protocol = state.protocol
   def metadataScala: Metadata = state.metadata
@@ -81,8 +88,8 @@ private[internal] class SnapshotImpl(
     val replay = new InMemoryLogReplay(hadoopConf)
     val files = (logSegment.deltas ++ logSegment.checkpoints).map(_.getPath)
 
-    // assertLogBelongsToTable
-    files.foreach {f =>
+    // assert log belongs to table
+    files.foreach { f =>
       if (f.toString.isEmpty || f.getParent != new Path(logPathURI)) {
         // scalastyle:off throwerror
         throw new AssertionError(s"File (${f.toString}) doesn't belong in the " +
