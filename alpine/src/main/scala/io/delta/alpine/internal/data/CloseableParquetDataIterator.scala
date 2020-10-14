@@ -52,8 +52,8 @@ case class CloseableParquetDataIterator(
 
   override def next(): RowParquetRecordJ = {
     if (!hasNext) throw new NoSuchElementException
-    val internalRow = parquetRowsIter.next()
-    ConversionUtils.convertRowParquetRecord(internalRow)
+    val row = parquetRowsIter.next()
+    RowParquetRecordImpl(row)
   }
 
   override def close(): Unit = {

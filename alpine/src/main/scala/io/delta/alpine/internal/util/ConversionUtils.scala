@@ -18,9 +18,7 @@ package io.delta.alpine.internal.util
 
 import collection.JavaConverters._
 
-import com.github.mjakubowski84.parquet4s.RowParquetRecord
 import io.delta.alpine.actions.{AddFile => AddFileJ, Format => FormatJ, Metadata => MetadataJ}
-import io.delta.alpine.data.{RowParquetRecord => RowParquetRecordJ}
 import io.delta.alpine.internal.actions.{AddFile, Format, Metadata}
 
 
@@ -50,9 +48,5 @@ private[internal] object ConversionUtils {
 
   def convertFormat(internal: Format): FormatJ = {
     new FormatJ(internal.provider, internal.options.asJava)
-  }
-
-  def convertRowParquetRecord(internal: RowParquetRecord): RowParquetRecordJ = {
-    null
   }
 }
