@@ -70,7 +70,7 @@ private[internal] case class RowParquetRecordImpl(
 //  }
 
   private val customDecimalCodec: ValueCodec[java.math.BigDecimal] =
-    new OptionalValueCodec[java.math.BigDecimal] {
+      new OptionalValueCodec[java.math.BigDecimal] {
     override def decodeNonNull(
         value: Value,
         configuration: ValueCodecConfiguration): java.math.BigDecimal = {
@@ -83,10 +83,10 @@ private[internal] case class RowParquetRecordImpl(
       }
     }
 
-      override def encodeNonNull(
-          data: java.math.BigDecimal,
-          configuration: ValueCodecConfiguration): Value = {
-        throw new UnsupportedOperationException("TODO")
+    override def encodeNonNull(
+        data: java.math.BigDecimal,
+        configuration: ValueCodecConfiguration): Value = {
+      throw new UnsupportedOperationException("TODO")
       }
   }
 
@@ -159,17 +159,17 @@ private[internal] case class RowParquetRecordImpl(
     }
   }
 
-  private def decodeArray(elemType: DataType, parquetVal: ListParquetRecord): Any = {
+  private def decodeArray(elemType: DataType, list: ListParquetRecord): Any = {
     val elemTypeName = elemType.getTypeName
     if (arrayDecodeMap.contains(elemTypeName)) {
-      return arrayDecodeMap(elemTypeName).decode(parquetVal, codecConf)
+      return arrayDecodeMap(elemTypeName).decode(list, codecConf)
     }
 
     elemType match {
       case x: ArrayType =>
-        parquetVal.map { y =>
-          y.asInstanceOf[ListParquetRecord].map(z => decode(x.getElementType, z))
-        }.toArray
+        list.map { case y: ListParquetRecord => y.map(z => decode(x.getElementType, z)) }.toArray
+      case x: StructType =>
+        list.map { case y: RowParquetRecord => RowParquetRecordImpl(y, x, timeZone) }.toArray
     }
   }
 
@@ -181,11 +181,4 @@ private[internal] case class RowParquetRecordImpl(
       decode(keyType, keyParquetVal) -> decode(valueType, valParquetVal)
     }.toMap
   }
-
-  /**
-   * val decodes = Map(IntegerType -> IntDecoder, LongType -> LongDecoder, ...)
-   * decoders(keyType).decode(...)
-   * decoders(valueType).decode(...)
-   */
-
 }

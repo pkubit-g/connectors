@@ -139,12 +139,59 @@ class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  test("read - map") {
+  test("read - array of complex objects") {
 
   }
 
-  test("read - array of complex objects") {
+  test("read - map") {
+    withTempDir { dir =>
+      def createRow(i: Int): Row = {
+        Row(
+          i,
+          Map(i -> i),
+          Map(i.toLong -> i.toByte),
+          Map(i.toShort -> (i % 2 == 0)),
+          Map(i.toFloat -> i.toDouble),
+          Map(i.toString -> new java.math.BigDecimal(i)),
+          Map(i -> Array(Row(i), Row(i), Row(i)))
+        )
+      }
 
+      val schema = new StructType()
+        .add("i", IntegerType)
+        .add("a", MapType(IntegerType, IntegerType))
+        .add("b", MapType(LongType, ByteType))
+        .add("c", MapType(ShortType, BooleanType))
+        .add("d", MapType(FloatType, DoubleType))
+        .add("e", MapType(StringType, DecimalType(1, 0)))
+        .add("f", MapType(IntegerType, ArrayType(new StructType().add("val", IntegerType))))
+
+      val tblLoc = dir.getCanonicalPath
+      val data = (0 until 10).map(createRow)
+      writeDataPrintInfo(tblLoc, data, schema)
+
+      val hadoopConf = spark.sessionState.newHadoopConf()
+      val alpineLog = DeltaLog.forTable(hadoopConf, tblLoc)
+      val recordIter = alpineLog.snapshot().open()
+
+      while (recordIter.hasNext) {
+        val row = recordIter.next()
+        val i = row.getAs[Int]("i")
+
+        assert(mapEquals(row.getAs[Map[Int, Int]]("a"), Map(i -> i)))
+        assert(mapEquals(row.getAs[Map[Long, Byte]]("b"), Map(i.toLong -> i.toByte)))
+        assert(mapEquals(row.getAs[Map[Short, Boolean]]("c"), Map(i.toShort -> (i % 2 == 0))))
+        assert(mapEquals(row.getAs[Map[Float, Double]]("d"), Map(i.toFloat -> i.toDouble)))
+        assert(mapEquals(
+          row.getAs[Map[String, java.math.BigDecimal]]("e"),
+          Map(i.toString -> new java.math.BigDecimal(i))
+        ))
+
+        val recordArrMap = row.getAs[Map[Int, Array[RowParquetRecord]]]("f")
+        val recordArr = recordArrMap(i)
+        assert(recordArr.forall(nestedRow => nestedRow.getAs[Int]("val") == i))
+      }
+    }
   }
 
   test("read - nested struct") {
