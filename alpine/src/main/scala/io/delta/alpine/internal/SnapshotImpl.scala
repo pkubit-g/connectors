@@ -58,7 +58,8 @@ private[internal] class SnapshotImpl(
   override def open(): CloseableIterator[RowParquetRecordJ] =
     CloseableParquetDataIterator(
       allFilesScala.map(_.path),
-      deltaLog.dataPath.toString)
+      deltaLog.dataPath.toString,
+      getMetadata.getSchema)
 
   def allFilesScala: Seq[AddFile] = state.activeFiles.values.toSeq
   def protocolScala: Protocol = state.protocol

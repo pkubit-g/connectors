@@ -18,11 +18,13 @@ package io.delta.alpine.internal.data
 
 import com.github.mjakubowski84.parquet4s._
 import io.delta.alpine.data.{CloseableIterator, RowParquetRecord => RowParquetRecordJ}
-import io.delta.alpine.internal.util.ConversionUtils
+// import io.delta.alpine.internal.util.ConversionUtils
+import io.delta.alpine.types.StructType
 
 case class CloseableParquetDataIterator(
     dataFilePaths: Seq[String],
-    dataPath: String) extends CloseableIterator[RowParquetRecordJ] {
+    dataPath: String,
+    schema: StructType) extends CloseableIterator[RowParquetRecordJ] {
   private val dataFilePathsIter = dataFilePaths.iterator
   private var parquetRows = if (dataFilePathsIter.hasNext) readNextFile else null
   private var parquetRowsIter = if (null != parquetRows) parquetRows.iterator else null
@@ -53,7 +55,7 @@ case class CloseableParquetDataIterator(
   override def next(): RowParquetRecordJ = {
     if (!hasNext) throw new NoSuchElementException
     val row = parquetRowsIter.next()
-    RowParquetRecordImpl(row)
+    RowParquetRecordImpl(row, schema)
   }
 
   override def close(): Unit = {

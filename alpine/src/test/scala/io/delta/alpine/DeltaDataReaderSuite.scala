@@ -11,8 +11,10 @@ class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
     Row(i, i.longValue, i.byteValue, i.shortValue, i % 2 == 0, i.floatValue, i.doubleValue,
       i.toString,
       new Timestamp(i),
-      new Date(i))
-
+      new Date(i),
+      Array(i, i, i),
+      Array(Array(i, i), Array(i, i))
+    )
   }
 
   private val schema = new StructType()
@@ -26,6 +28,8 @@ class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
     .add("as_string", StringType)
     .add("as_timestamp", TimestampType)
     .add("as_date", DateType)
+    .add("as_array", ArrayType(IntegerType))
+    .add("as_array_of_arrays", ArrayType(ArrayType(IntegerType)))
 
   test("correctly read") {
     withTempDir { dir =>
@@ -42,17 +46,19 @@ class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
 
       while (recordIter.hasNext) {
         val row = recordIter.next()
-        val i = row.getInt("as_int")
-
-        assert(row.getLong("as_long") == i.longValue)
-        assert(row.getByte("as_byte") == i.byteValue)
-        assert(row.getShort("as_short") == i.shortValue)
-        assert(row.getBoolean("as_boolean") == (i % 2 == 0))
-        assert(row.getFloat("as_float") == i.floatValue)
-        assert(row.getDouble("as_float") == i.doubleValue)
-        assert(row.getString("as_string") == i.toString)
-//        assert(row.getTimestamp("as_timestamp") == new Timestamp(i)) // TODO TimeZone fix
-//        assert(row.getDate("as_date") == new Date(i)) // TODO TimeZone fix
+        val i = row.getAs[Int]("as_int")
+        assert(row.getAs[Long]("as_long") == i.longValue)
+        assert(row.getAs[Byte]("as_byte") == i.byteValue())
+        assert(row.getAs[Short]("as_short") == i.shortValue)
+        assert(row.getAs[Boolean]("as_boolean") == (i % 2 == 0))
+        assert(row.getAs[Float]("as_float") == i.floatValue)
+        assert(row.getAs[Double]("as_double") == i.doubleValue)
+        assert(row.getAs[String]("as_string") == i.toString)
+        assert(row.getAs[Array[Int]]("as_array") sameElements Array(i, i, i))
+        assert(row.getAs[Array[Array[Int]]]("as_array_of_arrays").deep ==
+          Array(Array(i, i), Array(i, i)).deep)
+//      assert(row.getTimestamp("as_timestamp") == new Timestamp(i)) // TODO TimeZone fix
+//      assert(row.getDate("as_date") == new Date(i)) // TODO TimeZone fix
       }
     }
   }
@@ -60,4 +66,5 @@ class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
   // TODO test bad cast
   // TODO test the iterator
   // TODO test complicated structures, arrays, maps?
+  // TODO test nullable
 }
