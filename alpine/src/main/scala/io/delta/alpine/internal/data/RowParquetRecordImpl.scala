@@ -107,6 +107,11 @@ private[internal] case class RowParquetRecordImpl(
         decodeArray(x.getElementType, y)
       case (x: StructType, y: RowParquetRecord) => RowParquetRecordImpl(y, x, timeZone)
       case (x: MapType, y: MapParquetRecord) => decodeMap(x.getKeyType, x.getValueType, y)
+      case (_: DecimalType, _: IntValue) =>
+        new java.math.BigDecimal(ValueCodec.intCodec.decode(parquetVal, codecConf))
+      case (_: DecimalType, _) =>
+        // TODO test this case
+        ValueCodec.decimalCodec.decode(parquetVal, codecConf)
     }
   }
 
@@ -114,8 +119,10 @@ private[internal] case class RowParquetRecordImpl(
       keyType: DataType,
       valueType: DataType,
       parquetVal: MapParquetRecord): Any = {
-//    (keyType, valueType, )
-    null
+    (keyType, valueType, parquetVal) match {
+      case (_: IntegerType, _: IntegerType, _) =>
+        ValueCodec.mapCodec[Int, Int].decode(parquetVal, codecConf)
+    }
   }
 
   private def decodeArray(arrayElemType: DataType, parquetVal: ListParquetRecord): Any = {
