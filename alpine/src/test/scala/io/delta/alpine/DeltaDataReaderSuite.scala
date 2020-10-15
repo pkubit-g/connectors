@@ -9,17 +9,17 @@ import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.types._
 
 class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
-//  private def createRow(i: Int): Row = {
-//    Row(i, i.longValue, i.byteValue, i.shortValue, i % 2 == 0, i.floatValue, i.doubleValue,
-//      i.toString,
-//      new Timestamp(i),
-//      new Date(i),
-//      Array(i, i, i),
-//      Array(Array(i, i), Array(i, i)),
-//      Row(i, i.toString),
-//      Map[Int, Int](i -> i * 100, (i + 1) -> (i + 1) * 100)
-//    )
-//  }
+  private def createRow(i: Int): Row = {
+    Row(i, i.longValue, i.byteValue, i.shortValue, i % 2 == 0, i.floatValue, i.doubleValue,
+      i.toString,
+      new Timestamp(i),
+      new Date(i),
+      Array(i, i, i),
+      Array(Array(i, i), Array(i, i)),
+      Row(i, i.toString),
+      Map[Int, Int](i -> i * 100, (i + 1) -> (i + 1) * 100)
+    )
+  }
 
   private def mapEquals[K, V](map1: Map[K, V], map2: Map[K, V]): Boolean = {
     (map1.toSet diff map2.toSet).isEmpty && (map2.toSet diff map1.toSet).isEmpty
@@ -32,23 +32,23 @@ class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
     df.show()
   }
 
-//  private val schema = new StructType()
-//    .add("as_int", IntegerType)
-//    .add("as_long", LongType)
-//    .add("as_byte", ByteType)
-//    .add("as_short", ShortType)
-//    .add("as_boolean", BooleanType)
-//    .add("as_float", FloatType)
-//    .add("as_double", DoubleType)
-//    .add("as_string", StringType)
-//    .add("as_timestamp", TimestampType)
-//    .add("as_date", DateType)
-//    .add("as_array", ArrayType(IntegerType))
-//    .add("as_array_of_arrays", ArrayType(ArrayType(IntegerType)))
-//    .add("as_nested_struct", new StructType()
-//        .add("a", IntegerType)
-//        .add("b", StringType))
-//    .add("as_map_int_int", MapType(IntegerType, IntegerType))
+  private val schema = new StructType()
+    .add("as_int", IntegerType)
+    .add("as_long", LongType)
+    .add("as_byte", ByteType)
+    .add("as_short", ShortType)
+    .add("as_boolean", BooleanType)
+    .add("as_float", FloatType)
+    .add("as_double", DoubleType)
+    .add("as_string", StringType)
+    .add("as_timestamp", TimestampType)
+    .add("as_date", DateType)
+    .add("as_array", ArrayType(IntegerType))
+    .add("as_array_of_arrays", ArrayType(ArrayType(IntegerType)))
+    .add("as_nested_struct", new StructType()
+        .add("a", IntegerType)
+        .add("b", StringType))
+    .add("as_map_int_int", MapType(IntegerType, IntegerType))
 
   test("read - primitives") {
     withTempDir { dir =>
@@ -139,7 +139,7 @@ class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
     }
   }
 
-  test("read - nested struct") {
+  test("read - map") {
 
   }
 
@@ -147,8 +147,41 @@ class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
 
   }
 
-  test("read - map") {
+  test("read - nested struct") {
+    withTempDir { dir =>
+      def createRow(i: Int): Row = Row(Row(i.toString, i.toString, Row(i, i.toLong)), i)
 
+      val schema = new StructType()
+        .add("a", new StructType()
+          .add("aa", StringType)
+          .add("ab", StringType)
+          .add("ac", new StructType()
+            .add("aca", IntegerType)
+            .add("acb", LongType)
+          )
+        )
+        .add("b", IntegerType)
+
+      val tblLoc = dir.getCanonicalPath
+      val data = (0 until 10).map(createRow)
+      writeDataPrintInfo(tblLoc, data, schema)
+
+      val hadoopConf = spark.sessionState.newHadoopConf()
+      val alpineLog = DeltaLog.forTable(hadoopConf, tblLoc)
+      val recordIter = alpineLog.snapshot().open()
+
+      while (recordIter.hasNext) {
+        val row = recordIter.next()
+        val i = row.getAs[Int]("b")
+        val nestedStruct = row.getAs[RowParquetRecord]("a")
+        assert(nestedStruct.getAs[String]("aa") == i.toString)
+        assert(nestedStruct.getAs[String]("ab") == i.toString)
+
+        val nestedNestedStruct = nestedStruct.getAs[RowParquetRecord]("ac")
+        assert(nestedNestedStruct.getAs[Int]("aca") == i)
+        assert(nestedNestedStruct.getAs[Long]("acb") == i.toLong)
+      }
+    }
   }
 
 //  test("correctly read") {
@@ -177,7 +210,7 @@ class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
 //        assert(row.getAs[Array[Int]]("as_array") sameElements Array(i, i, i))
 //        assert(row.getAs[Array[Array[Int]]]("as_array_of_arrays").deep ==
 //          Array(Array(i, i), Array(i, i)).deep)
-//
+
 //        val nested = row.getAs[RowParquetRecord]("as_nested_struct")
 //        assert(nested.getAs[Int]("a") == i)
 //        assert(nested.getAs[String]("b") == i.toString)

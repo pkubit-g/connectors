@@ -21,6 +21,7 @@ import java.sql.{Date, Timestamp}
 import java.time.ZoneOffset
 import java.util.TimeZone
 
+import scala.collection.compat.Factory
 import scala.reflect.ClassTag
 
 import com.github.mjakubowski84.parquet4s._
@@ -30,12 +31,8 @@ import io.delta.alpine.types._
 // TODO pass in the timezone by parsing it from Hadoop Conf
 private[internal] case class RowParquetRecordImpl(
     private val record: RowParquetRecord,
-
-  // TODO performance optimization
-  // private val schemaFieldTypes: scala.collection.immutable.Map[String, DataType]
     private val schema: StructType,
-    private val timeZone: TimeZone = TimeZone.getTimeZone(ZoneOffset.UTC)
-)
+    private val timeZone: TimeZone = TimeZone.getTimeZone(ZoneOffset.UTC))
   extends RowParquetRecordJ {
   private val codecConf = ValueCodecConfiguration(timeZone)
 
@@ -72,16 +69,46 @@ private[internal] case class RowParquetRecordImpl(
 //    record.get(fieldName).asInstanceOf[ListParquetRecord].map()
 //  }
 
-  val customDecimalCodec: ValueCodec[BigDecimal] = new OptionalValueCodec[BigDecimal] {
-    override def decodeNonNull(value: Value, configuration: ValueCodecConfiguration): BigDecimal =
+  private val customDecimalCodec: ValueCodec[java.math.BigDecimal] =
+    new OptionalValueCodec[java.math.BigDecimal] {
+    override def decodeNonNull(
+        value: Value,
+        configuration: ValueCodecConfiguration): java.math.BigDecimal = {
       value match {
-        case IntValue(int) => BigDecimal(int)
-        case DoubleValue(double) => BigDecimal(double)
-        case FloatValue(float) => BigDecimal.decimal(float)
-        case BinaryValue(binary) => Decimals.decimalFromBinary(binary)
+        // parquet4s.ValueCodec.decimalCodec doesn't match on IntValue
+        case IntValue(int) => new java.math.BigDecimal(int)
+        case DoubleValue(double) => BigDecimal.decimal(double).bigDecimal
+        case FloatValue(float) => BigDecimal.decimal(float).bigDecimal
+        case BinaryValue(binary) => Decimals.decimalFromBinary(binary).bigDecimal
       }
-    override def encodeNonNull(data: BigDecimal, configuration: ValueCodecConfiguration): Value =
-      BinaryValue(Decimals.binaryFromDecimal(data))
+    }
+
+      override def encodeNonNull(
+          data: java.math.BigDecimal,
+          configuration: ValueCodecConfiguration): Value = {
+        throw new UnsupportedOperationException("TODO")
+      }
+  }
+
+  private def customArrayDecimalCodec(implicit
+      classTag: ClassTag[java.math.BigDecimal],
+      factory: Factory[java.math.BigDecimal, Array[java.math.BigDecimal]]
+  ): ValueCodec[Array[java.math.BigDecimal]] = new OptionalValueCodec[Array[java.math.BigDecimal]] {
+    override def decodeNonNull(
+        value: Value,
+        configuration: ValueCodecConfiguration): Array[java.math.BigDecimal] =
+      value match {
+        case listRecord: ListParquetRecord =>
+          listRecord.map((customDecimalCodec.decode _).curried(_)(configuration)).to(factory)
+        case binaryValue: BinaryValue if classTag.runtimeClass == classOf[Byte] =>
+          binaryValue.value.getBytes.asInstanceOf[Array[java.math.BigDecimal]]
+      }
+
+    override def encodeNonNull(
+        data: Array[java.math.BigDecimal],
+        configuration: ValueCodecConfiguration): Value = {
+      throw new UnsupportedOperationException("TODO")
+    }
   }
 
   val primitiveDecodeMap = Map(
@@ -96,6 +123,18 @@ private[internal] case class RowParquetRecordImpl(
     new DecimalType(1, 1).getTypeName -> customDecimalCodec
   )
 
+  val arrayDecodeMap = Map(
+    new IntegerType().getTypeName -> ValueCodec.arrayCodec[Int, Array],
+    new LongType().getTypeName -> ValueCodec.arrayCodec[Long, Array],
+    new ByteType().getTypeName -> ValueCodec.arrayCodec[Byte, Array],
+    new ShortType().getTypeName -> ValueCodec.arrayCodec[Short, Array],
+    new BooleanType().getTypeName -> ValueCodec.arrayCodec[Boolean, Array],
+    new FloatType().getTypeName -> ValueCodec.arrayCodec[Float, Array],
+    new DoubleType().getTypeName -> ValueCodec.arrayCodec[Double, Array],
+    new StringType().getTypeName -> ValueCodec.arrayCodec[String, Array],
+    new DecimalType(1, 1).getTypeName -> customArrayDecimalCodec
+  )
+
   override def getAs[T](fieldName: String): T = {
     val schemaField = schema.getDataTypeForField(fieldName);
     val parquetVal = record.get(fieldName)
@@ -108,84 +147,39 @@ private[internal] case class RowParquetRecordImpl(
   }
 
   private def decode(elemType: DataType, parquetVal: Value): Any = {
-    // TODO null check?
-    (elemType, parquetVal) match {
-        // TODO null type ?
-      case (_: IntegerType, _) =>
-        ValueCodec.intCodec.decode(parquetVal, codecConf)
-      case (_: LongType, _) =>
-        ValueCodec.longCodec.decode(parquetVal, codecConf)
-      case (_: ByteType, _) =>
-        ValueCodec.byteCodec.decode(parquetVal, codecConf)
-      case (_: ShortType, _) =>
-        ValueCodec.shortCodec.decode(parquetVal, codecConf)
-      case (_: BooleanType, _) =>
-        ValueCodec.booleanCodec.decode(parquetVal, codecConf)
-      case (_: FloatType, _) =>
-        ValueCodec.floatCodec.decode(parquetVal, codecConf)
-      case (_: DoubleType, _) =>
-        ValueCodec.doubleCodec.decode(parquetVal, codecConf)
-      case (_: StringType, _) =>
-        ValueCodec.stringCodec.decode(parquetVal, codecConf)
-      case (_: DecimalType, _: IntValue) =>
-        new java.math.BigDecimal(ValueCodec.intCodec.decode(parquetVal, codecConf))
-      case (_: DecimalType, _) =>
-        // TODO test this case
-        ValueCodec.decimalCodec.decode(parquetVal, codecConf)
+    val elemTypeName = elemType.getTypeName
+    if (primitiveDecodeMap.contains(elemTypeName)) {
+      return primitiveDecodeMap(elemTypeName).decode(parquetVal, codecConf)
+    }
 
-      case (x: ArrayType, y: ListParquetRecord) =>
-        decodeArray(x.getElementType, y)
-      case (x: StructType, y: RowParquetRecord) =>
-        RowParquetRecordImpl(y, x, timeZone)
-      case (x: MapType, y: MapParquetRecord) =>
-        decodeMap(x.getKeyType, x.getValueType, y)
+    (elemType, parquetVal) match {
+      case (x: ArrayType, y: ListParquetRecord) => decodeArray(x.getElementType, y)
+      case (x: MapType, y: MapParquetRecord) => decodeMap(x.getKeyType, x.getValueType, y)
+      case (x: StructType, y: RowParquetRecord) => RowParquetRecordImpl(y, x, timeZone)
     }
   }
 
-  private def decodeArray(arrayElemType: DataType, parquetVal: ListParquetRecord): Any = {
-    arrayElemType match {
-      case _: IntegerType =>
-        ValueCodec.arrayCodec[Int, Array].decode(parquetVal, codecConf)
-      case _: LongType =>
-        ValueCodec.arrayCodec[Long, Array].decode(parquetVal, codecConf)
-      case _: ByteType =>
-        ValueCodec.arrayCodec[Byte, Array].decode(parquetVal, codecConf)
-      case _: ShortType =>
-        ValueCodec.arrayCodec[Short, Array].decode(parquetVal, codecConf)
-      case _: BooleanType =>
-        ValueCodec.arrayCodec[Boolean, Array].decode(parquetVal, codecConf)
-      case _: FloatType =>
-        ValueCodec.arrayCodec[Float, Array].decode(parquetVal, codecConf)
-      case _: DoubleType =>
-        ValueCodec.arrayCodec[Double, Array].decode(parquetVal, codecConf)
-      case _: StringType =>
-        ValueCodec.arrayCodec[String, Array].decode(parquetVal, codecConf)
-      case _: DecimalType =>
-        val elemIter = parquetVal.iterator
-        if (elemIter.hasNext && elemIter.next().isInstanceOf[IntValue]) {
-          ValueCodec.arrayCodec[Int, Array].decode(parquetVal, codecConf)
-            .map(new java.math.BigDecimal(_))
-        } else {
-          // TODO test this case
-          ValueCodec.arrayCodec[BigDecimal, Array].decode(parquetVal, codecConf)
-        }
+  private def decodeArray(elemType: DataType, parquetVal: ListParquetRecord): Any = {
+    val elemTypeName = elemType.getTypeName
+    if (arrayDecodeMap.contains(elemTypeName)) {
+      return arrayDecodeMap(elemTypeName).decode(parquetVal, codecConf)
+    }
+
+    elemType match {
       case x: ArrayType =>
         parquetVal.map { y =>
           y.asInstanceOf[ListParquetRecord].map(z => decode(x.getElementType, z))
         }.toArray
-      // TODO MAP
-      // TODO record
     }
   }
 
   private def decodeMap(
-    keyType: DataType,
-    valueType: DataType,
-    parquetVal: MapParquetRecord): Any = {
-    (keyType, valueType, parquetVal) match {
-      case (_: IntegerType, _: IntegerType, _) =>
-        ValueCodec.mapCodec[Int, Int].decode(parquetVal, codecConf)
-    }
+      keyType: DataType,
+      valueType: DataType,
+      parquetVal: MapParquetRecord): Any = {
+    parquetVal.map { case (keyParquetVal, valParquetVal) =>
+      decode(keyType, keyParquetVal) -> decode(valueType, valParquetVal)
+    }.toMap
   }
 
   /**
