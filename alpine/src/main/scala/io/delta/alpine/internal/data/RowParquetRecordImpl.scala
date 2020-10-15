@@ -99,7 +99,7 @@ private[internal] case class RowParquetRecordImpl(
         configuration: ValueCodecConfiguration): Array[java.math.BigDecimal] =
       value match {
         case listRecord: ListParquetRecord =>
-          listRecord.map((customDecimalCodec.decode _).curried(_)(configuration)).to(factory)
+          listRecord.map(customDecimalCodec.decode(_, codecConf)).toArray
         case binaryValue: BinaryValue if classTag.runtimeClass == classOf[Byte] =>
           binaryValue.value.getBytes.asInstanceOf[Array[java.math.BigDecimal]]
       }
