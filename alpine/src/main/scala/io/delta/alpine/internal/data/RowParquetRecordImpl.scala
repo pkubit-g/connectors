@@ -72,6 +72,30 @@ private[internal] case class RowParquetRecordImpl(
 //    record.get(fieldName).asInstanceOf[ListParquetRecord].map()
 //  }
 
+  val customDecimalCodec: ValueCodec[BigDecimal] = new OptionalValueCodec[BigDecimal] {
+    override def decodeNonNull(value: Value, configuration: ValueCodecConfiguration): BigDecimal =
+      value match {
+        case IntValue(int) => BigDecimal(int)
+        case DoubleValue(double) => BigDecimal(double)
+        case FloatValue(float) => BigDecimal.decimal(float)
+        case BinaryValue(binary) => Decimals.decimalFromBinary(binary)
+      }
+    override def encodeNonNull(data: BigDecimal, configuration: ValueCodecConfiguration): Value =
+      BinaryValue(Decimals.binaryFromDecimal(data))
+  }
+
+  val primitiveDecodeMap = Map(
+    new IntegerType().getTypeName -> ValueCodec.intCodec,
+    new LongType().getTypeName -> ValueCodec.longCodec,
+    new ByteType().getTypeName -> ValueCodec.byteCodec,
+    new ShortType().getTypeName -> ValueCodec.shortCodec,
+    new BooleanType().getTypeName -> ValueCodec.booleanCodec,
+    new FloatType().getTypeName -> ValueCodec.floatCodec,
+    new DoubleType().getTypeName -> ValueCodec.doubleCodec,
+    new StringType().getTypeName -> ValueCodec.stringCodec,
+    new DecimalType(1, 1).getTypeName -> customDecimalCodec
+  )
+
   override def getAs[T](fieldName: String): T = {
     val schemaField = schema.getDataTypeForField(fieldName);
     val parquetVal = record.get(fieldName)
@@ -118,16 +142,6 @@ private[internal] case class RowParquetRecordImpl(
     }
   }
 
-  private def decodeMap(
-      keyType: DataType,
-      valueType: DataType,
-      parquetVal: MapParquetRecord): Any = {
-    (keyType, valueType, parquetVal) match {
-      case (_: IntegerType, _: IntegerType, _) =>
-        ValueCodec.mapCodec[Int, Int].decode(parquetVal, codecConf)
-    }
-  }
-
   private def decodeArray(arrayElemType: DataType, parquetVal: ListParquetRecord): Any = {
     arrayElemType match {
       case _: IntegerType =>
@@ -152,6 +166,7 @@ private[internal] case class RowParquetRecordImpl(
           ValueCodec.arrayCodec[Int, Array].decode(parquetVal, codecConf)
             .map(new java.math.BigDecimal(_))
         } else {
+          // TODO test this case
           ValueCodec.arrayCodec[BigDecimal, Array].decode(parquetVal, codecConf)
         }
       case x: ArrayType =>
@@ -162,4 +177,21 @@ private[internal] case class RowParquetRecordImpl(
       // TODO record
     }
   }
+
+  private def decodeMap(
+    keyType: DataType,
+    valueType: DataType,
+    parquetVal: MapParquetRecord): Any = {
+    (keyType, valueType, parquetVal) match {
+      case (_: IntegerType, _: IntegerType, _) =>
+        ValueCodec.mapCodec[Int, Int].decode(parquetVal, codecConf)
+    }
+  }
+
+  /**
+   * val decodes = Map(IntegerType -> IntDecoder, LongType -> LongDecoder, ...)
+   * decoders(keyType).decode(...)
+   * decoders(valueType).decode(...)
+   */
+
 }
