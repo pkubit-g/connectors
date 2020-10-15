@@ -140,7 +140,43 @@ class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
   }
 
   test("read - array of complex objects") {
+    withTempDir { dir =>
+      def createRow(i: Int): Row = {
+        Row(
+          i,
+          Array(Array(Array(i, i, i), Array(i, i, i)), Array(Array(i, i, i), Array(i, i, i))),
+          Array(
+            Map[String, Long](i.toString -> i.toLong),
+            Map[String, Long](i.toString -> i.toLong)
+          ),
+          Array(Row(i), Row(i), Row(i))
+        )
+      }
 
+      val schema = new StructType()
+        .add("i", IntegerType)
+        .add("3d_int_array", ArrayType(ArrayType(ArrayType(IntegerType))))
+        .add("array_of_maps", ArrayType(MapType(StringType, LongType)))
+        .add("array_of_records", ArrayType(new StructType().add("val", IntegerType)))
+
+      val tblLoc = dir.getCanonicalPath
+      val data = (0 until 10).map(createRow)
+      writeDataPrintInfo(tblLoc, data, schema)
+
+      val hadoopConf = spark.sessionState.newHadoopConf()
+      val alpineLog = DeltaLog.forTable(hadoopConf, tblLoc)
+      val recordIter = alpineLog.snapshot().open()
+
+      while (recordIter.hasNext) {
+        val row = recordIter.next()
+        val i = row.getAs[Int]("i")
+        val xxxx = row.getAs[Array[Array[Array[Int]]]]("3d_int_array")
+//        val asdf = 44
+        assert(row.getAs[Array[Array[Array[Int]]]]("3d_int_array").deep ==
+          Array(Array(Array(i, i, i), Array(i, i, i)), Array(Array(i, i, i), Array(i, i, i))).deep)
+
+      }
+    }
   }
 
   test("read - map") {
