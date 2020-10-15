@@ -161,18 +161,20 @@ private[internal] case class RowParquetRecordImpl(
 
   private def decodeArray(elemType: DataType, list: ListParquetRecord): Any = {
     val elemTypeName = elemType.getTypeName
+
     if (arrayDecodeMap.contains(elemTypeName)) {
       // Array of primitive
       return arrayDecodeMap(elemTypeName).decode(list, codecConf)
     }
 
     elemType match {
-      // Array of Array
+      // Array[Array[?]]
       case x: ArrayType =>
         list.map { case y: ListParquetRecord =>
           val temp = y.map(z => decode(x.getElementType, z))
           if (x.getElementType.isInstanceOf[ArrayType]) {
-            // Array of Array of Array
+//          Array[Array[Array[?]]]
+//          Without this cast, it would be returned as an Array[ArrayBuffer[Array[?]]]
             temp.toArray
           } else {
             temp
