@@ -103,15 +103,18 @@ private[internal] case class RowParquetRecordImpl(
         ValueCodec.doubleCodec.decode(parquetVal, codecConf)
       case (_: StringType, _) =>
         ValueCodec.stringCodec.decode(parquetVal, codecConf)
-      case (x: ArrayType, y: ListParquetRecord) =>
-        decodeArray(x.getElementType, y)
-      case (x: StructType, y: RowParquetRecord) => RowParquetRecordImpl(y, x, timeZone)
-      case (x: MapType, y: MapParquetRecord) => decodeMap(x.getKeyType, x.getValueType, y)
       case (_: DecimalType, _: IntValue) =>
         new java.math.BigDecimal(ValueCodec.intCodec.decode(parquetVal, codecConf))
       case (_: DecimalType, _) =>
         // TODO test this case
         ValueCodec.decimalCodec.decode(parquetVal, codecConf)
+
+      case (x: ArrayType, y: ListParquetRecord) =>
+        decodeArray(x.getElementType, y)
+      case (x: StructType, y: RowParquetRecord) =>
+        RowParquetRecordImpl(y, x, timeZone)
+      case (x: MapType, y: MapParquetRecord) =>
+        decodeMap(x.getKeyType, x.getValueType, y)
     }
   }
 
@@ -143,10 +146,20 @@ private[internal] case class RowParquetRecordImpl(
         ValueCodec.arrayCodec[Double, Array].decode(parquetVal, codecConf)
       case _: StringType =>
         ValueCodec.arrayCodec[String, Array].decode(parquetVal, codecConf)
+      case _: DecimalType =>
+        val elemIter = parquetVal.iterator
+        if (elemIter.hasNext && elemIter.next().isInstanceOf[IntValue]) {
+          ValueCodec.arrayCodec[Int, Array].decode(parquetVal, codecConf)
+            .map(new java.math.BigDecimal(_))
+        } else {
+          ValueCodec.arrayCodec[BigDecimal, Array].decode(parquetVal, codecConf)
+        }
       case x: ArrayType =>
         parquetVal.map { y =>
           y.asInstanceOf[ListParquetRecord].map(z => decode(x.getElementType, z))
         }.toArray
+      // TODO MAP
+      // TODO record
     }
   }
 }
