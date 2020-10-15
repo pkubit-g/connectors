@@ -2,6 +2,8 @@ package io.delta.alpine
 
 import java.sql.{Date, Timestamp}
 
+import io.delta.alpine.data.RowParquetRecord
+
 import org.apache.spark.sql.{QueryTest, Row}
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.types._
@@ -13,7 +15,8 @@ class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
       new Timestamp(i),
       new Date(i),
       Array(i, i, i),
-      Array(Array(i, i), Array(i, i))
+      Array(Array(i, i), Array(i, i)),
+      Row(i, i.toString)
     )
   }
 
@@ -30,6 +33,10 @@ class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
     .add("as_date", DateType)
     .add("as_array", ArrayType(IntegerType))
     .add("as_array_of_arrays", ArrayType(ArrayType(IntegerType)))
+    .add("as_nested_struct", new StructType()
+        .add("a", IntegerType)
+        .add("b", StringType)
+    )
 
   test("correctly read") {
     withTempDir { dir =>
@@ -57,6 +64,10 @@ class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
         assert(row.getAs[Array[Int]]("as_array") sameElements Array(i, i, i))
         assert(row.getAs[Array[Array[Int]]]("as_array_of_arrays").deep ==
           Array(Array(i, i), Array(i, i)).deep)
+
+        val nested = row.getAs[RowParquetRecord]("as_nested_struct")
+        assert(nested.getAs[Int]("a") == i)
+        assert(nested.getAs[String]("b") == i.toString)
 //      assert(row.getTimestamp("as_timestamp") == new Timestamp(i)) // TODO TimeZone fix
 //      assert(row.getDate("as_date") == new Date(i)) // TODO TimeZone fix
       }

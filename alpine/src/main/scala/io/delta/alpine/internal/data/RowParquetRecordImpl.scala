@@ -81,26 +81,6 @@ private[internal] case class RowParquetRecordImpl(
     }
 
     decode(schemaField.getDataType, parquetVal).asInstanceOf[T]
-
-//  (schemaField.getDataType, parquetVal) match {
-//      case (_: IntegerType, _) =>
-//        ValueCodec.intCodec.decode(parquetVal, codecConf).asInstanceOf[T]
-//      case (_: LongType, _) =>
-//        ValueCodec.longCodec.decode(parquetVal, codecConf).asInstanceOf[T]
-//      case (_: ByteType, _) =>
-//        ValueCodec.byteCodec.decode(parquetVal, codecConf).asInstanceOf[T]
-//      case (_: ShortType, _) =>
-//        ValueCodec.shortCodec.decode(parquetVal, codecConf).asInstanceOf[T]
-//      case (_: BooleanType, _) =>
-//        ValueCodec.booleanCodec.decode(parquetVal, codecConf).asInstanceOf[T]
-//      case (_: FloatType, _) =>
-//        ValueCodec.floatCodec.decode(parquetVal, codecConf).asInstanceOf[T]
-//      case (_: DoubleType, _) =>
-//        ValueCodec.doubleCodec.decode(parquetVal, codecConf).asInstanceOf[T]
-//      case (_: StringType, _) =>
-//        ValueCodec.stringCodec.decode(parquetVal, codecConf).asInstanceOf[T]
-//      case(_: ArrayType, _) => ValueCodec.arrayCodec[T]
-//    }
   }
 
   private def decode(elemType: DataType, parquetVal: Value): Any = {
@@ -124,8 +104,8 @@ private[internal] case class RowParquetRecordImpl(
       case (_: StringType, _) =>
         ValueCodec.stringCodec.decode(parquetVal, codecConf)
       case (x: ArrayType, y: ListParquetRecord) =>
-        // y.map { z => decode(x.getElementType, z) }.toArray doesn't work
         decodeArray(x.getElementType, y)
+      case (x: StructType, y: RowParquetRecord) => RowParquetRecordImpl(y, x, timeZone)
       case (x: MapType, y: MapParquetRecord) => decodeMap(x.getKeyType, x.getValueType, y)
     }
   }
