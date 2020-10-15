@@ -115,6 +115,10 @@ class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
         Row(
           i,
           Array(Array(Array(i, i, i), Array(i, i, i)), Array(Array(i, i, i), Array(i, i, i))),
+//          Array(
+//            Array(Array(Array(i, i, i), Array(i, i, i)), Array(Array(i, i, i), Array(i, i, i))),
+//            Array(Array(Array(i, i, i), Array(i, i, i)), Array(Array(i, i, i), Array(i, i, i)))
+//          ),
           Array(
             Map[String, Long](i.toString -> i.toLong),
             Map[String, Long](i.toString -> i.toLong)
@@ -126,6 +130,7 @@ class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
       val schema = new StructType()
         .add("i", IntegerType)
         .add("3d_int_array", ArrayType(ArrayType(ArrayType(IntegerType))))
+//        .add("4d_int_array", ArrayType(ArrayType(ArrayType(ArrayType(IntegerType)))))
         .add("array_of_maps", ArrayType(MapType(StringType, LongType)))
         .add("array_of_records", ArrayType(new StructType().add("val", IntegerType)))
 
@@ -140,8 +145,9 @@ class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
       while (recordIter.hasNext) {
         val row = recordIter.next()
         val i = row.getAs[Int]("i")
-//        assert(row.getAs[Array[Array[Array[Int]]]]("3d_int_array").deep ==
-//        Array(Array(Array(i, i, i), Array(i, i, i)), Array(Array(i, i, i), Array(i, i, i))).deep)
+
+        assert(row.getAs[Array[Array[Array[Int]]]]("3d_int_array").deep ==
+          Array(Array(Array(i, i, i), Array(i, i, i)), Array(Array(i, i, i), Array(i, i, i))).deep)
       }
     }
   }

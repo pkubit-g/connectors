@@ -162,12 +162,22 @@ private[internal] case class RowParquetRecordImpl(
   private def decodeArray(elemType: DataType, list: ListParquetRecord): Any = {
     val elemTypeName = elemType.getTypeName
     if (arrayDecodeMap.contains(elemTypeName)) {
+      // Array of primitive
       return arrayDecodeMap(elemTypeName).decode(list, codecConf)
     }
 
     elemType match {
+      // Array of Array
       case x: ArrayType =>
-        list.map { case y: ListParquetRecord => y.map(z => decode(x.getElementType, z)) }.toArray
+        list.map { case y: ListParquetRecord =>
+          val temp = y.map(z => decode(x.getElementType, z))
+          if (x.getElementType.isInstanceOf[ArrayType]) {
+            // Array of Array of Array
+            temp.toArray
+          } else {
+            temp
+          }
+        }.toArray
       case x: StructType =>
         list.map { case y: RowParquetRecord => RowParquetRecordImpl(y, x, timeZone) }.toArray
     }
