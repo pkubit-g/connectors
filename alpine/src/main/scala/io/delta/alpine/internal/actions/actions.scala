@@ -51,14 +51,6 @@ private[internal] case class Protocol(
   def simpleString: String = s"($minReaderVersion,$minWriterVersion)"
 }
 
-private[internal] case class SetTransaction(
-    appId: String,
-    version: Long,
-    @JsonDeserialize(contentAs = classOf[java.lang.Long])
-    lastUpdated: Option[Long]) extends Action {
-  override def wrap: SingleAction = SingleAction(txn = this)
-}
-
 private[internal] sealed trait FileAction extends Action {
   val path: String
   val dataChange: Boolean
@@ -191,7 +183,6 @@ private[internal] case class CommitInfo(
 }
 
 private[internal] case class SingleAction(
-    txn: SetTransaction = null,
     add: AddFile = null,
     remove: RemoveFile = null,
     metaData: Metadata = null,
@@ -205,8 +196,6 @@ private[internal] case class SingleAction(
       remove
     } else if (metaData != null) {
       metaData
-    } else if (txn != null) {
-      txn
     } else if (protocol != null) {
       protocol
     } else if (commitInfo != null) {

@@ -28,7 +28,6 @@ private[internal] class InMemoryLogReplay(hadoopConf: Configuration) {
   var sizeInBytes: Long = 0
   var numMetadata: Long = 0
   var numProtocol: Long = 0
-  private val transactions = new scala.collection.mutable.HashMap[String, SetTransaction]()
   private val activeFiles = new scala.collection.mutable.HashMap[URI, AddFile]()
   private val tombstones = new scala.collection.mutable.HashMap[URI, RemoveFile]()
 
@@ -37,8 +36,6 @@ private[internal] class InMemoryLogReplay(hadoopConf: Configuration) {
       s"Attempted to replay version $version, but state is at $currentVersion")
     currentVersion = version
     actions.foreach {
-      case a: SetTransaction =>
-        transactions(a.appId) = a
       case a: Metadata =>
         currentMetaData = a
         numMetadata += 1
@@ -66,11 +63,9 @@ private[internal] class InMemoryLogReplay(hadoopConf: Configuration) {
           sizeInBytes -= removedFile.get.size
         }
       case _: CommitInfo => // do nothing
-      case null => // Some crazy future feature. Ignore
+      case _ => // Some crazy future feature. Ignore
     }
   }
-
-  def getTransactions: Map[String, SetTransaction] = transactions.toMap
 
   def getActiveFiles: Map[URI, AddFile] = activeFiles.toMap
 }
