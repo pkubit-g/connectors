@@ -29,21 +29,9 @@ import org.apache.spark.sql.QueryTest
 import org.apache.spark.sql.test.SharedSparkSession
 
 abstract class ReadOnlyLogStoreSuite extends QueryTest
-  with ReadOnlyLogStoreProvider
-  with SharedSparkSession
-  with ConversionUtils {
-
-//  def logStoreClassName: String
-
-//  protected override def sparkConf = {
-//    super.sparkConf.set(DeltaLogStore.logStoreClassConfKey, logStoreClassName)
-//  }
-//
-//  test("instantiation through SparkConf") {
-//    assert(spark.sparkContext.getConf.get(DeltaLogStore.logStoreClassConfKey) ==
-  //    logStoreClassName)
-//    assert(DeltaLogStore(spark.sparkContext).getClass.getName == logStoreClassName)
-//  }
+    with ReadOnlyLogStoreProvider
+    with SharedSparkSession
+    with ConversionUtils {
 
   test("read") {
     withTempDir { tempDir =>

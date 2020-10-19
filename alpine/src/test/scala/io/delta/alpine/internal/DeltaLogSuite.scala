@@ -32,9 +32,7 @@ import org.apache.spark.sql.delta.sources.DeltaSQLConf
 import org.apache.spark.sql.delta.util.{FileNames, JsonUtils}
 import org.apache.spark.sql.test.SharedSparkSession
 
-class DeltaLogSuite extends QueryTest
-  with SharedSparkSession
-  with ConversionUtils {
+class DeltaLogSuite extends QueryTest with SharedSparkSession with ConversionUtils {
 
   private val testOp = ManualUpdate
 
@@ -241,36 +239,58 @@ class DeltaLogSuite extends QueryTest
 
 // TODO test("handle corrupted '_last_checkpoint' file") { }
 
-  test("paths should be canonicalized - normal and special characters") {
+  test("paths should be canonicalized - normal characters") {
     Seq("file:", "file://").foreach { scheme =>
-      Seq("/some/unqualified/absolute/path",
-        new Path("/some/unqualified/with space/p@#h").toUri.toString).foreach { path =>
-        withTempDir { dir =>
-          val log = DeltaLogOSS.forTable(spark, dir)
-          assert(new File(log.logPath.toUri).mkdirs())
+      withTempDir { dir =>
+        val log = DeltaLogOSS.forTable(spark, dir)
+        assert(new File(log.logPath.toUri).mkdirs())
 
-          JavaUtils.deleteRecursively(dir)
+        JavaUtils.deleteRecursively(dir)
+        val hadoopConf = spark.sessionState.newHadoopConf()
+        val alpineLog = DeltaLogImpl.forTable(hadoopConf, new Path(dir.getCanonicalPath))
+        assert(new File(alpineLog.logPath.toUri).mkdirs())
 
-          val hadoopConf = spark.sessionState.newHadoopConf()
-          val alpineLog = DeltaLogImpl.forTable(hadoopConf, new Path(dir.getCanonicalPath))
-          assert(new File(alpineLog.logPath.toUri).mkdirs())
+        val path = "/some/unqualified/absolute/path"
+        val add = AddFile(path, Map.empty, 100L, 10L, dataChange = true)
+        val rm = RemoveFile(s"$scheme$path", Some(200L), dataChange = false)
 
-          val add = AddFile(path, Map.empty, 100L, 10L, dataChange = true)
-          val rm = RemoveFile(s"$scheme$path", Some(200L), dataChange = false)
+        log.store.write(
+          FileNames.deltaFile(log.logPath, 0L),
+          Iterator(Protocol(), Metadata(), add).map(a => JsonUtils.toJson(a.wrap)))
+        log.store.write(
+          FileNames.deltaFile(log.logPath, 1L),
+          Iterator(JsonUtils.toJson(rm.wrap)))
 
-          log.store.write(
-            FileNames.deltaFile(log.logPath, 0L),
-            Iterator(Protocol(), Metadata(), add).map(a => JsonUtils.toJson(a.wrap)))
-          log.store.write(
-            FileNames.deltaFile(log.logPath, 1L),
-            Iterator(JsonUtils.toJson(rm.wrap)))
+        assert(alpineLog.update().version === 1)
+        assert(alpineLog.snapshot.numOfFiles === 0)
+      }
+    }
+  }
 
-          assert(log.update().version === 1)
-          assert(log.snapshot.numOfFiles === 0)
+  test("paths should be canonicalized - special characters") {
+    Seq("file:", "file://").foreach { scheme =>
+      withTempDir { dir =>
+        val log = DeltaLogOSS.forTable(spark, dir)
+        assert(new File(log.logPath.toUri).mkdirs())
 
-          assert(alpineLog.update().version === 1)
-          assert(alpineLog.snapshot.numOfFiles === 0)
-        }
+        JavaUtils.deleteRecursively(dir)
+        val hadoopConf = spark.sessionState.newHadoopConf()
+        val alpineLog = DeltaLogImpl.forTable(hadoopConf, new Path(dir.getCanonicalPath))
+        assert(new File(alpineLog.logPath.toUri).mkdirs())
+
+        val path = new Path("/some/unqualified/with space/p@#h").toUri.toString
+        val add = AddFile(path, Map.empty, 100L, 10L, dataChange = true)
+        val rm = RemoveFile(s"$scheme$path", Some(200L), dataChange = false)
+
+        log.store.write(
+          FileNames.deltaFile(log.logPath, 0L),
+          Iterator(Protocol(), Metadata(), add).map(a => JsonUtils.toJson(a.wrap)))
+        log.store.write(
+          FileNames.deltaFile(log.logPath, 1L),
+          Iterator(JsonUtils.toJson(rm.wrap)))
+
+        assert(alpineLog.update().version === 1)
+        assert(alpineLog.snapshot.numOfFiles === 0)
       }
     }
   }

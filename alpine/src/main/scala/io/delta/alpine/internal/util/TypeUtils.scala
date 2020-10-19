@@ -38,16 +38,31 @@
 
 package io.delta.alpine.internal.util
 
+// TODO: change comments not to refer to Spark
 private[internal] object TypeUtils {
+
   // scalastyle:off classforname
-  /** Preferred alternative to Class.forName(className) */
+  /**
+   * Preferred alternative to Class.forName(className), as well as
+   * Class.forName(className, initialize, loader) with current thread's ContextClassLoader.
+   */
   def classForName(className: String): Class[_] = {
     Class.forName(className, true, getContextOrSparkClassLoader)
+    // scalastyle:on classforname
   }
-  // scalastyle:on classforname
 
-  def getContextOrSparkClassLoader: ClassLoader =
+  /**
+   * Get the Context ClassLoader on this thread or, if not present, the ClassLoader that
+   * loaded Spark.
+   *
+   * This should be used whenever passing a ClassLoader to Class.ForName or finding the currently
+   * active loader when setting up ClassLoader delegation chains.
+   */
+  private def getContextOrSparkClassLoader: ClassLoader =
     Option(Thread.currentThread().getContextClassLoader).getOrElse(getSparkClassLoader)
 
-  def getSparkClassLoader: ClassLoader = getClass.getClassLoader
+  /**
+   * Get the ClassLoader which loaded Spark.
+   */
+  private def getSparkClassLoader: ClassLoader = getClass.getClassLoader
 }
