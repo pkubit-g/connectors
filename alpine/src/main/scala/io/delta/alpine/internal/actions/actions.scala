@@ -17,12 +17,9 @@
 package io.delta.alpine.internal.actions
 
 import java.net.URI
-import java.sql.Timestamp
 
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonInclude, JsonRawValue}
-import com.fasterxml.jackson.core.JsonGenerator
-import com.fasterxml.jackson.databind.annotation.{JsonDeserialize, JsonSerialize}
-import com.fasterxml.jackson.databind.{JsonSerializer, SerializerProvider}
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize
 import io.delta.alpine.internal.util.{DataTypeParser, JsonUtils}
 import io.delta.alpine.types.StructType
 
@@ -49,14 +46,6 @@ private[internal] case class Protocol(
 
   @JsonIgnore
   def simpleString: String = s"($minReaderVersion,$minWriterVersion)"
-}
-
-private[internal] case class SetTransaction(
-    appId: String,
-    version: Long,
-    @JsonDeserialize(contentAs = classOf[java.lang.Long])
-    lastUpdated: Option[Long]) extends Action {
-  override def wrap: SingleAction = SingleAction(txn = this)
 }
 
 private[internal] sealed trait FileAction extends Action {
@@ -136,67 +125,11 @@ private[internal] trait CommitMarker {
   def getVersion: Long
 }
 
-private[internal] case class JobInfo(
-    jobId: String,
-    jobName: String,
-    runId: String,
-    jobOwnerId: String,
-    triggerType: String)
-
-private[internal] object JobInfo {
-  def fromContext(context: Map[String, String]): Option[JobInfo] = {
-    context.get("jobId").map { jobId =>
-      JobInfo(
-        jobId,
-        context.get("jobName").orNull,
-        context.get("runId").orNull,
-        context.get("jobOwnerId").orNull,
-        context.get("jobTriggerType").orNull)
-    }
-  }
-}
-
-private[internal] case class NotebookInfo(notebookId: String)
-
-private[internal] case class CommitInfo(
-    // The commit version should be left unfilled during commit(). When reading a delta file, we can
-    // infer the commit version from the file name and fill in this field then.
-    @JsonDeserialize(contentAs = classOf[java.lang.Long])
-    version: Option[Long],
-    timestamp: Timestamp,
-    userId: Option[String],
-    userName: Option[String],
-    operation: String,
-    @JsonSerialize(using = classOf[JsonMapSerializer])
-    operationParameters: Map[String, String],
-    job: Option[JobInfo],
-    notebook: Option[NotebookInfo],
-    clusterId: Option[String],
-    @JsonDeserialize(contentAs = classOf[java.lang.Long])
-    readVersion: Option[Long],
-    isolationLevel: Option[String],
-    /** Whether this commit has blindly appended without caring about existing files */
-    isBlindAppend: Option[Boolean],
-    operationMetrics: Option[Map[String, String]],
-    userMetadata: Option[String]) extends Action with CommitMarker {
-  override def wrap: SingleAction = SingleAction(commitInfo = this)
-
-  override def withTimestamp(timestamp: Long): CommitInfo = {
-    this.copy(timestamp = new Timestamp(timestamp))
-  }
-
-  override def getTimestamp: Long = timestamp.getTime
-  @JsonIgnore
-  override def getVersion: Long = version.get
-}
-
 private[internal] case class SingleAction(
-    txn: SetTransaction = null,
     add: AddFile = null,
     remove: RemoveFile = null,
     metaData: Metadata = null,
-    protocol: Protocol = null,
-    commitInfo: CommitInfo = null) {
+    protocol: Protocol = null) {
 
   def unwrap: Action = {
     if (add != null) {
@@ -205,33 +138,10 @@ private[internal] case class SingleAction(
       remove
     } else if (metaData != null) {
       metaData
-    } else if (txn != null) {
-      txn
     } else if (protocol != null) {
       protocol
-    } else if (commitInfo != null) {
-      commitInfo
     } else {
       null
     }
-  }
-}
-
-private[internal] class JsonMapSerializer extends JsonSerializer[Map[String, String]] {
-  def serialize(
-    parameters: Map[String, String],
-    jgen: JsonGenerator,
-    provider: SerializerProvider): Unit = {
-    jgen.writeStartObject()
-    parameters.foreach { case (key, value) =>
-      if (value == null) {
-        jgen.writeNullField(key)
-      } else {
-        jgen.writeFieldName(key)
-        // Write value as raw data, since it's already JSON text
-        jgen.writeRawValue(value)
-      }
-    }
-    jgen.writeEndObject()
   }
 }

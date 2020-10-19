@@ -8,9 +8,9 @@ package io.delta.alpine.types;
  * `containsNull: Boolean`. The field of `elementType` is used to specify the type of
  * array elements. The field of `containsNull` is used to specify if the array has `null` values.
  */
-public class ArrayType extends DataType {
-    private DataType elementType;
-    private boolean containsNull;
+public final class ArrayType extends DataType {
+    private final DataType elementType;
+    private final boolean containsNull;
 
     /**
      *

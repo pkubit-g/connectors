@@ -2,16 +2,17 @@ package io.delta.alpine.actions;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.Map;
 
-public class AddFile {
-    private String path;
-    private Map<String, String> partitionValues;
-    private long size;
-    private long modificationTime;
-    private boolean dataChange;
-    private String stats;
-    private Map<String, String> tags;
+public final class AddFile {
+    private final String path;
+    private final Map<String, String> partitionValues;
+    private final long size;
+    private final long modificationTime;
+    private final boolean dataChange;
+    private final String stats;
+    private final Map<String, String> tags;
 
     public AddFile(String path, Map<String, String> partitionValues, long size,
                    long modificationTime, boolean dataChange, String stats,
@@ -34,7 +35,7 @@ public class AddFile {
     }
 
     public Map<String, String> getPartitionValues() {
-        return partitionValues;
+        return Collections.unmodifiableMap(partitionValues);
     }
 
     public long getSize() {
@@ -54,14 +55,6 @@ public class AddFile {
     }
 
     public Map<String, String> getTags() {
-        return tags;
-    }
-
-    public void setStatsNull() {
-        this.stats = null;
-    }
-
-    public void setTagsNull() {
-        this.tags = null;
+        return Collections.unmodifiableMap(tags);
     }
 }

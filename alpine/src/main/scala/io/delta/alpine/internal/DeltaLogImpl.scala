@@ -34,8 +34,6 @@ private[internal] class DeltaLogImpl private(
   with SnapshotManagement
   with ReadOnlyLogStoreProvider {
 
-  override def getHadoopConf: Configuration = hadoopConf
-
   override def getLogPath: Path = logPath
 
   override def getDataPath: Path = dataPath

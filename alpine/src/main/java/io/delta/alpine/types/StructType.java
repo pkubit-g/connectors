@@ -1,20 +1,30 @@
 package io.delta.alpine.types;
 
 import java.util.Arrays;
+import java.util.HashMap;
 
-public class StructType extends DataType {
-    private StructField[] fields; // TODO: make this a List
+public final class StructType extends DataType {
+    private final StructField[] fields;
+    private final HashMap<String, StructField> nameToField;
 
     public StructType(StructField[] fields) {
         this.fields = fields;
+
+        // generate name -> field map
+        this.nameToField = new HashMap<>();
+        Arrays.stream(fields).forEach(field -> nameToField.put(field.getName(), field));
     }
 
     public StructField[] getFields() {
-        return fields;
+        return fields.clone();
     }
 
     public String[] getFieldNames() {
         return Arrays.stream(fields).map(StructField::getName).toArray(String[]::new);
+    }
+
+    public StructField get(String fieldName) {
+        return nameToField.get(fieldName);
     }
 
     public String getTreeString() {

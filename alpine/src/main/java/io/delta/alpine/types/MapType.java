@@ -3,10 +3,10 @@ package io.delta.alpine.types;
 /**
  * The data type for Maps. Keys in a map are not allowed to have `null` values.
  */
-public class MapType extends DataType {
-    private DataType keyType;
-    private DataType valueType;
-    private boolean valueContainsNull;
+public final class MapType extends DataType {
+    private final DataType keyType;
+    private final DataType valueType;
+    private final boolean valueContainsNull;
 
     /**
      * @param keyType The data type of map keys.
