@@ -119,7 +119,7 @@ class DeltaStorageHandler extends DefaultStorageHandler with HiveMetaHook
     val analyzer = new IndexPredicateAnalyzer()
     for (col <- partitionColumns) {
       // Supported filter exprs on partition column to be pushed down to delta
-      analyzer.addComparisonOp(col, DeltaPushFilter.supportedPushDownUDFs: _*)
+      analyzer.addComparisonOp(col, SUPPORTED_PUSH_DOWN_UDFS: _*)
     }
     analyzer
   }
@@ -236,4 +236,16 @@ object DeltaStorageHandler {
    * The Hive table schema passing into `JobConf` so that `DeltaLog` can be accessed everywhere.
    */
   val DELTA_TABLE_SCHEMA = "delta.table.schema"
+
+  val SUPPORTED_PUSH_DOWN_UDFS = Array(
+    "org.apache.hadoop.hive.ql.udf.generic.GenericUDFOPEqual",
+    "org.apache.hadoop.hive.ql.udf.generic.GenericUDFOPEqualOrGreaterThan",
+    "org.apache.hadoop.hive.ql.udf.generic.GenericUDFOPEqualOrLessThan",
+    "org.apache.hadoop.hive.ql.udf.generic.GenericUDFOPLessThan",
+    "org.apache.hadoop.hive.ql.udf.generic.GenericUDFOPGreaterThan",
+    "org.apache.hadoop.hive.ql.udf.generic.GenericUDFOPNotEqual",
+    "org.apache.hadoop.hive.ql.udf.generic.GenericUDFOPEqualNS",
+    "org.apache.hadoop.hive.ql.udf.UDFLike",
+    "org.apache.hadoop.hive.ql.udf.generic.GenericUDFIn"
+  )
 }
