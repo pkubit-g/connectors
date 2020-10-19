@@ -43,7 +43,6 @@ private[internal] class InMemoryLogReplay(hadoopConf: Configuration) {
         currentProtocolVersion = a
         numProtocol += 1
       case add: AddFile =>
-        // TODO: can we canonicalize the paths earlier? Removing hadoopConf dependency
         val canonicalizeAdd = add.copy(
           dataChange = false,
           path = canonicalizePath(add.path, hadoopConf))
@@ -52,7 +51,6 @@ private[internal] class InMemoryLogReplay(hadoopConf: Configuration) {
         tombstones.remove(canonicalizeAdd.pathAsUri)
         sizeInBytes += canonicalizeAdd.size
       case remove: RemoveFile =>
-        // TODO: can we canonicalize the paths earlier? Removing hadoopConf dependency
         val canonicaleRemove = remove.copy(
           dataChange = false,
           path = canonicalizePath(remove.path, hadoopConf))
@@ -62,8 +60,7 @@ private[internal] class InMemoryLogReplay(hadoopConf: Configuration) {
         if (removedFile.isDefined) {
           sizeInBytes -= removedFile.get.size
         }
-      case _: CommitInfo => // do nothing
-      case _ => // Some crazy future feature. Ignore
+      case _ => // do nothing
     }
   }
 
