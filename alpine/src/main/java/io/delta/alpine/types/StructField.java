@@ -3,10 +3,10 @@ package io.delta.alpine.types;
 /**
  * A field inside a StructType.
  */
-public class StructField{
-    private String name;
-    private DataType dataType;
-    private boolean nullable;
+public final class StructField{
+    private final String name;
+    private final DataType dataType;
+    private final boolean nullable;
 
     /**
      * @param name The name of this field.
