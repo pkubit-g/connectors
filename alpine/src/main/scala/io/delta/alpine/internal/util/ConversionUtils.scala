@@ -18,12 +18,13 @@ package io.delta.alpine.internal.util
 
 import collection.JavaConverters._
 
-import io.delta.alpine.actions.{AddFile, Format, Metadata}
-import io.delta.alpine.internal.actions.{AddFile => AddFileInternal, Format => FormatInternal, Metadata => MetadataInternal}
+import io.delta.alpine.actions.{AddFile => AddFileJ, Format => FormatJ, Metadata => MetadataJ}
+import io.delta.alpine.internal.actions.{AddFile, Format, Metadata}
+
 
 private[internal] object ConversionUtils {
-  def convertAddFile(internal: AddFileInternal): AddFile = {
-    new AddFile(
+  def convertAddFile(internal: AddFile): AddFileJ = {
+    new AddFileJ(
       internal.path,
       internal.partitionValues.asJava,
       internal.size,
@@ -33,8 +34,8 @@ private[internal] object ConversionUtils {
       internal.tags.asJava)
   }
 
-  def convertMetadata(internal: MetadataInternal): Metadata = {
-    new Metadata(
+  def convertMetadata(internal: Metadata): MetadataJ = {
+    new MetadataJ(
       internal.id,
       internal.name,
       internal.description,
@@ -45,7 +46,7 @@ private[internal] object ConversionUtils {
       internal.schema)
   }
 
-  def convertFormat(internal: FormatInternal): Format = {
-    new Format(internal.provider, internal.options.asJava)
+  def convertFormat(internal: Format): FormatJ = {
+    new FormatJ(internal.provider, internal.options.asJava)
   }
 }
