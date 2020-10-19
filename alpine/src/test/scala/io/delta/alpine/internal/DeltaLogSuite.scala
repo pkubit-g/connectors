@@ -21,6 +21,7 @@ import java.io.{File, FileNotFoundException}
 import io.delta.alpine.internal.exception.{DeltaErrors => DeltaErrorsAlpine}
 import io.delta.alpine.internal.util.ConversionUtils
 import io.delta.tables.DeltaTable
+import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
 import org.apache.spark.network.util.JavaUtils
@@ -38,29 +39,16 @@ class DeltaLogSuite extends QueryTest
 
   private val testOp = ManualUpdate
 
+  private def withGoldenTable(name: String)(func: String => Unit): Unit = {
+    val tablePath = new File("../golden-tables/src/test/resources/golden", name).getCanonicalPath
+    func(tablePath)
+  }
+
   test("checkpoint") {
-    withTempDir { dir =>
-      val log1 = DeltaLogOSS.forTable(spark, new Path(dir.getCanonicalPath))
-
-      (1 to 15).foreach { i =>
-        val txn = log1.startTransaction()
-        val file = AddFile(i.toString, Map.empty, 1, 1, true) :: Nil
-        val delete: Seq[Action] = if (i > 1) {
-          RemoveFile(i - 1 toString, Some(System.currentTimeMillis()), true) :: Nil
-        } else {
-          Nil
-        }
-        txn.commit(delete ++ file, testOp)
-      }
-
-      DeltaLogOSS.clearCache()
-      val log2 = DeltaLogOSS.forTable(spark, new Path(dir.getCanonicalPath))
-      assert(log2.snapshot.version == log1.snapshot.version)
-      assert(log2.snapshot.allFiles.count == 1)
-
-      val hadoopConf = spark.sessionState.newHadoopConf()
-      val alpineLog = DeltaLogImpl.forTable(hadoopConf, new Path(dir.getCanonicalPath))
-      assert(alpineLog.snapshot.version == log1.snapshot.version)
+    withGoldenTable("checkpoint") { tablePath =>
+      val hadoopConf = new Configuration()
+      val alpineLog = DeltaLogImpl.forTable(hadoopConf, new Path(tablePath))
+      assert(alpineLog.snapshot.version == 14)
       assert(alpineLog.snapshot.allFilesScala.size == 1)
       assert(alpineLog.snapshot.numOfFiles == 1)
 //      assert(alpineLog.snapshot.numOfRemoves == 14)

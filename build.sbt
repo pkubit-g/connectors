@@ -317,3 +317,18 @@ lazy val alpine = (project in file("alpine")) settings (
       excludeAll (ExclusionRule("org.apache.hadoop"))
   )
 )
+
+lazy val goldenTables = (project in file("golden-tables")) settings (
+  name := "golden-tables",
+  commonSettings,
+
+  libraryDependencies ++= Seq(
+    // Test Dependencies
+    "org.scalatest" %% "scalatest" % "3.0.5" % "test",
+    "org.apache.spark" %% "spark-sql" % sparkVersion % "test",
+    "io.delta" %% "delta-core" % deltaVersion % "test",
+    "org.apache.spark" %% "spark-catalyst" % sparkVersion % "test" classifier "tests",
+    "org.apache.spark" %% "spark-core" % sparkVersion % "test" classifier "tests",
+    "org.apache.spark" %% "spark-sql" % sparkVersion % "test" classifier "tests"
+  )
+)
