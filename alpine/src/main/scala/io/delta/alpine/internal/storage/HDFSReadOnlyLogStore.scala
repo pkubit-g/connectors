@@ -22,12 +22,12 @@ import java.util.stream.Collectors
 
 import scala.collection.JavaConverters._
 
+import io.delta.alpine.ReadOnlyLogStore
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
 
-private[internal] class HDFSReadOnlyLogStore(hadoopConf: Configuration)
-    extends ReadOnlyLogStoreImpl {
+private[internal] class HDFSReadOnlyLogStore(hadoopConf: Configuration) extends ReadOnlyLogStore {
 
   override def read(path: Path): java.util.List[String] = {
     val fs = path.getFileSystem(hadoopConf)
