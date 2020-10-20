@@ -16,27 +16,51 @@
 
 package io.delta.alpine.internal
 
-import java.io.File
+import java.io.{BufferedReader, File, FileNotFoundException, InputStreamReader}
+import java.nio.charset.StandardCharsets.UTF_8
+import java.util.stream.Collectors
 
 import collection.JavaConverters._
 
-import io.delta.alpine.internal.storage.ReadOnlyLogStoreProvider
-import io.delta.alpine.internal.util.ConversionUtils
-import org.apache.hadoop.fs.Path
+import io.delta.alpine.internal.storage.{HDFSReadOnlyLogStore, ReadOnlyLogStoreProvider}
+import io.delta.alpine.sources.AlpineHadoopConf
+import io.delta.alpine.ReadOnlyLogStore
+import org.apache.commons.io.IOUtils
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileStatus, Path}
 
 import org.apache.spark.sql.delta.storage.LogStore
 import org.apache.spark.sql.QueryTest
 import org.apache.spark.sql.test.SharedSparkSession
 
-abstract class ReadOnlyLogStoreSuite extends QueryTest
+// TODO private[internal] ??
+abstract class ReadOnlyLogStoreSuiteBase extends QueryTest
     with ReadOnlyLogStoreProvider
-    with SharedSparkSession
-    with ConversionUtils {
+    with SharedSparkSession {
+
+  def logStoreClassName: Option[String]
+
+  def hadoopConf: Configuration = {
+    val conf = new Configuration()
+    if (logStoreClassName.isDefined) {
+      conf.set(AlpineHadoopConf.LOG_STORE_CLASS_KEY, logStoreClassName.get)
+    }
+    conf
+  }
+
+  test("instantiation through hadoopConf") {
+    if (logStoreClassName.isDefined) {
+      assert(hadoopConf.get(AlpineHadoopConf.LOG_STORE_CLASS_KEY) == logStoreClassName.get)
+      assert(createLogStore(hadoopConf).getClass.getName == logStoreClassName.get)
+    } else {
+      assert(createLogStore(hadoopConf).getClass.getName ==
+        ReadOnlyLogStoreProvider.defaultLogStoreClassName)
+    }
+  }
 
   test("read") {
     withTempDir { tempDir =>
       val writeStore = LogStore(spark.sparkContext)
-      val hadoopConf = spark.sessionState.newHadoopConf()
       val readStore = createLogStore(hadoopConf)
 
       val deltas = Seq(0, 1).map(i => new File(tempDir, i.toString)).map(_.getCanonicalPath)
@@ -51,7 +75,6 @@ abstract class ReadOnlyLogStoreSuite extends QueryTest
   test("listFrom") {
     withTempDir { tempDir =>
       val writeStore = LogStore(spark.sparkContext)
-      val hadoopConf = spark.sessionState.newHadoopConf()
       val readStore = createLogStore(hadoopConf)
 
       val deltas = Seq(0, 1, 2, 3, 4)
@@ -75,7 +98,52 @@ abstract class ReadOnlyLogStoreSuite extends QueryTest
   }
 }
 
-// TODO: better tests
-class HDFSReadOnlyLogStoreSuite extends ReadOnlyLogStoreSuite {
-//  override val logStoreClassName: String = classOf[HDFSReadOnlyLogStore].getName
+/**
+ * Test providing a system-defined (alpine.internal.storage) log store
+ */
+class HDFSReadOnlyLogStoreSuite extends ReadOnlyLogStoreSuiteBase {
+  override def logStoreClassName: Option[String] = Some(classOf[HDFSReadOnlyLogStore].getName)
+}
+
+/**
+ * Test not providing a log store class name, in which case [[ReadOnlyLogStoreProvider]] will use
+ * the default value
+ */
+class DefaultReadOnlyLogStoreSuite extends ReadOnlyLogStoreSuiteBase {
+  override def logStoreClassName: Option[String] = None
+}
+
+/**
+ * Test providing a user-defined log store
+ */
+class UserDefinedReadOnlyLogStoreSuite extends ReadOnlyLogStoreSuiteBase {
+  override def logStoreClassName: Option[String] =
+    Some(classOf[UserDefinedReadOnlyLogStore].getName)
+}
+
+/**
+ * Sample user-defined log store implementing public Java ABC [[ReadOnlyLogStore]]
+ */
+class UserDefinedReadOnlyLogStore(hadoopConf: Configuration) extends ReadOnlyLogStore {
+
+  override def read(path: Path): java.util.List[String] = {
+    val fs = path.getFileSystem(hadoopConf)
+    val stream = fs.open(path)
+    try {
+      val reader = new BufferedReader(new InputStreamReader(stream, UTF_8))
+      IOUtils.readLines(reader).stream().map[String](x => x.trim)
+        .collect(Collectors.toList[String])
+    } finally {
+      stream.close()
+    }
+  }
+
+  override def listFrom(path: Path): java.util.Iterator[FileStatus] = {
+    val fs = path.getFileSystem(hadoopConf)
+    if (!fs.exists(path.getParent)) {
+      throw new FileNotFoundException(s"No such file or directory: ${path.getParent}")
+    }
+    val files = fs.listStatus(path.getParent)
+    files.filter(_.getPath.getName >= path.getName).sortBy(_.getPath.getName).iterator.asJava
+  }
 }

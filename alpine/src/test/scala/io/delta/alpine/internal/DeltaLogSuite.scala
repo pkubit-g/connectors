@@ -61,7 +61,6 @@ class DeltaLogSuite extends QueryTest with SharedSparkSession with ConversionUti
       assert(alpineLog.snapshot.version == log1.snapshot.version)
       assert(alpineLog.snapshot.allFilesScala.size == 1)
       assert(alpineLog.snapshot.numOfFiles == 1)
-//      assert(alpineLog.snapshot.numOfRemoves == 14)
     }
   }
 
