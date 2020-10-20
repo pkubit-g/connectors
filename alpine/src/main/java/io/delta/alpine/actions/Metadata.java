@@ -1,19 +1,20 @@
 package io.delta.alpine.actions;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
 import io.delta.alpine.types.StructType;
 
-public class Metadata {
-    private String id;
-    private String name;
-    private String description;
-    private Format format;
-    private String schemaString;
-    private List<String> partitionColumns;
-    private Optional<Long> createdTime;
-    private StructType schema;
+public final class Metadata {
+    private final String id;
+    private final String name;
+    private final String description;
+    private final Format format;
+    private final String schemaString;
+    private final List<String> partitionColumns;
+    private final Optional<Long> createdTime;
+    private final StructType schema;
 
     public Metadata(String id, String name, String description, Format format, String schemaString,
                     List<String> partitionColumns, Optional<Long> createdTime, StructType schema) {
@@ -48,7 +49,7 @@ public class Metadata {
     }
 
     public List<String> getPartitionColumns() {
-        return partitionColumns;
+        return Collections.unmodifiableList(partitionColumns);
     }
 
     public Optional<Long> getCreatedTime() {

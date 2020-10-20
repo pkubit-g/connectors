@@ -3,9 +3,9 @@ package io.delta.alpine.types;
 import java.util.Arrays;
 import java.util.HashMap;
 
-public class StructType extends DataType {
-    private StructField[] fields;
-    private HashMap<String, StructField> nameToField;
+public final class StructType extends DataType {
+    private final StructField[] fields;
+    private final HashMap<String, StructField> nameToField;
 
     public StructType(StructField[] fields) {
         this.fields = fields;
@@ -16,7 +16,7 @@ public class StructType extends DataType {
     }
 
     public StructField[] getFields() {
-        return fields;
+        return fields.clone();
     }
 
     public String[] getFieldNames() {

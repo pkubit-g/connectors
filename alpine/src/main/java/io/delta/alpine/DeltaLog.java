@@ -11,7 +11,6 @@ public interface DeltaLog {
     Snapshot update();
     Snapshot getSnapshotForVersionAsOf(long version);
     Snapshot getSnapshotForTimestampAsOf(long timestamp);
-    Configuration getHadoopConf();
     Path getLogPath();
     Path getDataPath();
 

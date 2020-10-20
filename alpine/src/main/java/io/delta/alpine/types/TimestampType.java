@@ -1,3 +1,3 @@
 package io.delta.alpine.types;
 
-public class TimestampType extends DataType { }
+public final class TimestampType extends DataType { }
