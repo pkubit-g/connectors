@@ -1,6 +1,5 @@
 package io.delta.alpine.types;
 
-import java.util.Arrays;
 import java.util.Locale;
 
 public abstract class DataType {

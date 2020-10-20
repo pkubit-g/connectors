@@ -18,10 +18,12 @@ package io.delta.alpine.internal.exception
 
 import java.io.FileNotFoundException
 
+import io.delta.alpine.types.StructType
 import org.apache.hadoop.fs.Path
 
 private[internal] object DeltaErrors {
 
+  // TODO make this RuntimeException?
   class DeltaTimeTravelException(message: String) extends Exception(message)
 
   def deltaVersionsNotContiguousException(deltaVersions: Seq[Long]): Throwable = {
@@ -74,5 +76,15 @@ private[internal] object DeltaErrors {
   def versionNotExistException(userVersion: Long, earliest: Long, latest: Long): Throwable = {
     new DeltaTimeTravelException(s"Cannot time travel Delta table to version $userVersion. " +
       s"Available versions: [$earliest, $latest].")
+  }
+
+  def noFieldFoundInSchema(fieldName: String, schema: StructType): Throwable = {
+    new IllegalArgumentException(s"No matching schema column for field $fieldName. " +
+      s"Schema: ${schema.getTreeString}")
+  }
+
+  def nullValueFoundForNonNullSchemaField(fieldName: String, schema: StructType): Throwable = {
+    new RuntimeException(s"Read a null value for field $fieldName, yet schema indicates " +
+      s"that this field can't be null. Schema: ${schema.getTreeString}")
   }
 }

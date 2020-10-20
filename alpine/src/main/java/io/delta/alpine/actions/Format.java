@@ -1,10 +1,11 @@
 package io.delta.alpine.actions;
 
+import java.util.Collections;
 import java.util.Map;
 
-public class Format {
-    private String provider;
-    private Map<String, String> options;
+public final class Format {
+    private final String provider;
+    private final Map<String, String> options;
 
     public Format(String provider, Map<String, String> options) {
         this.provider = provider;
@@ -16,6 +17,6 @@ public class Format {
     }
 
     public Map<String, String> getOptions() {
-        return options;
+        return Collections.unmodifiableMap(options);
     }
 }

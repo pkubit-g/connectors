@@ -24,7 +24,10 @@ import com.github.mjakubowski84.parquet4s.ParquetReader
 import io.delta.alpine
 import io.delta.alpine.internal.actions._
 import io.delta.alpine.{DeltaLog, Snapshot}
+import io.delta.alpine.data.{CloseableIterator, RowParquetRecord => RowParquetRecordJ}
+import io.delta.alpine.internal.data.CloseableParquetDataIterator
 import io.delta.alpine.internal.util.{ConversionUtils, JsonUtils}
+import io.delta.alpine.sources.AlpineHadoopConf
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
@@ -42,27 +45,30 @@ private[internal] class SnapshotImpl(
 
   override def getNumOfFiles: Int = state.activeFiles.size
 
-  override def getMinReaderVersion: Int = state.protocol.minReaderVersion
-
   override def getMetadata: alpine.actions.Metadata =
     ConversionUtils.convertMetadata(state.metadata)
 
-  override def getHadoopConf: Configuration = hadoopConf
   override def getPath: Path = path
   override def getVersion: Long = version
   override def getDeltaLog: DeltaLog = deltaLog
   override def getTimestamp: Long = timestamp
 
+  override def open(): CloseableIterator[RowParquetRecordJ] =
+    CloseableParquetDataIterator(
+      allFilesScala.map(_.path),
+      deltaLog.dataPath.toString,
+      getMetadata.getSchema,
+      hadoopConf.get(AlpineHadoopConf.PARQUET_DATA_TIME_ZONE_ID))
+
   def allFilesScala: Seq[AddFile] = state.activeFiles.values.toSeq
   def protocolScala: Protocol = state.protocol
   def metadataScala: Metadata = state.metadata
 
-  def setTransactions: Seq[SetTransaction] = state.setTransactions
+  // TODO: remove unused methods
   def sizeInBytes: Long = state.sizeInBytes
   def numOfFiles: Long = state.numOfFiles
   def numOfMetadata: Long = state.numOfMetadata
   def numOfProtocol: Long = state.numOfProtocol
-  def numOfSetTransactions: Long = state.numOfSetTransactions
 
   private def load(paths: Seq[Path]): Seq[SingleAction] = {
     paths.map(_.toString).sortWith(_ < _).par.flatMap { path =>
@@ -81,8 +87,8 @@ private[internal] class SnapshotImpl(
     val replay = new InMemoryLogReplay(hadoopConf)
     val files = (logSegment.deltas ++ logSegment.checkpoints).map(_.getPath)
 
-    // assertLogBelongsToTable
-    files.foreach {f =>
+    // assert log belongs to table
+    files.foreach { f =>
       if (f.toString.isEmpty || f.getParent != new Path(logPathURI)) {
         // scalastyle:off throwerror
         throw new AssertionError(s"File (${f.toString}) doesn't belong in the " +
@@ -98,13 +104,11 @@ private[internal] class SnapshotImpl(
     State(
       replay.currentProtocolVersion,
       replay.currentMetaData,
-      replay.getTransactions.values.toSeq,
       replay.getActiveFiles,
       replay.sizeInBytes,
       replay.getActiveFiles.size,
       replay.numMetadata,
-      replay.numProtocol,
-      replay.getTransactions.size
+      replay.numProtocol
     )
   }
 }
@@ -125,13 +129,11 @@ object SnapshotImpl {
   case class State(
       protocol: Protocol,
       metadata: Metadata,
-      setTransactions: Seq[SetTransaction],
       activeFiles: scala.collection.immutable.Map[URI, AddFile],
       sizeInBytes: Long,
       numOfFiles: Long,
       numOfMetadata: Long,
-      numOfProtocol: Long,
-      numOfSetTransactions: Long)
+      numOfProtocol: Long)
 }
 
 class InitialSnapshotImpl(
@@ -152,8 +154,7 @@ class InitialSnapshotImpl(
     SnapshotImpl.State(
       Protocol(),
       metadata,
-      Nil,
       Map.empty[URI, AddFile],
-      0L, 0L, 1L, 1L, 0L)
+      0L, 0L, 1L, 1L)
   }
 }

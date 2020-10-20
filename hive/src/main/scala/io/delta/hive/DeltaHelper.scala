@@ -26,9 +26,14 @@ import scala.util.control.NonFatal
 import io.delta.alpine.actions.AddFile
 import io.delta.alpine.types._
 import io.delta.alpine.{DeltaLog, Snapshot}
+
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{BlockLocation, FileStatus, FileSystem, LocatedFileStatus, Path}
 import org.apache.hadoop.hive.metastore.api.MetaException
+import org.apache.hadoop.hive.ql.exec.{ExprNodeEvaluatorFactory, SerializationUtilities}
+import org.apache.hadoop.hive.ql.plan.{ExprNodeGenericFuncDesc, TableScanDesc}
+import org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory
+import org.apache.hadoop.hive.serde2.objectinspector.{ObjectInspector, ObjectInspectorConverters, ObjectInspectorFactory, PrimitiveObjectInspector}
 import org.apache.hadoop.hive.serde2.typeinfo._
 import org.apache.hadoop.mapred.JobConf
 import org.slf4j.LoggerFactory
@@ -68,13 +73,14 @@ object DeltaHelper {
         partitionColumns.contains(t.getName)
       }.sortBy(_._2)
 
-    val files = snapshotToUse
-      .getAllFiles
-      .asScala
-      .map { f =>
+    val files = prunePartitions(
+        job.get(TableScanDesc.FILTER_EXPR_CONF_STR),
+        partitionColumnWithIndex.map(_._1),
+        snapshotToUse.getAllFiles.asScala
+      ).map { addF =>
         // Drop unused potential huge fields
-        f.setStatsNull()
-        f.setTagsNull()
+        val f = new AddFile(addF.getPath, addF.getPartitionValues, addF.getSize,
+          addF.getModificationTime, addF.isDataChange, null, null)
 
         val status = toFileStatus(fs, rootPath, f, blockSize)
         localFileToPartition +=
@@ -274,11 +280,13 @@ object DeltaHelper {
     path: Path,
     snapshot: Snapshot,
     durationMs: Long): Unit = {
-    LOG.info(s"Delta Lake table '${hideUserInfoInPath(path)}' (" +
-      s"version: ${snapshot.getVersion}, " +
-      s"add: ${snapshot.getNumOfFiles}, " +
-      s"partitions: ${snapshot.getMetadata.getPartitionColumns.asScala.mkString("[", ", ", "]")}" +
-      s") spent ${durationMs} ms on $ops.")
+    if (LOG.isInfoEnabled) {
+      LOG.info(s"Delta Lake table '${hideUserInfoInPath(path)}' (" +
+        s"version: ${snapshot.getVersion}, " +
+        s"add: ${snapshot.getNumOfFiles}, " +
+        s"partitions: ${snapshot.getMetadata.getPartitionColumns.asScala.mkString("[", ", ", "]")}"
+        + s") spent ${durationMs} ms on $ops.")
+    }
   }
 
   /** Strip out user information to avoid printing credentials to logs. */
@@ -295,5 +303,64 @@ object DeltaHelper {
         LOG.error("Path contains illegal format: " + path, e)
         path
     }
+  }
+
+  /**
+   * Evaluate the partition filter and return `AddFile`s which should be read after pruning
+   * partitions.
+   */
+  def prunePartitions(
+      serializedFilterExpr: String,
+      partitionSchema: Seq[StructField],
+      addFiles: Seq[AddFile]): Seq[AddFile] = {
+    if (serializedFilterExpr == null) {
+      addFiles
+    } else {
+      val filterExprDesc = SerializationUtilities.deserializeExpression(serializedFilterExpr)
+      addFiles.groupBy { addFile =>
+        addFile.getPartitionValues
+      }.filterKeys { partition =>
+        evalPartitionFilter(
+          filterExprDesc,
+          partitionSchema.map(field => field.getName -> field.getDataType.getCatalogString).toMap,
+          partition.asScala)
+      }.values.toVector.flatten
+    }
+  }
+
+  /** Evaluate the partition filter on `partitionValues` and return the result. */
+  private def evalPartitionFilter(
+      filterExprDesc: ExprNodeGenericFuncDesc,
+      partitionSchema: Map[String, String],
+      partitionValues: scala.collection.Map[String, String]): Boolean = {
+    val numPartitionColumns = partitionValues.size
+    assert(
+      numPartitionColumns == partitionSchema.size,
+      s"the size of partition schema is not the same as $partitionValues")
+    val partNames = new java.util.ArrayList[String](numPartitionColumns)
+    val partValues = new java.util.ArrayList[Object](numPartitionColumns)
+    val partObjectInspectors = new java.util.ArrayList[ObjectInspector](numPartitionColumns)
+    for ((partName, partValue) <- partitionValues) {
+      val oi = PrimitiveObjectInspectorFactory.getPrimitiveWritableObjectInspector(
+        TypeInfoFactory.getPrimitiveTypeInfo(partitionSchema(partName)))
+      partObjectInspectors.add(oi)
+      partValues.add(ObjectInspectorConverters.getConverter(
+        PrimitiveObjectInspectorFactory.javaStringObjectInspector,
+        oi).convert(partValue))
+      partNames.add(partName)
+    }
+
+    val partObjectInspector = ObjectInspectorFactory
+      .getStandardStructObjectInspector(partNames, partObjectInspectors)
+
+    val filterExpr = ExprNodeEvaluatorFactory.get(filterExprDesc)
+    val evaluatedResultOI = filterExpr.initialize(partObjectInspector)
+    val result = evaluatedResultOI
+      .asInstanceOf[PrimitiveObjectInspector]
+      .getPrimitiveJavaObject(filterExpr.evaluate(partValues))
+    if (LOG.isDebugEnabled) {
+      LOG.debug(s"$filterExprDesc on partition $partitionValues returned $result")
+    }
+    java.lang.Boolean.TRUE == result
   }
 }

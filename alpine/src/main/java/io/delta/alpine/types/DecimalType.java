@@ -9,11 +9,11 @@ package io.delta.alpine.types;
  *
  * The default precision and scale is (10, 0).
  */
-public class DecimalType extends DataType {
-    public static DecimalType USER_DEFAULT = new DecimalType(10, 0);
+public final class DecimalType extends DataType {
+    public static final DecimalType USER_DEFAULT = new DecimalType(10, 0);
 
-    private int precision;
-    private int scale;
+    private final int precision;
+    private final int scale;
 
     public DecimalType(int precision, int scale) {
         this.precision = precision;
