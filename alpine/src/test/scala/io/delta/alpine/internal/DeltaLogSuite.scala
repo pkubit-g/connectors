@@ -313,13 +313,13 @@ class DeltaLogSuite extends QueryTest with SharedSparkSession with ConversionUti
       val log = DeltaLogOSS.forTable(spark, dir)
       assert(new File(log.logPath.toUri).mkdirs())
 
-      val add1 = AddFile("foo", Map.empty, 1L, System.currentTimeMillis(), dataChange = true)
+      val add1 = AddFile("foo", Map.empty, 1L, 1600000000000L, dataChange = true)
       log.startTransaction().commit(add1 :: Nil, testOp)
 
       val rm = add1.remove
       log.startTransaction().commit(rm :: Nil, testOp)
 
-      val add2 = AddFile("foo", Map.empty, 1L, System.currentTimeMillis(), dataChange = true)
+      val add2 = AddFile("foo", Map.empty, 1L, 1700000000000L, dataChange = true)
       log.startTransaction().commit(add2 :: Nil, testOp)
 
       // Add a new transaction to replay logs using the previous snapshot. If it contained

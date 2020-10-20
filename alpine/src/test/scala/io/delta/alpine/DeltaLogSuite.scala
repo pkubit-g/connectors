@@ -1,5 +1,6 @@
 package io.delta.alpine
 
+import collection.JavaConverters._
 import java.io.File
 
 import org.apache.hadoop.conf.Configuration
@@ -132,6 +133,17 @@ class DeltaLogSuite extends FunSuite {
     withLogForGoldenTable("canonicalized-paths-special-b") { (log, tablePath) =>
       assert(log.update().getVersion == 1)
       assert(log.snapshot.getNumOfFiles == 0)
+    }
+  }
+
+  test("delete and re-add the same file in different transactions") {
+    withLogForGoldenTable("delete-re-add-same-file-different-transactions") { (log, tablePath) =>
+      assert(log.snapshot().getAllFiles.size() == 2)
+
+      // We added two add files with the same path `foo`. The first should have been removed.
+      // The second should remain, and should have a hard-coded modification time of 1700000000000L
+      assert(log.snapshot().getAllFiles.asScala.find(_.getPath == "foo").get.getModificationTime
+        == 1700000000000L)
     }
   }
 }

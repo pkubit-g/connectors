@@ -1,0 +1,3 @@
+{"commitInfo":{"timestamp":1603229353652,"operation":"Manual Update","operationParameters":{},"isBlindAppend":true}}
+{"protocol":{"minReaderVersion":1,"minWriterVersion":2}}
+{"add":{"path":"foo","partitionValues":{},"size":1,"modificationTime":1600000000000,"dataChange":true}}

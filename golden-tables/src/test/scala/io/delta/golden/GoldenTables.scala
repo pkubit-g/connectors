@@ -189,4 +189,27 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     helper("file:", new Path("/some/unqualified/with space/p@#h").toUri.toString, "special-a")
     helper("file://", new Path("/some/unqualified/with space/p@#h").toUri.toString, "special-b")
   }
+
+  ///////////////////////////////////////////////////////////////////////////
+  // TEST: io.delta.alpine.DeltaLogSuite >
+  // delete and re-add the same file in different transactions
+  ///////////////////////////////////////////////////////////////////////////
+  generateGoldenTable(s"delete-re-add-same-file-different-transactions") { tablePath =>
+    val log = DeltaLog.forTable(spark, new Path(tablePath))
+    assert(new File(log.logPath.toUri).mkdirs())
+
+    val add1 = AddFile("foo", Map.empty, 1L, 1600000000000L, dataChange = true)
+    log.startTransaction().commit(add1 :: Nil, testOp)
+
+    val rm = add1.remove
+    log.startTransaction().commit(rm :: Nil, testOp)
+
+    val add2 = AddFile("foo", Map.empty, 1L, 1700000000000L, dataChange = true)
+    log.startTransaction().commit(add2 :: Nil, testOp)
+
+    // Add a new transaction to replay logs using the previous snapshot. If it contained
+    // AddFile("foo") and RemoveFile("foo"), "foo" would get removed and fail this test.
+    val otherAdd = AddFile("bar", Map.empty, 1L, System.currentTimeMillis(), dataChange = true)
+    log.startTransaction().commit(otherAdd :: Nil, testOp)
+  }
 }
