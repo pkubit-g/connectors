@@ -3,6 +3,7 @@ package io.delta.alpine
 import java.io.File
 
 import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.Path
 
 // scalastyle:off funsuite
 import org.scalatest.FunSuite
@@ -93,6 +94,16 @@ class DeltaLogSuite extends FunSuite {
       // all remaining dir data files should be needed for current snapshot version
       // vacuum doesn't change the snapshot version
       verifySnapshot(log.snapshot(), getDirDataFiles(tablePath), 5)
+    }
+  }
+
+  test("SC-8078: update deleted directory") {
+    withLogForGoldenTable("update-deleted-directory") { (log, tablePath) =>
+      val path = new Path(tablePath)
+      val fs = path.getFileSystem(new Configuration())
+      fs.delete(path, true)
+
+      assert(log.update().getVersion == -1)
     }
   }
 }

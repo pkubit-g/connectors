@@ -70,6 +70,7 @@ class GoldenTables extends QueryTest with SharedSparkSession {
   ///////////////////////////////////////////////////////////////////////////
   // TEST: io.delta.alpine.DeltaLogSuite > checkpoint
   ///////////////////////////////////////////////////////////////////////////
+
   generateGoldenTable("checkpoint") { tablePath =>
     val log = DeltaLog.forTable(spark, new Path(tablePath))
     (1 to 15).foreach { i =>
@@ -87,6 +88,7 @@ class GoldenTables extends QueryTest with SharedSparkSession {
   ///////////////////////////////////////////////////////////////////////////
   // TEST: io.delta.alpine.DeltaLogSuite > snapshot
   ///////////////////////////////////////////////////////////////////////////
+
   private def writeData(data: Seq[(Int, String)], mode: String, tablePath: String): Unit = {
     data.toDS
       .toDF("col1", "col2")
@@ -138,5 +140,17 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     withSQLConf(DeltaSQLConf.DELTA_VACUUM_RETENTION_CHECK_ENABLED.key -> "false") {
       DeltaTable.forPath(spark, tablePath).vacuum(0.0)
     }
+  }
+
+  ///////////////////////////////////////////////////////////////////////////
+  // TEST: io.delta.alpine.DeltaLogSuite > SC-8078: update deleted directory
+  ///////////////////////////////////////////////////////////////////////////
+
+  generateGoldenTable("update-deleted-directory") { tablePath =>
+    val log = DeltaLog.forTable(spark, new Path(tablePath))
+    val txn = log.startTransaction()
+    val files = (1 to 10).map(f => AddFile(f.toString, Map.empty, 1, 1, true))
+    txn.commit(files, testOp)
+    log.checkpoint()
   }
 }
