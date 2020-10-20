@@ -25,8 +25,9 @@ import org.apache.spark.network.util.JavaUtils
 import org.apache.spark.sql.delta.DeltaLog
 import org.apache.spark.sql.QueryTest
 import org.apache.spark.sql.delta.DeltaOperations.ManualUpdate
-import org.apache.spark.sql.delta.actions.{Action, AddFile, RemoveFile}
+import org.apache.spark.sql.delta.actions.{Action, AddFile, Metadata, Protocol, RemoveFile}
 import org.apache.spark.sql.delta.sources.DeltaSQLConf
+import org.apache.spark.sql.delta.util.{FileNames, JsonUtils}
 import org.apache.spark.sql.test.SharedSparkSession
 
 /**
@@ -70,7 +71,6 @@ class GoldenTables extends QueryTest with SharedSparkSession {
   ///////////////////////////////////////////////////////////////////////////
   // TEST: io.delta.alpine.DeltaLogSuite > checkpoint
   ///////////////////////////////////////////////////////////////////////////
-
   generateGoldenTable("checkpoint") { tablePath =>
     val log = DeltaLog.forTable(spark, new Path(tablePath))
     (1 to 15).foreach { i =>
@@ -88,7 +88,6 @@ class GoldenTables extends QueryTest with SharedSparkSession {
   ///////////////////////////////////////////////////////////////////////////
   // TEST: io.delta.alpine.DeltaLogSuite > snapshot
   ///////////////////////////////////////////////////////////////////////////
-
   private def writeData(data: Seq[(Int, String)], mode: String, tablePath: String): Unit = {
     data.toDS
       .toDF("col1", "col2")
@@ -145,12 +144,49 @@ class GoldenTables extends QueryTest with SharedSparkSession {
   ///////////////////////////////////////////////////////////////////////////
   // TEST: io.delta.alpine.DeltaLogSuite > SC-8078: update deleted directory
   ///////////////////////////////////////////////////////////////////////////
-
   generateGoldenTable("update-deleted-directory") { tablePath =>
     val log = DeltaLog.forTable(spark, new Path(tablePath))
     val txn = log.startTransaction()
     val files = (1 to 10).map(f => AddFile(f.toString, Map.empty, 1, 1, true))
     txn.commit(files, testOp)
     log.checkpoint()
+  }
+
+  ///////////////////////////////////////////////////////////////////////////
+  // TEST: io.delta.alpine.DeltaLogSuite >
+  // update shouldn't pick up delta files earlier than checkpoint
+  ///////////////////////////////////////////////////////////////////////////
+
+  // TODO
+
+  ///////////////////////////////////////////////////////////////////////////
+  // TEST: io.delta.alpine.DeltaLogSuite > paths should be canonicalized
+  ///////////////////////////////////////////////////////////////////////////
+  {
+    def helper(scheme: String, path: String, tableSuffix: String): Unit = {
+      generateGoldenTable(s"canonicalized-paths-$tableSuffix") { tablePath =>
+        val log = DeltaLog.forTable(spark, new Path(tablePath))
+        new File(log.logPath.toUri).mkdirs()
+
+        val add = AddFile(path, Map.empty, 100L, 10L, dataChange = true)
+        val rm = RemoveFile(s"$scheme$path", Some(200L), dataChange = false)
+
+        log.store.write(
+          FileNames.deltaFile(log.logPath, 0L),
+          Iterator(Protocol(), Metadata(), add).map(a => JsonUtils.toJson(a.wrap)))
+        log.store.write(
+          FileNames.deltaFile(log.logPath, 1L),
+          Iterator(JsonUtils.toJson(rm.wrap)))
+      }
+    }
+
+
+    // normal characters
+    helper("file:", "/some/unqualified/absolute/path", "normal-a")
+    helper("file://", "/some/unqualified/absolute/path", "normal-b")
+
+    // special characters
+    helper("file:", new Path("/some/unqualified/with space/p@#h").toUri.toString, "special-a")
+    helper("file://", new Path("/some/unqualified/with space/p@#h").toUri.toString, "special-b")
   }
 }

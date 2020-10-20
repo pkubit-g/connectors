@@ -1,5 +1,0 @@
-{"commitInfo":{"timestamp":1603221588476,"operation":"WRITE","operationParameters":{"mode":"Append","partitionBy":"[]"},"isBlindAppend":true}}
-{"protocol":{"minReaderVersion":1,"minWriterVersion":2}}
-{"metaData":{"id":"265c454c-f0a4-45c4-b0ff-1e846ad6e4b6","format":{"provider":"parquet","options":{}},"schemaString":"{\"type\":\"struct\",\"fields\":[{\"name\":\"col1\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}},{\"name\":\"col2\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}]}","partitionColumns":[],"configuration":{},"createdTime":1603221588361}}
-{"add":{"path":"part-00000-7354b214-6135-428b-8201-dfa96a33404a-c000.snappy.parquet","partitionValues":{},"size":650,"modificationTime":1603221588000,"dataChange":true}}
-{"add":{"path":"part-00001-33e0edaf-d985-4b7f-ac7f-33e3c911ef49-c000.snappy.parquet","partitionValues":{},"size":650,"modificationTime":1603221588000,"dataChange":true}}

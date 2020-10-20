@@ -106,4 +106,32 @@ class DeltaLogSuite extends FunSuite {
       assert(log.update().getVersion == -1)
     }
   }
+
+  test("update shouldn't pick up delta files earlier than checkpoint") {
+    // TODO
+  }
+
+  test("paths should be canonicalized - normal characters") {
+    withLogForGoldenTable("canonicalized-paths-normal-a") { (log, tablePath) =>
+      assert(log.update().getVersion == 1)
+      assert(log.snapshot.getNumOfFiles == 0)
+    }
+
+    withLogForGoldenTable("canonicalized-paths-normal-b") { (log, tablePath) =>
+      assert(log.update().getVersion == 1)
+      assert(log.snapshot.getNumOfFiles == 0)
+    }
+  }
+
+  test("paths should be canonicalized - special characters") {
+    withLogForGoldenTable("canonicalized-paths-special-a") { (log, tablePath) =>
+      assert(log.update().getVersion == 1)
+      assert(log.snapshot.getNumOfFiles == 0)
+    }
+
+    withLogForGoldenTable("canonicalized-paths-special-b") { (log, tablePath) =>
+      assert(log.update().getVersion == 1)
+      assert(log.snapshot.getNumOfFiles == 0)
+    }
+  }
 }
