@@ -283,19 +283,27 @@ class GoldenTables extends QueryTest with SharedSparkSession {
 
   val start = 1540415658000L
 
-  /** TEST: DeltaTimeTravelSuite > versionAsOf */
-  generateGoldenTable("time-travel-versionAsOf-version-0") { tablePath =>
+  generateGoldenTable("time-travel-start") { tablePath =>
     generateCommits(tablePath, start)
   }
 
-  generateGoldenTable("time-travel-versionAsOf-version-1") { tablePath =>
-    copyDir("time-travel-versionAsOf-version-0", "time-travel-versionAsOf-version-1")
+  generateGoldenTable("time-travel-start-start20") { tablePath =>
+    copyDir("time-travel-start", "time-travel-start-start20")
     generateCommits(tablePath, start + 20.minutes)
   }
 
-  generateGoldenTable("time-travel-versionAsOf-version-2") { tablePath =>
-    copyDir("time-travel-versionAsOf-version-1", "time-travel-versionAsOf-version-2")
+  generateGoldenTable("time-travel-start-start20-start40") { tablePath =>
+    copyDir("time-travel-start-start20", "time-travel-start-start20-start40")
     generateCommits(tablePath, start + 40.minutes)
   }
 
+  generateGoldenTable("time-travel-schema-changes-a") { tablePath =>
+    spark.range(10).write.format("delta").mode("append").save(tablePath)
+  }
+
+  generateGoldenTable("time-travel-schema-changes-b") { tablePath =>
+    copyDir("time-travel-schema-changes-a", "time-travel-schema-changes-b")
+    spark.range(10, 20).withColumn("part", 'id)
+      .write.format("delta").mode("append").option("mergeSchema", true).save(tablePath)
+  }
 }

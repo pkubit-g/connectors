@@ -18,16 +18,34 @@ package io.delta.alpine.internal
 
 // scalastyle:off funsuite
 import java.io.File
+import java.sql.Timestamp
 
-import io.delta.alpine.{DeltaLog, Snapshot}
+import scala.concurrent.duration._
+import scala.language.implicitConversions
+
+import io.delta.alpine.Snapshot
 import io.delta.alpine.internal.exception.DeltaErrors
 import io.delta.alpine.internal.util.GoldenTableUtils._
 import org.scalatest.FunSuite
 
-import org.apache.spark.sql.delta.util.FileNames
-
+/**
+ * Instead of using Spark in this project to WRITE data and log files for tests, we have
+ * io.delta.golden.GoldenTables do it instead. During tests, we then refer by name to specific
+ * golden tables that that class is responsible for generating ahead of time. This allows us to
+ * focus on READING only so that we may fully decouple from Spark and not have it as a dependency.
+ *
+ * See io.delta.golden.GoldenTables for documentation on how to ensure that the needed files have
+ * been generated.
+ */
 class DeltaTimeTravelSuite extends FunSuite {
   // scalastyle:on funsuite
+
+  /** Same start time as used in GoldenTables */
+  private val start = 1540415658000L
+
+  private implicit def durationToLong(duration: FiniteDuration): Long = {
+    duration.toMillis
+  }
 
   private def getDirDataFiles(tablePath: String): Array[File] = {
     val dir = new File(tablePath)
@@ -44,28 +62,28 @@ class DeltaTimeTravelSuite extends FunSuite {
       snapshot.getAllFiles.stream().allMatch(f => expectedFiles.exists(_.getName == f.getPath)))
   }
 
+  var start_data_files: Array[File] = Array.empty
+  var start_start20_data_files: Array[File] = Array.empty
+  var start_start20_start40_data_files: Array[File] = Array.empty
+
+  withGoldenTable("time-travel-start") { tablePath =>
+    start_data_files = getDirDataFiles(tablePath)
+  }
+
+  withGoldenTable("time-travel-start-start20") { tablePath =>
+    start_start20_data_files = getDirDataFiles(tablePath)
+  }
+
+  withGoldenTable("time-travel-start-start20-start40") { tablePath =>
+    start_start20_start40_data_files = getDirDataFiles(tablePath)
+  }
+
   test("versionAsOf") {
-    var correct_version0_data_files: Array[File] = Array.empty
-    var correct_version1_data_files: Array[File] = Array.empty
-    var correct_version2_data_files: Array[File] = Array.empty
-
-    withGoldenTable("time-travel-versionAsOf-version-0") { tablePath =>
-      correct_version0_data_files = getDirDataFiles(tablePath)
-    }
-
-    withGoldenTable("time-travel-versionAsOf-version-1") { tablePath =>
-      correct_version1_data_files = getDirDataFiles(tablePath)
-    }
-
-    withGoldenTable("time-travel-versionAsOf-version-2") { tablePath =>
-      correct_version2_data_files = getDirDataFiles(tablePath)
-    }
-
-    withLogForGoldenTable("time-travel-versionAsOf-version-2") { (log, tablePath) =>
+    withLogForGoldenTable("time-travel-start-start20-start40") { (log, tablePath) =>
       // Correct cases
-      verifySnapshot(log.getSnapshotForVersionAsOf(0), correct_version0_data_files, 0)
-      verifySnapshot(log.getSnapshotForVersionAsOf(1), correct_version1_data_files, 1)
-      verifySnapshot(log.getSnapshotForVersionAsOf(2), correct_version2_data_files, 2)
+      verifySnapshot(log.getSnapshotForVersionAsOf(0), start_data_files, 0)
+      verifySnapshot(log.getSnapshotForVersionAsOf(1), start_start20_data_files, 1)
+      verifySnapshot(log.getSnapshotForVersionAsOf(2), start_start20_start40_data_files, 2)
 
       // Error case - version after latest commit
       val e1 = intercept[DeltaErrors.DeltaTimeTravelException] {
@@ -80,11 +98,59 @@ class DeltaTimeTravelSuite extends FunSuite {
       assert(e2.getMessage == DeltaErrors.versionNotExistException(-1, 0, 2).getMessage)
 
       // Error case - not reproducible
-      new File(FileNames.deltaFile(log.getLogPath, 0).toUri).delete()
-      val e3 = intercept[DeltaErrors.DeltaTimeTravelException] {
-        log.getSnapshotForVersionAsOf(-1)
+      // TODO need to copy the directory
+//      new File(FileNames.deltaFile(log.getLogPath, 0).toUri).delete()
+//      val e3 = intercept[DeltaErrors.DeltaTimeTravelException] {
+//        log.getSnapshotForVersionAsOf(0)
+//      }
+//      assert(e3.getMessage == DeltaErrors.noReproducibleHistoryFound(log.getLogPath).getMessage)
+    }
+  }
+
+  test("timestampAsOf with timestamp in between commits - should use commit before timestamp") {
+    withLogForGoldenTable("time-travel-start-start20-start40") { (log, tablePath) =>
+      verifySnapshot(
+        log.getSnapshotForTimestampAsOf(start + 10.minutes), start_data_files, 0)
+      verifySnapshot(
+        log.getSnapshotForTimestampAsOf(start + 30.minutes), start_start20_data_files, 1)
+    }
+  }
+
+  test("timestampAsOf with timestamp after last commit should fail") {
+    withLogForGoldenTable("time-travel-start-start20-start40") { (log, tablePath) =>
+      val e = intercept[DeltaErrors.DeltaTimeTravelException] {
+        log.getSnapshotForTimestampAsOf(start + 50.minutes) // later by 10 mins
       }
-      assert(e3.getMessage == DeltaErrors.noReproducibleHistoryFound(log.getLogPath).getMessage)
+
+      val latestTimestamp = new Timestamp(start + 40.minutes)
+      val usrTimestamp = new Timestamp(start + 50.minutes)
+      assert(e.getMessage ==
+        DeltaErrors.timestampLaterThanTableLastCommit(usrTimestamp, latestTimestamp).getMessage)
+    }
+  }
+
+  test("timestampAsOf with timestamp on exact commit timestamp") {
+    withLogForGoldenTable("time-travel-start-start20-start40") { (log, tablePath) =>
+      verifySnapshot(
+        log.getSnapshotForTimestampAsOf(start), start_data_files, 0)
+      verifySnapshot(
+        log.getSnapshotForTimestampAsOf(start + 20.minutes), start_start20_data_files, 1)
+      verifySnapshot(
+        log.getSnapshotForTimestampAsOf(start + 40.minutes), start_start20_start40_data_files, 2)
+    }
+  }
+
+  test("time travel with schema changes - should instantiate old schema") {
+    var orig_schema_data_files: Array[File] = Array.empty
+    // write data to a table with some original schema
+    withGoldenTable("time-travel-schema-changes-a") { tablePath =>
+      orig_schema_data_files = getDirDataFiles(tablePath)
+    }
+
+    // then append more data to that "same" table using a different schema
+    // reading version 0 should show only the original-schema data files
+    withLogForGoldenTable("time-travel-schema-changes-b") { (log, tablePath) =>
+      verifySnapshot(log.getSnapshotForVersionAsOf(0), orig_schema_data_files, 0)
     }
   }
 }
