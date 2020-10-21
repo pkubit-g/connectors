@@ -69,8 +69,10 @@ class GoldenTables extends QueryTest with SharedSparkSession {
   }
 
   ///////////////////////////////////////////////////////////////////////////
-  // TEST: io.delta.alpine.DeltaLogSuite > checkpoint
+  // io.delta.alpine.DeltaLogSuite
   ///////////////////////////////////////////////////////////////////////////
+
+  /** TEST: DeltaLogSuite > checkpoint */
   generateGoldenTable("checkpoint") { tablePath =>
     val log = DeltaLog.forTable(spark, new Path(tablePath))
     (1 to 15).foreach { i =>
@@ -85,9 +87,7 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     }
   }
 
-  ///////////////////////////////////////////////////////////////////////////
-  // TEST: io.delta.alpine.DeltaLogSuite > snapshot
-  ///////////////////////////////////////////////////////////////////////////
+  /** TEST: DeltaLogSuite > snapshot */
   private def writeData(data: Seq[(Int, String)], mode: String, tablePath: String): Unit = {
     data.toDS
       .toDF("col1", "col2")
@@ -141,9 +141,7 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     }
   }
 
-  ///////////////////////////////////////////////////////////////////////////
-  // TEST: io.delta.alpine.DeltaLogSuite > SC-8078: update deleted directory
-  ///////////////////////////////////////////////////////////////////////////
+  /** TEST: DeltaLogSuite > SC-8078: update deleted directory */
   generateGoldenTable("update-deleted-directory") { tablePath =>
     val log = DeltaLog.forTable(spark, new Path(tablePath))
     val txn = log.startTransaction()
@@ -152,16 +150,20 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     log.checkpoint()
   }
 
-  ///////////////////////////////////////////////////////////////////////////
-  // TEST: io.delta.alpine.DeltaLogSuite >
-  // update shouldn't pick up delta files earlier than checkpoint
-  ///////////////////////////////////////////////////////////////////////////
-
+  /** TEST: DeltaLogSuite > update shouldn't pick up delta files earlier than checkpoint */
   // TODO
 
-  ///////////////////////////////////////////////////////////////////////////
-  // TEST: io.delta.alpine.DeltaLogSuite > paths should be canonicalized
-  ///////////////////////////////////////////////////////////////////////////
+  /** TEST: DeltaLogSuite > handle corrupted '_last_checkpoint' file */
+  generateGoldenTable("corrupted-last-checkpoint") { tablePath =>
+    val log = DeltaLog.forTable(spark, new Path(tablePath))
+    val checkpointInterval = log.checkpointInterval
+    for (f <- 0 to checkpointInterval) {
+      val txn = log.startTransaction()
+      txn.commit(AddFile(f.toString, Map.empty, 1, 1, true) :: Nil, testOp)
+    }
+  }
+
+  /** TEST: DeltaLogSuite > paths should be canonicalized */
   {
     def helper(scheme: String, path: String, tableSuffix: String): Unit = {
       generateGoldenTable(s"canonicalized-paths-$tableSuffix") { tablePath =>
@@ -180,7 +182,6 @@ class GoldenTables extends QueryTest with SharedSparkSession {
       }
     }
 
-
     // normal characters
     helper("file:", "/some/unqualified/absolute/path", "normal-a")
     helper("file://", "/some/unqualified/absolute/path", "normal-b")
@@ -190,10 +191,7 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     helper("file://", new Path("/some/unqualified/with space/p@#h").toUri.toString, "special-b")
   }
 
-  ///////////////////////////////////////////////////////////////////////////
-  // TEST: io.delta.alpine.DeltaLogSuite >
-  // delete and re-add the same file in different transactions
-  ///////////////////////////////////////////////////////////////////////////
+  /** TEST: DeltaLogSuite > delete and re-add the same file in different transactions */
   generateGoldenTable(s"delete-re-add-same-file-different-transactions") { tablePath =>
     val log = DeltaLog.forTable(spark, new Path(tablePath))
     assert(new File(log.logPath.toUri).mkdirs())
@@ -211,5 +209,22 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     // AddFile("foo") and RemoveFile("foo"), "foo" would get removed and fail this test.
     val otherAdd = AddFile("bar", Map.empty, 1L, System.currentTimeMillis(), dataChange = true)
     log.startTransaction().commit(otherAdd :: Nil, testOp)
+  }
+
+  /** TEST: DeltaLogSuite > error - versions not contiguous */
+  generateGoldenTable("versions-not-contiguous") { tablePath =>
+    val log = DeltaLog.forTable(spark, new Path(tablePath))
+    assert(new File(log.logPath.toUri).mkdirs())
+
+    val add1 = AddFile("foo", Map.empty, 1L, System.currentTimeMillis(), dataChange = true)
+    log.startTransaction().commit(add1 :: Nil, testOp)
+
+    val add2 = AddFile("foo", Map.empty, 1L, System.currentTimeMillis(), dataChange = true)
+    log.startTransaction().commit(add2 :: Nil, testOp)
+
+    val add3 = AddFile("foo", Map.empty, 1L, System.currentTimeMillis(), dataChange = true)
+    log.startTransaction().commit(add3 :: Nil, testOp)
+
+    new File(new Path(log.logPath, "00000000000000000001.json").toUri).delete()
   }
 }

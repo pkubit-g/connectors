@@ -21,7 +21,7 @@ import java.io.FileNotFoundException
 import io.delta.alpine.types.StructType
 import org.apache.hadoop.fs.Path
 
-private[internal] object DeltaErrors {
+object DeltaErrors {
 
   // TODO make this RuntimeException?
   class DeltaTimeTravelException(message: String) extends Exception(message)

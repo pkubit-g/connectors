@@ -79,7 +79,7 @@ private[internal] trait Checkpoints {
   self: DeltaLogImpl =>
 
   /** The path to the file that holds metadata about the most recent checkpoint. */
-  private val LAST_CHECKPOINT = new Path(logPath, "_last_checkpoint")
+  val LAST_CHECKPOINT = new Path(logPath, "_last_checkpoint")
 
   def lastCheckpoint: Option[CheckpointMetaData] = {
     loadMetadataFromFile(0)
