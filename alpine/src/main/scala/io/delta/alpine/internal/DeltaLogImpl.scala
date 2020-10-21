@@ -21,7 +21,7 @@ import java.io.File
 import java.util.concurrent.locks.ReentrantLock
 
 import io.delta.alpine.DeltaLog
-import io.delta.alpine.internal.storage.ReadOnlyLogStoreProvider
+import io.delta.alpine.internal.storage.ReadOnlyLogStore
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
@@ -31,14 +31,13 @@ private[internal] class DeltaLogImpl private(
     val dataPath: Path)
   extends DeltaLog
   with Checkpoints
-  with SnapshotManagement
-  with ReadOnlyLogStoreProvider {
+  with SnapshotManagement {
 
   override def getLogPath: Path = logPath
 
   override def getDataPath: Path = dataPath
 
-  lazy val store = createLogStore(hadoopConf)
+  lazy val store = ReadOnlyLogStore.createLogStore(hadoopConf)
 
   private val deltaLogLock = new ReentrantLock()
 

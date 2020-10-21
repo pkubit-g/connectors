@@ -22,7 +22,7 @@ import java.util.stream.Collectors
 
 import scala.collection.JavaConverters._
 
-import io.delta.alpine.ReadOnlyLogStore
+import io.delta.alpine.storage.ReadOnlyLogStore
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}

@@ -1,4 +1,4 @@
-package io.delta.alpine;
+package io.delta.alpine.storage;
 
 import java.util.Iterator;
 import java.util.List;

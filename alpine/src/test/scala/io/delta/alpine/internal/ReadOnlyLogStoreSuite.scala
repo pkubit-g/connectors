@@ -22,9 +22,9 @@ import java.util.stream.Collectors
 
 import collection.JavaConverters._
 
-import io.delta.alpine.internal.storage.{HDFSReadOnlyLogStore, ReadOnlyLogStoreProvider}
+import io.delta.alpine.internal.storage.{HDFSReadOnlyLogStore, ReadOnlyLogStore}
 import io.delta.alpine.sources.AlpineHadoopConf
-import io.delta.alpine.ReadOnlyLogStore
+import io.delta.alpine.storage.{ReadOnlyLogStore => JReadOnlyLogStore}
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
@@ -33,35 +33,28 @@ import org.apache.spark.sql.delta.storage.LogStore
 import org.apache.spark.sql.QueryTest
 import org.apache.spark.sql.test.SharedSparkSession
 
-// TODO private[internal] ??
-abstract class ReadOnlyLogStoreSuiteBase extends QueryTest
-    with ReadOnlyLogStoreProvider
-    with SharedSparkSession {
+class ReadOnlyLogStoreSuite extends QueryTest with SharedSparkSession {
 
-  def logStoreClassName: Option[String]
-
-  def hadoopConf: Configuration = {
+  test("instantiation through hadoopConf - default store") {
     val conf = new Configuration()
-    if (logStoreClassName.isDefined) {
-      conf.set(AlpineHadoopConf.LOG_STORE_CLASS_KEY, logStoreClassName.get)
-    }
-    conf
+    val defaultLogStore = ReadOnlyLogStore.createLogStore(conf)
+    assert(defaultLogStore.getClass.getName == ReadOnlyLogStore.defaultLogStoreClassName)
   }
 
-  test("instantiation through hadoopConf") {
-    if (logStoreClassName.isDefined) {
-      assert(hadoopConf.get(AlpineHadoopConf.LOG_STORE_CLASS_KEY) == logStoreClassName.get)
-      assert(createLogStore(hadoopConf).getClass.getName == logStoreClassName.get)
-    } else {
-      assert(createLogStore(hadoopConf).getClass.getName ==
-        ReadOnlyLogStoreProvider.defaultLogStoreClassName)
-    }
+  test("instantiation through hadoopConf - user-defined store") {
+    val conf = new Configuration()
+    conf.set(AlpineHadoopConf.LOG_STORE_CLASS_KEY, classOf[UserDefinedReadOnlyLogStore].getName)
+    val userDefinedLogStore = ReadOnlyLogStore.createLogStore(conf)
+    assert(userDefinedLogStore.getClass.getName == classOf[UserDefinedReadOnlyLogStore].getName)
   }
 
   test("read") {
     withTempDir { tempDir =>
+      val conf = new Configuration()
+      conf.set(AlpineHadoopConf.LOG_STORE_CLASS_KEY, classOf[HDFSReadOnlyLogStore].getName)
+
       val writeStore = LogStore(spark.sparkContext)
-      val readStore = createLogStore(hadoopConf)
+      val readStore = ReadOnlyLogStore.createLogStore(conf)
 
       val deltas = Seq(0, 1).map(i => new File(tempDir, i.toString)).map(_.getCanonicalPath)
       writeStore.write(deltas.head, Iterator("zero", "none"))
@@ -74,8 +67,11 @@ abstract class ReadOnlyLogStoreSuiteBase extends QueryTest
 
   test("listFrom") {
     withTempDir { tempDir =>
+      val conf = new Configuration()
+      conf.set(AlpineHadoopConf.LOG_STORE_CLASS_KEY, classOf[HDFSReadOnlyLogStore].getName)
+
       val writeStore = LogStore(spark.sparkContext)
-      val readStore = createLogStore(hadoopConf)
+      val readStore = ReadOnlyLogStore.createLogStore(conf)
 
       val deltas = Seq(0, 1, 2, 3, 4)
         .map(i => new File(tempDir, i.toString))
@@ -99,32 +95,9 @@ abstract class ReadOnlyLogStoreSuiteBase extends QueryTest
 }
 
 /**
- * Test providing a system-defined (alpine.internal.storage) log store
+ * Sample user-defined log store implementing public Java ABC [[JReadOnlyLogStore]]
  */
-class HDFSReadOnlyLogStoreSuite extends ReadOnlyLogStoreSuiteBase {
-  override def logStoreClassName: Option[String] = Some(classOf[HDFSReadOnlyLogStore].getName)
-}
-
-/**
- * Test not providing a log store class name, in which case [[ReadOnlyLogStoreProvider]] will use
- * the default value
- */
-class DefaultReadOnlyLogStoreSuite extends ReadOnlyLogStoreSuiteBase {
-  override def logStoreClassName: Option[String] = None
-}
-
-/**
- * Test providing a user-defined log store
- */
-class UserDefinedReadOnlyLogStoreSuite extends ReadOnlyLogStoreSuiteBase {
-  override def logStoreClassName: Option[String] =
-    Some(classOf[UserDefinedReadOnlyLogStore].getName)
-}
-
-/**
- * Sample user-defined log store implementing public Java ABC [[ReadOnlyLogStore]]
- */
-class UserDefinedReadOnlyLogStore(hadoopConf: Configuration) extends ReadOnlyLogStore {
+class UserDefinedReadOnlyLogStore(hadoopConf: Configuration) extends JReadOnlyLogStore {
 
   override def read(path: Path): java.util.List[String] = {
     val fs = path.getFileSystem(hadoopConf)

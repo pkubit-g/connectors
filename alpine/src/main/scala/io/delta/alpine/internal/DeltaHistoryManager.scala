@@ -22,9 +22,9 @@ import collection.JavaConverters._
 
 import io.delta.alpine.internal.actions.CommitMarker
 import io.delta.alpine.internal.exception.DeltaErrors
-import io.delta.alpine.ReadOnlyLogStore
 import io.delta.alpine.internal.exception.DeltaErrors.DeltaTimeTravelException
 import io.delta.alpine.internal.util.FileNames
+import io.delta.alpine.storage.ReadOnlyLogStore
 import org.apache.hadoop.fs.Path
 
 private[internal] case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
