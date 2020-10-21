@@ -1,3 +1,3 @@
-{"commitInfo":{"timestamp":1603295433723,"operation":"WRITE","operationParameters":{"mode":"Append","partitionBy":"[]"},"readVersion":0,"isBlindAppend":true}}
-{"add":{"path":"part-00000-09df9782-1348-4e1a-9cbe-22fed026e299-c000.snappy.parquet","partitionValues":{},"size":649,"modificationTime":1603295433000,"dataChange":true}}
-{"add":{"path":"part-00001-8e725cd6-d5ba-40a7-b6ce-85a36a120ff8-c000.snappy.parquet","partitionValues":{},"size":649,"modificationTime":1603295433000,"dataChange":true}}
+{"commitInfo":{"timestamp":1603302184209,"operation":"WRITE","operationParameters":{"mode":"Append","partitionBy":"[]"},"readVersion":0,"isBlindAppend":true}}
+{"add":{"path":"part-00000-32e0cfad-4bea-4b0d-b93c-2a7278732f89-c000.snappy.parquet","partitionValues":{},"size":649,"modificationTime":1603302184000,"dataChange":true}}
+{"add":{"path":"part-00001-8ff619ae-03c7-4dd3-bdef-359d02de79d0-c000.snappy.parquet","partitionValues":{},"size":649,"modificationTime":1603302184000,"dataChange":true}}

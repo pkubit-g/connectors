@@ -17,6 +17,9 @@ package io.delta.golden
 
 import java.io.File
 
+import scala.concurrent.duration._
+import scala.language.implicitConversions
+
 import io.delta.tables.DeltaTable
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.fs.Path
@@ -255,4 +258,44 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     log.store.write(deltas(2), Iterator("one"))
     log.store.write(deltas(3), Iterator("two"))
   }
+
+  ///////////////////////////////////////////////////////////////////////////
+  // io.delta.alpine.internal.DeltaTimeTravelSuite
+  ///////////////////////////////////////////////////////////////////////////
+
+  private implicit def durationToLong(duration: FiniteDuration): Long = {
+    duration.toMillis
+  }
+
+  /** Generate commits with the given timestamp in millis. */
+  private def generateCommits(location: String, commits: Long*): Unit = {
+    val deltaLog = DeltaLog.forTable(spark, location)
+    var startVersion = deltaLog.snapshot.version + 1
+    commits.foreach { ts =>
+      val rangeStart = startVersion * 10
+      val rangeEnd = rangeStart + 10
+      spark.range(rangeStart, rangeEnd).write.format("delta").mode("append").save(location)
+      val file = new File(FileNames.deltaFile(deltaLog.logPath, startVersion).toUri)
+      file.setLastModified(ts)
+      startVersion += 1
+    }
+  }
+
+  val start = 1540415658000L
+
+  /** TEST: DeltaTimeTravelSuite > versionAsOf */
+  generateGoldenTable("time-travel-versionAsOf-version-0") { tablePath =>
+    generateCommits(tablePath, start)
+  }
+
+  generateGoldenTable("time-travel-versionAsOf-version-1") { tablePath =>
+    copyDir("time-travel-versionAsOf-version-0", "time-travel-versionAsOf-version-1")
+    generateCommits(tablePath, start + 20.minutes)
+  }
+
+  generateGoldenTable("time-travel-versionAsOf-version-2") { tablePath =>
+    copyDir("time-travel-versionAsOf-version-1", "time-travel-versionAsOf-version-2")
+    generateCommits(tablePath, start + 40.minutes)
+  }
+
 }

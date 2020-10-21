@@ -16,199 +16,75 @@
 
 package io.delta.alpine.internal
 
+// scalastyle:off funsuite
 import java.io.File
-import java.sql.Timestamp
-import java.text.SimpleDateFormat
-import java.util.Date
-
-import scala.concurrent.duration._
-import scala.language.implicitConversions
-import collection.JavaConverters._
 
 import io.delta.alpine.{DeltaLog, Snapshot}
 import io.delta.alpine.internal.exception.DeltaErrors
+import io.delta.alpine.internal.util.GoldenTableUtils._
+import org.scalatest.FunSuite
 
-import org.apache.spark.sql.delta.{DeltaLog => DeltaLogOSS}
 import org.apache.spark.sql.delta.util.FileNames
-import org.apache.spark.sql.test.SharedSparkSession
-import org.apache.spark.sql.{QueryTest, Row}
 
-class DeltaTimeTravelSuite extends QueryTest with SharedSparkSession {
+class DeltaTimeTravelSuite extends FunSuite {
+  // scalastyle:on funsuite
 
-  import testImplicits._
-
-  private val timeFormatter = new SimpleDateFormat("yyyyMMddHHmmssSSS")
-
-  private implicit def durationToLong(duration: FiniteDuration): Long = {
-    duration.toMillis
+  private def getDirDataFiles(tablePath: String): Array[File] = {
+    val dir = new File(tablePath)
+    dir.listFiles().filter(_.isFile).filter(_.getName.endsWith("snappy.parquet"))
   }
 
-  /** Generate commits with the given timestamp in millis. */
-  private def generateCommits(location: String, commits: Long*): Unit = {
-    val deltaLog = DeltaLogOSS.forTable(spark, location)
-    var startVersion = deltaLog.snapshot.version + 1
-    commits.foreach { ts =>
-      val rangeStart = startVersion * 10
-      val rangeEnd = rangeStart + 10
-      spark.range(rangeStart, rangeEnd).write.format("delta").mode("append").save(location)
-      val file = new File(FileNames.deltaFile(deltaLog.logPath, startVersion).toUri)
-      file.setLastModified(ts)
-      startVersion += 1
-    }
-  }
-
-  private def identifierWithTimestamp(identifier: String, ts: Long): String = {
-    s"$identifier@${timeFormatter.format(new Date(ts))}"
-  }
-
-  private def readRowsFromSnapshotFiles(snapshot: Snapshot, tblLoc: String): Set[Row] = {
-    snapshot.getAllFiles.asScala.map(_.getPath).flatMap { path =>
-      spark.read.format("parquet").load(s"$tblLoc/$path").collect()
-    }.toSet
-  }
-
-  private def assertCorrectSnapshotUsingVersion(
-      alpineLog: DeltaLog,
-      tblLoc: String,
-      version: Long,
-      expectedNumRows: Long): Unit = {
-    val df = spark.read.format("delta").option("versionAsOf", version).load(tblLoc)
-    val snapshot = alpineLog.getSnapshotForVersionAsOf(version)
-    val rowsFromSnapshot = readRowsFromSnapshotFiles(snapshot, tblLoc)
-    checkAnswer(df.groupBy().count(), Row(expectedNumRows))
-    assert(rowsFromSnapshot.size == expectedNumRows)
-    assert(df.collect().toSet == rowsFromSnapshot)
-  }
-
-  private def assertCorrectSnapshotUsingTimestamp(
-      alpineLog: DeltaLog,
-      tblLoc: String,
-      timestamp: Long,
-      expectedNumRows: Long): Unit = {
-    val df = spark.read.format("delta").load(identifierWithTimestamp(tblLoc, timestamp))
-    val snapshot = alpineLog.getSnapshotForTimestampAsOf(timestamp)
-    val rowsFromSnapshot = readRowsFromSnapshotFiles(snapshot, tblLoc)
-    checkAnswer(df.groupBy().count(), Row(expectedNumRows))
-    assert(rowsFromSnapshot.size == expectedNumRows)
-    assert(df.collect().toSet == rowsFromSnapshot)
+  private def verifySnapshot(
+      snapshot: Snapshot,
+      expectedFiles: Array[File],
+      expectedVersion: Int): Unit = {
+    assert(snapshot.getVersion == expectedVersion)
+    assert(snapshot.getAllFiles.size() == expectedFiles.length)
+    assert(
+      snapshot.getAllFiles.stream().allMatch(f => expectedFiles.exists(_.getName == f.getPath)))
   }
 
   test("versionAsOf") {
-    withTempDir { dir =>
-      val tblLoc = dir.getCanonicalPath
-      val start = 1540415658000L
-      val hadoopConf = spark.sessionState.newHadoopConf()
-      val alpineLog = DeltaLog.forTable(hadoopConf, tblLoc)
+    var correct_version0_data_files: Array[File] = Array.empty
+    var correct_version1_data_files: Array[File] = Array.empty
+    var correct_version2_data_files: Array[File] = Array.empty
 
-      generateCommits(tblLoc, start, start + 20.minutes, start + 40.minutes)
+    withGoldenTable("time-travel-versionAsOf-version-0") { tablePath =>
+      correct_version0_data_files = getDirDataFiles(tablePath)
+    }
 
+    withGoldenTable("time-travel-versionAsOf-version-1") { tablePath =>
+      correct_version1_data_files = getDirDataFiles(tablePath)
+    }
+
+    withGoldenTable("time-travel-versionAsOf-version-2") { tablePath =>
+      correct_version2_data_files = getDirDataFiles(tablePath)
+    }
+
+    withLogForGoldenTable("time-travel-versionAsOf-version-2") { (log, tablePath) =>
       // Correct cases
-      assertCorrectSnapshotUsingVersion(alpineLog, tblLoc, 0, 10)
-      assertCorrectSnapshotUsingVersion(alpineLog, tblLoc, 1, 20)
-      assertCorrectSnapshotUsingVersion(alpineLog, tblLoc, 2, 30)
+      verifySnapshot(log.getSnapshotForVersionAsOf(0), correct_version0_data_files, 0)
+      verifySnapshot(log.getSnapshotForVersionAsOf(1), correct_version1_data_files, 1)
+      verifySnapshot(log.getSnapshotForVersionAsOf(2), correct_version2_data_files, 2)
 
       // Error case - version after latest commit
       val e1 = intercept[DeltaErrors.DeltaTimeTravelException] {
-        alpineLog.getSnapshotForVersionAsOf(3)
+        log.getSnapshotForVersionAsOf(3)
       }
       assert(e1.getMessage == DeltaErrors.versionNotExistException(3, 0, 2).getMessage)
 
       // Error case - version before earliest commit
       val e2 = intercept[DeltaErrors.DeltaTimeTravelException] {
-        alpineLog.getSnapshotForVersionAsOf(-1)
+        log.getSnapshotForVersionAsOf(-1)
       }
       assert(e2.getMessage == DeltaErrors.versionNotExistException(-1, 0, 2).getMessage)
 
       // Error case - not reproducible
-      val logPath = alpineLog.getLogPath
-      new File(FileNames.deltaFile(logPath, 0).toUri).delete()
+      new File(FileNames.deltaFile(log.getLogPath, 0).toUri).delete()
       val e3 = intercept[DeltaErrors.DeltaTimeTravelException] {
-        alpineLog.getSnapshotForVersionAsOf(-1)
+        log.getSnapshotForVersionAsOf(-1)
       }
-      assert(e3.getMessage == DeltaErrors.noReproducibleHistoryFound(logPath).getMessage)
-    }
-  }
-
-  test("timestampAsOf with timestamp in between commits - should use commit before timestamp") {
-    withTempDir { dir =>
-      val tblLoc = dir.getCanonicalPath
-      val start = 1540415658000L
-      val hadoopConf = spark.sessionState.newHadoopConf()
-      val alpineLog = DeltaLog.forTable(hadoopConf, tblLoc)
-
-      generateCommits(tblLoc, start, start + 20.minutes, start + 40.minutes)
-
-      assertCorrectSnapshotUsingTimestamp(alpineLog, tblLoc, start + 10.minutes, 10)
-      assertCorrectSnapshotUsingTimestamp(alpineLog, tblLoc, start + 30.minutes, 20)
-    }
-  }
-
-  test("timestampAsOf with timestamp after last commit should fail") {
-    withTempDir { dir =>
-      val tblLoc = dir.getCanonicalPath
-      val start = 1540415658000L
-      val hadoopConf = spark.sessionState.newHadoopConf()
-      val alpineLog = DeltaLog.forTable(hadoopConf, tblLoc)
-
-      generateCommits(tblLoc, start, start + 20.minutes, start + 40.minutes)
-
-      val e = intercept[DeltaErrors.DeltaTimeTravelException] {
-        alpineLog.getSnapshotForTimestampAsOf(start + 50.minutes)
-      }
-
-      val latestTimestamp = new Timestamp(start + 40.minutes)
-      val usrTimestamp = new Timestamp(start + 50.minutes)
-      assert(e.getMessage ==
-        DeltaErrors.timestampLaterThanTableLastCommit(usrTimestamp, latestTimestamp).getMessage)
-    }
-  }
-
-  test("timestampAsOf with timestamp before first commit should fail") {
-    withTempDir { dir =>
-      val tblLoc = dir.getCanonicalPath
-      val start = 1540415658000L
-      val hadoopConf = spark.sessionState.newHadoopConf()
-      val alpineLog = DeltaLog.forTable(hadoopConf, tblLoc)
-
-      generateCommits(tblLoc, start, start + 20.minutes, start + 40.minutes)
-
-      val e = intercept[DeltaErrors.DeltaTimeTravelException] {
-        alpineLog.getSnapshotForTimestampAsOf(start - 10.minutes)
-      }
-
-      val latestTimestamp = new Timestamp(start)
-      val usrTimestamp = new Timestamp(start - 10.minutes)
-      assert(e.getMessage ==
-        DeltaErrors.timestampEarlierThanTableFirstCommit(usrTimestamp, latestTimestamp).getMessage)
-    }
-  }
-
-  test("timestampAsOf with timestamp on exact commit timestamp") {
-    withTempDir { dir =>
-      val tblLoc = dir.getCanonicalPath
-      val start = 1540415658000L
-      val hadoopConf = spark.sessionState.newHadoopConf()
-      val alpineLog = DeltaLog.forTable(hadoopConf, tblLoc)
-
-      generateCommits(tblLoc, start, start + 20.minutes, start + 40.minutes)
-
-      assertCorrectSnapshotUsingTimestamp(alpineLog, tblLoc, start, 10)
-      assertCorrectSnapshotUsingTimestamp(alpineLog, tblLoc, start + 20.minutes, 20)
-      assertCorrectSnapshotUsingTimestamp(alpineLog, tblLoc, start + 40.minutes, 30)
-    }
-  }
-
-  test("time travel with schema changes - should instantiate old schema") {
-    withTempDir { dir =>
-      val tblLoc = dir.getCanonicalPath
-      val hadoopConf = spark.sessionState.newHadoopConf()
-      val alpineLog = DeltaLog.forTable(hadoopConf, tblLoc)
-
-      spark.range(10).write.format("delta").mode("append").save(tblLoc)
-      spark.range(10, 20).withColumn("part", 'id)
-        .write.format("delta").mode("append").option("mergeSchema", true).save(tblLoc)
-
-      assertCorrectSnapshotUsingVersion(alpineLog, tblLoc, 0, 10)
+      assert(e3.getMessage == DeltaErrors.noReproducibleHistoryFound(log.getLogPath).getMessage)
     }
   }
 }
