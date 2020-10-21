@@ -20,8 +20,9 @@ import java.io.File
 
 import scala.collection.JavaConverters._
 
-import io.delta.alpine.{DeltaLog, Snapshot}
+import io.delta.alpine.Snapshot
 import io.delta.alpine.internal.exception.DeltaErrors
+import io.delta.alpine.internal.util.GoldenTableUtils._
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
@@ -34,36 +35,6 @@ import org.scalatest.FunSuite
  */
 class DeltaLogSuite extends FunSuite {
   // scalastyle:on funsuite
-
-  /**
-   * Create a [[DeltaLog]] for the given golden table and execute the test function.
-   *
-   * @param name The name of the golden table to load.
-   * @param testFunc The test to execute which takes the [[DeltaLog]] and full table path as input
-   *                 args.
-   */
-  private def withLogForGoldenTable(name: String)(testFunc: (DeltaLog, String) => Unit) = {
-    val tablePath = new File("golden-tables/src/test/resources/golden", name).getCanonicalPath
-    val alpineLog = DeltaLog.forTable(new Configuration(), tablePath)
-    testFunc(alpineLog, tablePath)
-  }
-
-  /**
-   * Create a [[DeltaLogImpl]] for the given golden table and execute the test function.
-   *
-   * This should only be used when `private[internal]` methods and variables (which [[DeltaLog]]
-   * doesn't expose but [[DeltaLogImpl]] does) are needed by the test function.
-   *
-   * @param name The name of the golden table to load.
-   * @param testFunc The test to execute which takes the [[DeltaLogImpl]] and full table path as
-   *                 input args.
-   */
-  private def withLogImplForGoldenTable(name: String)(testFunc: (DeltaLogImpl, String) => Unit) = {
-    val tablePath = new File("golden-tables/src/test/resources/golden", name).getCanonicalPath
-    val alpineLog = DeltaLogImpl.forTable(new Configuration(), tablePath)
-    testFunc(alpineLog, tablePath)
-  }
-
   test("checkpoint") {
     withLogForGoldenTable("checkpoint") { (log, tablePath) =>
       assert(log.snapshot.getVersion == 14)

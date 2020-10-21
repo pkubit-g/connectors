@@ -1,0 +1,12 @@
+{"commitInfo":{"timestamp":1603295444761,"operation":"Manual Update","operationParameters":{},"isBlindAppend":true}}
+{"protocol":{"minReaderVersion":1,"minWriterVersion":2}}
+{"add":{"path":"1","partitionValues":{},"size":1,"modificationTime":1,"dataChange":true}}
+{"add":{"path":"2","partitionValues":{},"size":1,"modificationTime":1,"dataChange":true}}
+{"add":{"path":"3","partitionValues":{},"size":1,"modificationTime":1,"dataChange":true}}
+{"add":{"path":"4","partitionValues":{},"size":1,"modificationTime":1,"dataChange":true}}
+{"add":{"path":"5","partitionValues":{},"size":1,"modificationTime":1,"dataChange":true}}
+{"add":{"path":"6","partitionValues":{},"size":1,"modificationTime":1,"dataChange":true}}
+{"add":{"path":"7","partitionValues":{},"size":1,"modificationTime":1,"dataChange":true}}
+{"add":{"path":"8","partitionValues":{},"size":1,"modificationTime":1,"dataChange":true}}
+{"add":{"path":"9","partitionValues":{},"size":1,"modificationTime":1,"dataChange":true}}
+{"add":{"path":"10","partitionValues":{},"size":1,"modificationTime":1,"dataChange":true}}

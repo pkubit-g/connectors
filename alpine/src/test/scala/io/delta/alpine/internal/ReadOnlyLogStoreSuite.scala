@@ -23,18 +23,18 @@ import java.util.stream.Collectors
 import collection.JavaConverters._
 
 import io.delta.alpine.internal.storage.{HDFSReadOnlyLogStore, ReadOnlyLogStore}
+import io.delta.alpine.internal.util.GoldenTableUtils._
 import io.delta.alpine.sources.AlpineHadoopConf
 import io.delta.alpine.storage.{ReadOnlyLogStore => JReadOnlyLogStore}
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
 
-import org.apache.spark.sql.delta.storage.LogStore
-import org.apache.spark.sql.QueryTest
-import org.apache.spark.sql.test.SharedSparkSession
+// scalastyle:off funsuite
+import org.scalatest.FunSuite
 
-class ReadOnlyLogStoreSuite extends QueryTest with SharedSparkSession {
-
+class ReadOnlyLogStoreSuite extends FunSuite {
+  // scalastyle:on funsuite
   test("instantiation through hadoopConf - default store") {
     val conf = new Configuration()
     val defaultLogStore = ReadOnlyLogStore.createLogStore(conf)
@@ -49,47 +49,38 @@ class ReadOnlyLogStoreSuite extends QueryTest with SharedSparkSession {
   }
 
   test("read") {
-    withTempDir { tempDir =>
+    withGoldenTable("log-store-read") { tablePath =>
       val conf = new Configuration()
       conf.set(AlpineHadoopConf.LOG_STORE_CLASS_KEY, classOf[HDFSReadOnlyLogStore].getName)
-
-      val writeStore = LogStore(spark.sparkContext)
       val readStore = ReadOnlyLogStore.createLogStore(conf)
 
-      val deltas = Seq(0, 1).map(i => new File(tempDir, i.toString)).map(_.getCanonicalPath)
-      writeStore.write(deltas.head, Iterator("zero", "none"))
-      writeStore.write(deltas(1), Iterator("one"))
-
+      val deltas = Seq(0, 1).map(i => new File(tablePath, i.toString)).map(_.getCanonicalPath)
       assert(readStore.read(deltas.head).asScala == Seq("zero", "none"))
       assert(readStore.read(deltas(1)).asScala == Seq("one"))
     }
   }
 
   test("listFrom") {
-    withTempDir { tempDir =>
+    withGoldenTable("log-store-listFrom") { tablePath =>
       val conf = new Configuration()
       conf.set(AlpineHadoopConf.LOG_STORE_CLASS_KEY, classOf[HDFSReadOnlyLogStore].getName)
 
-      val writeStore = LogStore(spark.sparkContext)
       val readStore = ReadOnlyLogStore.createLogStore(conf)
-
       val deltas = Seq(0, 1, 2, 3, 4)
-        .map(i => new File(tempDir, i.toString))
+        .map(i => new File(tablePath, i.toString))
         .map(_.toURI)
         .map(new Path(_))
 
-      writeStore.write(deltas(1), Iterator("zero"))
-      writeStore.write(deltas(2), Iterator("one"))
-      writeStore.write(deltas(3), Iterator("two"))
-      assert(readStore.listFrom(deltas.head).asScala.map(_.getPath.getName).toArray ===
-        Seq(1, 2, 3).map(_.toString))
-      assert(readStore.listFrom(deltas(1)).asScala.map(_.getPath.getName).toArray ===
-        Seq(1, 2, 3).map(_.toString))
-      assert(readStore.listFrom(deltas(2)).asScala.map(_.getPath.getName).toArray ===
-        Seq(2, 3).map(_.toString))
-      assert(readStore.listFrom(deltas(3)).asScala.map(_.getPath.getName).toArray ===
-        Seq(3).map(_.toString))
-      assert(readStore.listFrom(deltas(4)).asScala.map(_.getPath.getName).toArray === Nil)
+      assert(readStore.listFrom(deltas.head).asScala.map(_.getPath.getName)
+        .filterNot(_ == "_delta_log").toArray === Seq(1, 2, 3).map(_.toString))
+      assert(readStore.listFrom(deltas(1)).asScala.map(_.getPath.getName)
+        .filterNot(_ == "_delta_log").toArray === Seq(1, 2, 3).map(_.toString))
+      assert(readStore.listFrom(deltas(2)).asScala.map(_.getPath.getName)
+        .filterNot(_ == "_delta_log").toArray === Seq(2, 3).map(_.toString))
+      assert(readStore.listFrom(deltas(3)).asScala.map(_.getPath.getName)
+        .filterNot(_ == "_delta_log").toArray === Seq(3).map(_.toString))
+      assert(readStore.listFrom(deltas(4)).asScala.map(_.getPath.getName)
+        .filterNot(_ == "_delta_log").toArray === Nil)
     }
   }
 }

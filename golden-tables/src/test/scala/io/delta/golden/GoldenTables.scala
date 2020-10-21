@@ -69,7 +69,7 @@ class GoldenTables extends QueryTest with SharedSparkSession {
   }
 
   ///////////////////////////////////////////////////////////////////////////
-  // io.delta.alpine.DeltaLogSuite
+  // io.delta.alpine.internal.DeltaLogSuite
   ///////////////////////////////////////////////////////////////////////////
 
   /** TEST: DeltaLogSuite > checkpoint */
@@ -226,5 +226,33 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     log.startTransaction().commit(add3 :: Nil, testOp)
 
     new File(new Path(log.logPath, "00000000000000000001.json").toUri).delete()
+  }
+
+  ///////////////////////////////////////////////////////////////////////////
+  // io.delta.alpine.internal.ReadOnlyLogStoreSuite
+  ///////////////////////////////////////////////////////////////////////////
+
+  /** TEST: ReadOnlyLogStoreSuite > read */
+  generateGoldenTable("log-store-read") { tablePath =>
+    val log = DeltaLog.forTable(spark, new Path(tablePath))
+    assert(new File(log.logPath.toUri).mkdirs())
+
+    val deltas = Seq(0, 1).map(i => new File(tablePath, i.toString)).map(_.getCanonicalPath)
+    log.store.write(deltas.head, Iterator("zero", "none"))
+    log.store.write(deltas(1), Iterator("one"))
+  }
+
+  /** TEST: ReadOnlyLogStoreSuite > listFrom */
+  generateGoldenTable("log-store-listFrom") { tablePath =>
+    val log = DeltaLog.forTable(spark, new Path(tablePath))
+    assert(new File(log.logPath.toUri).mkdirs())
+
+    val deltas = Seq(0, 1, 2, 3, 4)
+      .map(i => new File(tablePath, i.toString))
+      .map(_.getCanonicalPath)
+
+    log.store.write(deltas(1), Iterator("zero"))
+    log.store.write(deltas(2), Iterator("one"))
+    log.store.write(deltas(3), Iterator("two"))
   }
 }
