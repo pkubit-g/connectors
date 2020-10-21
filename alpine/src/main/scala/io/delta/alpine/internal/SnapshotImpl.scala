@@ -24,10 +24,10 @@ import com.github.mjakubowski84.parquet4s.ParquetReader
 import io.delta.alpine
 import io.delta.alpine.internal.actions._
 import io.delta.alpine.{DeltaLog, Snapshot}
-import io.delta.alpine.data.{CloseableIterator, RowParquetRecord => RowParquetRecordJ}
+import io.delta.alpine.data.{CloseableIterator, RowRecord => RowParquetRecordJ}
 import io.delta.alpine.internal.data.CloseableParquetDataIterator
+import io.delta.alpine.internal.sources.AlpineHadoopConf
 import io.delta.alpine.internal.util.{ConversionUtils, JsonUtils}
-import io.delta.alpine.sources.AlpineHadoopConf
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
@@ -54,6 +54,7 @@ private[internal] class SnapshotImpl(
   override def getTimestamp: Long = timestamp
 
   override def open(): CloseableIterator[RowParquetRecordJ] =
+    // TODO need to use something like TahoeFileIndex::absolutePath
     CloseableParquetDataIterator(
       allFilesScala.map(_.path),
       deltaLog.dataPath.toString,

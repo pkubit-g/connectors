@@ -16,7 +16,7 @@
 
 package io.delta.alpine.internal.storage
 
-import io.delta.alpine.sources.AlpineHadoopConf
+import io.delta.alpine.internal.sources.AlpineHadoopConf
 import io.delta.alpine.storage.ReadOnlyLogStore
 import org.apache.hadoop.conf.Configuration
 

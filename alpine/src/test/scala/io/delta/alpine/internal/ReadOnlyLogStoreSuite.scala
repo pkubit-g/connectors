@@ -22,9 +22,9 @@ import java.util.stream.Collectors
 
 import collection.JavaConverters._
 
+import io.delta.alpine.internal.sources.AlpineHadoopConf
 import io.delta.alpine.internal.storage.{HDFSReadOnlyLogStore, ReadOnlyLogStore}
 import io.delta.alpine.internal.util.GoldenTableUtils._
-import io.delta.alpine.sources.AlpineHadoopConf
 import io.delta.alpine.storage.{ReadOnlyLogStore => JReadOnlyLogStore}
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration

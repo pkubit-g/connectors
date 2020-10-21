@@ -25,7 +25,7 @@ import scala.collection.compat.Factory
 import scala.reflect.ClassTag
 
 import com.github.mjakubowski84.parquet4s._
-import io.delta.alpine.data.{RowParquetRecord => RowParquetRecordJ}
+import io.delta.alpine.data.{RowRecord => RowParquetRecordJ}
 import io.delta.alpine.internal.exception.DeltaErrors
 import io.delta.alpine.types._
 
@@ -98,6 +98,7 @@ private[internal] case class RowParquetRecordImpl(
       case (x: ArrayType, y: ListParquetRecord) => decodeList(x.getElementType, y)
       case (x: MapType, y: MapParquetRecord) => decodeMap(x.getKeyType, x.getValueType, y)
       case (x: StructType, y: RowParquetRecord) => RowParquetRecordImpl(y, x, timeZone)
+      case _ => throw new RuntimeException("Unknown non-primitive decode type") // TODO DeltaErrors?
     }
   }
 
@@ -121,6 +122,7 @@ private[internal] case class RowParquetRecordImpl(
       case x: StructType =>
         // List of records
         list.map { case y: RowParquetRecord => RowParquetRecordImpl(y, x, timeZone) }.asJava
+      case _ => throw new RuntimeException("Unknown non-primitive list decode type")
     }
   }
 
@@ -148,6 +150,7 @@ private[internal] case class RowParquetRecordImpl(
           case DoubleValue(double) => BigDecimal.decimal(double).bigDecimal
           case FloatValue(float) => BigDecimal.decimal(float).bigDecimal
           case BinaryValue(binary) => Decimals.decimalFromBinary(binary).bigDecimal
+          case _ => throw new RuntimeException("Unknown decimal decode type")
         }
       }
 
@@ -169,6 +172,7 @@ private[internal] case class RowParquetRecordImpl(
           listRecord.map(elementCodec.decode(_, codecConf))
         case binaryValue: BinaryValue if classTag.runtimeClass == classOf[Byte] =>
           binaryValue.value.getBytes.asInstanceOf[Seq[T]]
+        case _ => throw new RuntimeException("Unknown list decode type")
       }
     }
 

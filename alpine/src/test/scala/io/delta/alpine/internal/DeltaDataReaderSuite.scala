@@ -14,17 +14,18 @@
  * limitations under the License.
  */
 
-package io.delta.alpine
+package io.delta.alpine.internal
 
-import java.sql.Timestamp
 import java.math.{BigDecimal => JBigDecimal}
-import java.util.Arrays.{asList => asJList}
+import java.sql.Timestamp
 import java.util.{TimeZone, List => JList, Map => JMap}
+import java.util.Arrays.{asList => asJList}
 
-import io.delta.alpine.data.RowParquetRecord
-import collection.JavaConverters._
+import scala.collection.JavaConverters._
 
-import io.delta.alpine.sources.AlpineHadoopConf
+import io.delta.alpine.data.{RowRecord => JRowRecord}
+import io.delta.alpine.DeltaLog
+import io.delta.alpine.internal.sources.AlpineHadoopConf
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.sql.{QueryTest, Row}
@@ -232,7 +233,7 @@ class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
           )
         )
 
-        val recordList = row.getList[RowParquetRecord]("list_of_records")
+        val recordList = row.getList[JRowRecord]("list_of_records")
         recordList.forEach(nestedRow => assert(nestedRow.getInt("val") == i))
       }
     }
@@ -280,7 +281,7 @@ class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
           row.getMap[String, JBigDecimal]("e").equals(Map(i.toString -> new JBigDecimal(i)).asJava)
         )
 
-        val mapOfRecordList = row.getMap[Int, java.util.List[RowParquetRecord]]("f")
+        val mapOfRecordList = row.getMap[Int, java.util.List[JRowRecord]]("f")
         val recordList = mapOfRecordList.get(i)
         recordList.forEach(nestedRow => assert(nestedRow.getInt("val") == i))
       }

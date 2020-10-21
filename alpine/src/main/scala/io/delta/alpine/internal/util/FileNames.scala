@@ -16,6 +16,8 @@
 
 package io.delta.alpine.internal.util
 
+import java.net.URI
+
 import org.apache.hadoop.fs.Path
 
 private[internal] object FileNames {
@@ -68,4 +70,14 @@ private[internal] object FileNames {
       // scalastyle:on throwerror
     }
   }
+
+  // TODO
+  //  def absolutePath(child: String): Path = {
+//    val p = new Path(new URI(child))
+//    if (p.isAbsolute) {
+//      p
+//    } else {
+//      new Path(path, p)
+//    }
+//  }
 }
