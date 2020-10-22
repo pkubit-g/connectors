@@ -25,7 +25,6 @@ import io.delta.alpine.types.StructType
 
 private[internal] case class CloseableParquetDataIterator(
     dataFilePaths: Seq[String],
-    dataPath: String,
     schema: StructType,
     timeZoneId: String) extends CloseableIterator[RowParquetRecordJ] {
   private val readTimeZone = if (null == timeZoneId) TimeZone.getDefault
@@ -74,6 +73,6 @@ private[internal] case class CloseableParquetDataIterator(
 
   private def readNextFile: ParquetIterable[RowParquetRecord] = {
     ParquetReader.read[RowParquetRecord](
-      s"$dataPath/${dataFilePathsIter.next()}", Options(readTimeZone))
+      s"${dataFilePathsIter.next()}", Options(readTimeZone))
   }
 }

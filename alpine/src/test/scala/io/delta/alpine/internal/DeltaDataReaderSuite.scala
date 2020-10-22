@@ -349,4 +349,8 @@ class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
       recordIter.close()
     }
   }
+
+  test("test absolute path") {
+
+  }
 }

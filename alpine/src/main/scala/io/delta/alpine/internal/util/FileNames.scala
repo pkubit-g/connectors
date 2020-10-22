@@ -71,12 +71,15 @@ private[internal] object FileNames {
     }
   }
 
-  def absolutePath(dataPath: Path, child: String): Path = {
+  /**
+   * Returns the `child` path as an absolute path and resolves any escaped char sequences
+   */
+  def absolutePath(parentDir: Path, child: String): Path = {
     val p = new Path(new URI(child))
     if (p.isAbsolute) {
       p
     } else {
-      new Path(dataPath, p)
+      new Path(parentDir, p)
     }
   }
 }

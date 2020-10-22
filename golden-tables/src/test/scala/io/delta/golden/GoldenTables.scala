@@ -306,4 +306,9 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     spark.range(10, 20).withColumn("part", 'id)
       .write.format("delta").mode("append").option("mergeSchema", true).save(tablePath)
   }
+
+  ///////////////////////////////////////////////////////////////////////////
+  // io.delta.alpine.internal.DeltaDataReaderSuite
+  ///////////////////////////////////////////////////////////////////////////
+
 }

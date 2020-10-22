@@ -59,7 +59,6 @@ private[internal] class SnapshotImpl(
         .map(_.path)
         .map(FileNames.absolutePath(deltaLog.dataPath, _))
         .map(_.toString),
-      deltaLog.dataPath.toString,
       getMetadata.getSchema,
       hadoopConf.get(AlpineHadoopConf.PARQUET_DATA_TIME_ZONE_ID))
 
