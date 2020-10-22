@@ -23,8 +23,9 @@ import io.delta.alpine.internal.DeltaLogImpl
 import org.apache.hadoop.conf.Configuration
 
 object GoldenTableUtils {
-  val goldenTableDir = "../golden-tables/src/test/resources/golden" // sbt test
-//  val goldenTableDir = "golden-tables/src/test/resources/golden" // intellij test
+
+  /** Load the golden table as a class resource so that it works in IntelliJ and SBT tests */
+  val goldenTable = new File(getClass.getResource("/golden").toURI)
 
   /**
    * Create a [[DeltaLog]] for the given golden table and execute the test function.
@@ -34,7 +35,7 @@ object GoldenTableUtils {
    *                 args.
    */
   def withLogForGoldenTable(name: String)(testFunc: (DeltaLog, String) => Unit): Unit = {
-    val tablePath = new File(goldenTableDir, name).getCanonicalPath
+    val tablePath = new File(goldenTable, name).getCanonicalPath
     val alpineLog = DeltaLog.forTable(new Configuration(), tablePath)
     testFunc(alpineLog, tablePath)
   }
@@ -50,7 +51,7 @@ object GoldenTableUtils {
    *                 input args.
    */
   def withLogImplForGoldenTable(name: String)(testFunc: (DeltaLogImpl, String) => Unit): Unit = {
-    val tablePath = new File(goldenTableDir, name).getCanonicalPath
+    val tablePath = new File(goldenTable, name).getCanonicalPath
     val alpineLog = DeltaLogImpl.forTable(new Configuration(), tablePath)
     testFunc(alpineLog, tablePath)
   }
@@ -62,7 +63,7 @@ object GoldenTableUtils {
    * @param testFunc The test to execute which takes the full table path as input arg.
    */
   def withGoldenTable(name: String)(testFunc: String => Unit): Unit = {
-    val tablePath = new File(goldenTableDir, name).getCanonicalPath
+    val tablePath = new File(goldenTable, name).getCanonicalPath
     testFunc(tablePath)
   }
 }

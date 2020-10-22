@@ -1,2 +1,2 @@
-{"commitInfo":{"timestamp":1603382335674,"operation":"Manual Update","operationParameters":{},"readVersion":0,"isBlindAppend":true}}
-{"add":{"path":"bar%2Dbar","partitionValues":{},"size":1,"modificationTime":1603382335666,"dataChange":true}}
+{"commitInfo":{"timestamp":1603387085189,"operation":"Manual Update","operationParameters":{},"readVersion":0,"isBlindAppend":true}}
+{"add":{"path":"bar%2Dbar.snappy.parquet","partitionValues":{},"size":1,"modificationTime":1603387085181,"dataChange":true}}

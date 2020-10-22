@@ -1,2 +1,2 @@
-{"commitInfo":{"timestamp":1603382310389,"operation":"Manual Update","operationParameters":{},"readVersion":0,"isBlindAppend":false}}
-{"remove":{"path":"foo","deletionTimestamp":1603382310382,"dataChange":true}}
+{"commitInfo":{"timestamp":1603387059013,"operation":"Manual Update","operationParameters":{},"readVersion":0,"isBlindAppend":false}}
+{"remove":{"path":"foo","deletionTimestamp":1603387059006,"dataChange":true}}

@@ -286,7 +286,7 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") 
 lazy val alpine = (project in file("alpine")) settings (
   name := "alpine",
   commonSettings,
-
+  unmanagedResourceDirectories in Test += file("golden-tables/src/test/resources"),
   libraryDependencies ++= Seq(
     "org.apache.hadoop" % "hadoop-client" % hadoopVersion,
 
