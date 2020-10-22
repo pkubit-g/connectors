@@ -71,13 +71,12 @@ private[internal] object FileNames {
     }
   }
 
-  // TODO
-  //  def absolutePath(child: String): Path = {
-//    val p = new Path(new URI(child))
-//    if (p.isAbsolute) {
-//      p
-//    } else {
-//      new Path(path, p)
-//    }
-//  }
+  def absolutePath(dataPath: Path, child: String): Path = {
+    val p = new Path(new URI(child))
+    if (p.isAbsolute) {
+      p
+    } else {
+      new Path(dataPath, p)
+    }
+  }
 }
