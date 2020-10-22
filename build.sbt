@@ -310,9 +310,6 @@ lazy val alpine = (project in file("alpine")) settings (
 
     // Test Dependencies
     "org.scalatest" %% "scalatest" % "3.0.5" % "test",
-    "org.apache.spark" %% "spark-catalyst" % sparkVersion % "test" classifier "tests",
-    "org.apache.spark" %% "spark-core" % sparkVersion % "test" classifier "tests",
-    "org.apache.spark" %% "spark-sql" % sparkVersion % "test" classifier "tests",
     "io.delta" %% "delta-core" % deltaVersion % "test"
       excludeAll (ExclusionRule("org.apache.hadoop"))
   )

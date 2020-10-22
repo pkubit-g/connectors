@@ -46,7 +46,7 @@ class DeltaDataReaderSuite extends FunSuite {
   test("read - primitives") {
     withLogForGoldenTable("data-reader-primitives") { (log, tablePath) =>
       val recordIter = log.snapshot().open()
-
+      var count = 0
       while (recordIter.hasNext) {
         val row = recordIter.next()
         val i = row.getInt("as_int")
@@ -59,7 +59,10 @@ class DeltaDataReaderSuite extends FunSuite {
         assert(row.getString("as_string") == i.toString)
         assert(row.getBinary("as_binary") sameElements Array[Byte](i.toByte, i.toByte))
         assert(row.getBigDecimal("as_big_decimal") == new JBigDecimal(i))
+        count += 1
       }
+
+      assert(count == 10)
     }
   }
 
@@ -79,6 +82,8 @@ class DeltaDataReaderSuite extends FunSuite {
         val log = DeltaLog.forTable(hadoopConf, tablePath)
         val recordIter = log.snapshot().open()
 
+        if (!recordIter.hasNext) fail(s"No row record for timeZoneId $timeZoneId")
+
         val row = recordIter.next()
 
         assert(row.getTimestamp("timestamp").equals(timestamp))
@@ -92,7 +97,7 @@ class DeltaDataReaderSuite extends FunSuite {
   test("read - array of primitives") {
     withLogForGoldenTable("data-reader-array-primitives") { (log, tablePath) =>
       val recordIter = log.snapshot().open()
-
+      var count = 0
       while (recordIter.hasNext) {
         val row = recordIter.next()
         val list = row.getList[Int]("as_array_int")
@@ -108,14 +113,17 @@ class DeltaDataReaderSuite extends FunSuite {
         assert(row.getList[Array[Byte]]("as_array_binary").get(0) sameElements
           Array(i.toByte, i.toByte))
         assert(row.getList[JBigDecimal]("as_array_big_decimal") == asJList(new JBigDecimal(i)))
+        count += 1
       }
+
+      assert(count == 10)
     }
   }
 
   test("read - array of complex objects") {
     withLogForGoldenTable("data-reader-array-complex-objects") { (log, tablePath) =>
       val recordIter = log.snapshot().open()
-
+      var count = 0
       while (recordIter.hasNext) {
         val row = recordIter.next()
         val i = row.getInt("i")
@@ -151,14 +159,17 @@ class DeltaDataReaderSuite extends FunSuite {
 
         val recordList = row.getList[JRowRecord]("list_of_records")
         recordList.forEach(nestedRow => assert(nestedRow.getInt("val") == i))
+        count += 1
       }
+
+      assert(count == 10)
     }
   }
 
   test("read - map") {
     withLogForGoldenTable("data-reader-map") { (log, tablePath) =>
       val recordIter = log.snapshot().open()
-
+      var count = 0
       while (recordIter.hasNext) {
         val row = recordIter.next()
         val i = row.getInt("i")
@@ -173,14 +184,17 @@ class DeltaDataReaderSuite extends FunSuite {
         val mapOfRecordList = row.getMap[Int, java.util.List[JRowRecord]]("f")
         val recordList = mapOfRecordList.get(i)
         recordList.forEach(nestedRow => assert(nestedRow.getInt("val") == i))
+        count += 1
       }
+
+      assert(count == 10)
     }
   }
 
   test("read - nested struct") {
     withLogForGoldenTable("data-reader-nested-struct") { (log, tablePath) =>
       val recordIter = log.snapshot().open()
-
+      var count = 0
       while (recordIter.hasNext) {
         val row = recordIter.next()
         val i = row.getInt("b")
@@ -191,13 +205,18 @@ class DeltaDataReaderSuite extends FunSuite {
         val nestedNestedStruct = nestedStruct.getRecord("ac")
         assert(nestedNestedStruct.getInt("aca") == i)
         assert(nestedNestedStruct.getLong("acb") == i.toLong)
+        count += 1
       }
+
+      assert(count == 10)
     }
   }
 
   test("read - nullable field, invalid schema column key") {
     withLogForGoldenTable("data-reader-nullable-field-invalid-schema-key") { (log, tablePath) =>
       val recordIter = log.snapshot().open()
+
+      if (!recordIter.hasNext) fail(s"No row record")
 
       val row = recordIter.next()
       row.getList[String]("array_can_contain_null").forEach(elem => assert(elem == null))

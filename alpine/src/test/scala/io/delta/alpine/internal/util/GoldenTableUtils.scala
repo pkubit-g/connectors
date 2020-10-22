@@ -23,7 +23,7 @@ import io.delta.alpine.internal.DeltaLogImpl
 import org.apache.hadoop.conf.Configuration
 
 object GoldenTableUtils {
-  val goldenTableDir = "golden-tables/src/test/resources/golden"
+  val goldenTableDir = "../golden-tables/src/test/resources/golden"
 
   /**
    * Create a [[DeltaLog]] for the given golden table and execute the test function.

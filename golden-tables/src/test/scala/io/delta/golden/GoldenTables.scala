@@ -440,7 +440,8 @@ class GoldenTables extends QueryTest with SharedSparkSession {
       .add("e", MapType(StringType, DecimalType(1, 0)))
       .add("f", MapType(IntegerType, ArrayType(new StructType().add("val", IntegerType))))
 
-
+    val data = (0 until 10).map(createRow)
+    writeDataWithSchema(tablePath, data, schema)
   }
 
   /** TEST: DeltaDataReaderSuite > read - nested struct */
