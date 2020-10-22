@@ -44,7 +44,7 @@ import org.scalatest.FunSuite
 class DeltaLogSuite extends FunSuite {
   // scalastyle:on funsuite
   test("checkpoint") {
-    withLogForGoldenTable("checkpoint") { (log, tablePath) =>
+    withLogForGoldenTable("checkpoint") { (log, _) =>
       assert(log.snapshot.getVersion == 14)
       assert(log.snapshot.getAllFiles.size == 1)
       assert(log.snapshot.getNumOfFiles == 1)
@@ -159,31 +159,31 @@ class DeltaLogSuite extends FunSuite {
   }
 
   test("paths should be canonicalized - normal characters") {
-    withLogForGoldenTable("canonicalized-paths-normal-a") { (log, tablePath) =>
+    withLogForGoldenTable("canonicalized-paths-normal-a") { (log, _) =>
       assert(log.update().getVersion == 1)
       assert(log.snapshot.getNumOfFiles == 0)
     }
 
-    withLogForGoldenTable("canonicalized-paths-normal-b") { (log, tablePath) =>
+    withLogForGoldenTable("canonicalized-paths-normal-b") { (log, _) =>
       assert(log.update().getVersion == 1)
       assert(log.snapshot.getNumOfFiles == 0)
     }
   }
 
   test("paths should be canonicalized - special characters") {
-    withLogForGoldenTable("canonicalized-paths-special-a") { (log, tablePath) =>
+    withLogForGoldenTable("canonicalized-paths-special-a") { (log, _) =>
       assert(log.update().getVersion == 1)
       assert(log.snapshot.getNumOfFiles == 0)
     }
 
-    withLogForGoldenTable("canonicalized-paths-special-b") { (log, tablePath) =>
+    withLogForGoldenTable("canonicalized-paths-special-b") { (log, _) =>
       assert(log.update().getVersion == 1)
       assert(log.snapshot.getNumOfFiles == 0)
     }
   }
 
   test("delete and re-add the same file in different transactions") {
-    withLogForGoldenTable("delete-re-add-same-file-different-transactions") { (log, tablePath) =>
+    withLogForGoldenTable("delete-re-add-same-file-different-transactions") { (log, _) =>
       assert(log.snapshot().getAllFiles.size() == 2)
 
       assert(log.snapshot().getAllFiles.asScala.map(_.getPath).toSet == Set("foo", "bar"))
@@ -197,7 +197,7 @@ class DeltaLogSuite extends FunSuite {
 
   test("error - versions not contiguous") {
     val ex = intercept[IllegalStateException] {
-      withLogForGoldenTable("versions-not-contiguous") { (log, tablePath) => }
+      withGoldenTable("versions-not-contiguous") { _ => }
     }
 
     assert(ex.getMessage ===

@@ -16,9 +16,8 @@
 
 package io.delta.alpine.internal
 
-// scalastyle:off funsuite
 import java.io.File
-import java.nio.file.{Files, Paths}
+import java.nio.file.Files
 import java.sql.Timestamp
 import java.util.UUID
 
@@ -31,6 +30,8 @@ import io.delta.alpine.internal.util.FileNames
 import io.delta.alpine.internal.util.GoldenTableUtils._
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.conf.Configuration
+
+// scalastyle:off funsuite
 import org.scalatest.FunSuite
 
 /**
