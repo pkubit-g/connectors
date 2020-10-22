@@ -140,13 +140,16 @@ private[internal] case class RowParquetRecordImpl(
   // Useful Custom Decoders and type -> decoder Maps
   ///////////////////////////////////////////////////////////////////////////
 
+  /**
+   * parquet4s.ValueCodec.decimalCodec doesn't match on IntValue, so we create our own version that
+   * does. It should only ever be used to decode, not encode.
+   */
   private val customDecimalCodec: ValueCodec[java.math.BigDecimal] =
     new OptionalValueCodec[java.math.BigDecimal] {
       override def decodeNonNull(
           value: Value,
           configuration: ValueCodecConfiguration): java.math.BigDecimal = {
         value match {
-          // parquet4s.ValueCodec.decimalCodec doesn't match on IntValue
           case IntValue(int) => new java.math.BigDecimal(int)
           case DoubleValue(double) => BigDecimal.decimal(double).bigDecimal
           case FloatValue(float) => BigDecimal.decimal(float).bigDecimal
@@ -162,6 +165,11 @@ private[internal] case class RowParquetRecordImpl(
       }
     }
 
+  /**
+   * parquet4s decodes all list records into [[Array]]s. If we convert them, instead, into [[Seq]]s
+   * then we can support the Java API `<T> List<T> getList(String fieldName)`. It should only ever
+   * be used to decode, not encode.
+   */
   private def customSeqCodec[T](elementCodec: ValueCodec[T])(implicit
       classTag: ClassTag[T],
       factory: Factory[T, Seq[T]]): ValueCodec[Seq[T]] = new OptionalValueCodec[Seq[T]] {
