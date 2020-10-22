@@ -17,13 +17,13 @@
 package io.delta.alpine.internal.storage
 
 import io.delta.alpine.internal.sources.AlpineHadoopConf
-import io.delta.alpine.storage.ReadOnlyLogStore
+import io.delta.alpine.storage.{ReadOnlyLogStore => JReadOnlyLogStore}
 import org.apache.hadoop.conf.Configuration
 
 private[internal] object ReadOnlyLogStore {
   val defaultLogStoreClassName: String = classOf[HDFSReadOnlyLogStore].getName
 
-  def createLogStore(hadoopConf: Configuration): ReadOnlyLogStore = {
+  def createLogStore(hadoopConf: Configuration): JReadOnlyLogStore = {
     val logStoreClassName =
       hadoopConf.get(AlpineHadoopConf.LOG_STORE_CLASS_KEY, defaultLogStoreClassName)
 
@@ -33,6 +33,6 @@ private[internal] object ReadOnlyLogStore {
     // scalastyle:on classforname
 
     logStoreClass.getConstructor(classOf[Configuration]).newInstance(hadoopConf)
-      .asInstanceOf[ReadOnlyLogStore]
+      .asInstanceOf[JReadOnlyLogStore]
   }
 }
