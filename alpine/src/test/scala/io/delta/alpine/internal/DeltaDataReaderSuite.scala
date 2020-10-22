@@ -230,10 +230,19 @@ class DeltaDataReaderSuite extends FunSuite {
     }
   }
 
-  test("test absolute path and escaped char sequences in path") {
-    withLogForGoldenTable("data-reader-absolute-paths-escaped-chars") { (log, _) =>
-//      val recordIter = log.snapshot().open()
-      // TODO
+  test("test escaped char sequences in path") {
+    withLogForGoldenTable("data-reader-escaped-chars") { (log, _) =>
+      assert(log.snapshot().getAllFiles.asScala.forall(_.getPath.contains("_2=bar")))
+
+      val recordIter = log.snapshot().open()
+      var count = 0
+      while (recordIter.hasNext) {
+        val row = recordIter.next()
+        assert(row.getString("_1").contains("foo"))
+        count += 1
+      }
+
+      assert(count == 3)
     }
   }
 }

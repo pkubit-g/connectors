@@ -98,7 +98,8 @@ private[internal] case class RowParquetRecordImpl(
       case (x: ArrayType, y: ListParquetRecord) => decodeList(x.getElementType, y)
       case (x: MapType, y: MapParquetRecord) => decodeMap(x.getKeyType, x.getValueType, y)
       case (x: StructType, y: RowParquetRecord) => RowParquetRecordImpl(y, x, timeZone)
-      case _ => throw new RuntimeException("Unknown non-primitive decode type") // TODO DeltaErrors?
+      case _ =>
+        throw new RuntimeException("Unknown non-primitive decode type") // TODO put debugging info
     }
   }
 

@@ -471,17 +471,12 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     writeDataWithSchema(tablePath, data, schema)
   }
 
-  generateGoldenTable("data-reader-absolute-paths-escaped-chars") { tablePath =>
-    val log = DeltaLog.forTable(spark, new Path(tablePath))
-    assert(new File(log.logPath.toUri).mkdirs())
+  /** TEST: DeltaDataReaderSuite > test escaped char sequences in path */
+  generateGoldenTable("data-reader-escaped-chars") { tablePath =>
+    val data = Seq("foo1" -> "bar+%21", "foo2" -> "bar+%22", "foo3" -> "bar+%23")
 
-    val add1 = AddFile(
-      s"../$tablePath/foo.snappy.parquet", Map.empty, 1L, System.currentTimeMillis(),
-      dataChange = true)
-    log.startTransaction().commit(add1 :: Nil, testOp)
-
-    val add2 = AddFile(
-      "bar%2Dbar.snappy.parquet", Map.empty, 1L, System.currentTimeMillis(), dataChange = true)
-    log.startTransaction().commit(add2 :: Nil, testOp)
+    data.foreach { row =>
+      Seq(row).toDF().write.format("delta").mode("append").partitionBy("_2").save(tablePath)
+    }
   }
 }
