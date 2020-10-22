@@ -36,8 +36,8 @@ object GoldenTableUtils {
    */
   def withLogForGoldenTable(name: String)(testFunc: (DeltaLog, String) => Unit): Unit = {
     val tablePath = new File(goldenTable, name).getCanonicalPath
-    val alpineLog = DeltaLog.forTable(new Configuration(), tablePath)
-    testFunc(alpineLog, tablePath)
+    val log = DeltaLog.forTable(new Configuration(), tablePath)
+    testFunc(log, tablePath)
   }
 
   /**
@@ -52,8 +52,8 @@ object GoldenTableUtils {
    */
   def withLogImplForGoldenTable(name: String)(testFunc: (DeltaLogImpl, String) => Unit): Unit = {
     val tablePath = new File(goldenTable, name).getCanonicalPath
-    val alpineLog = DeltaLogImpl.forTable(new Configuration(), tablePath)
-    testFunc(alpineLog, tablePath)
+    val log = DeltaLogImpl.forTable(new Configuration(), tablePath)
+    testFunc(log, tablePath)
   }
 
   /**

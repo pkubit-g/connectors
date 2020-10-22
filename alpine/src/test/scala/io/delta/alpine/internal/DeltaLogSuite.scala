@@ -17,12 +17,15 @@
 package io.delta.alpine.internal
 
 import java.io.File
+import java.nio.file.Files
+import java.util.UUID
 
 import scala.collection.JavaConverters._
 
-import io.delta.alpine.Snapshot
+import io.delta.alpine.{DeltaLog, Snapshot}
 import io.delta.alpine.internal.exception.DeltaErrors
 import io.delta.alpine.internal.util.GoldenTableUtils._
+import org.apache.commons.io.FileUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
@@ -119,19 +122,19 @@ class DeltaLogSuite extends FunSuite {
     }
   }
 
-  // TODO: this deletes! need to copy into temp dir?
-//  test("SC-8078: update deleted directory") {
-//    withLogForGoldenTable("update-deleted-directory") { (log, tablePath) =>
-//      val path = new Path(tablePath)
-//      val fs = path.getFileSystem(new Configuration())
-//      fs.delete(path, true)
-//
-//      assert(log.update().getVersion == -1)
-//    }
-//  }
-
-  test("update shouldn't pick up delta files earlier than checkpoint") {
-    // TODO not sure how
+  test("SC-8078: update deleted directory") {
+    withGoldenTable("update-deleted-directory") { tablePath =>
+      val tempDir = Files.createTempDirectory(UUID.randomUUID().toString).toFile
+      try {
+        FileUtils.copyDirectory(new File(tablePath), tempDir)
+        val log = DeltaLog.forTable(new Configuration(), tempDir)
+        FileUtils.deleteDirectory(tempDir)
+        assert(log.update().getVersion == -1)
+      } finally {
+        // just in case
+        FileUtils.deleteDirectory(tempDir)
+      }
+    }
   }
 
   test("handle corrupted '_last_checkpoint' file") {

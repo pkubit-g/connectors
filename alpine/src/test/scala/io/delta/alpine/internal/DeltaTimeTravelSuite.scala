@@ -18,14 +18,19 @@ package io.delta.alpine.internal
 
 // scalastyle:off funsuite
 import java.io.File
+import java.nio.file.{Files, Paths}
 import java.sql.Timestamp
+import java.util.UUID
 
 import scala.concurrent.duration._
 import scala.language.implicitConversions
 
-import io.delta.alpine.Snapshot
+import io.delta.alpine.{DeltaLog, Snapshot}
 import io.delta.alpine.internal.exception.DeltaErrors
+import io.delta.alpine.internal.util.FileNames
 import io.delta.alpine.internal.util.GoldenTableUtils._
+import org.apache.commons.io.FileUtils
+import org.apache.hadoop.conf.Configuration
 import org.scalatest.FunSuite
 
 /**
@@ -78,32 +83,44 @@ class DeltaTimeTravelSuite extends FunSuite {
     start_start20_start40_data_files = getDirDataFiles(tablePath)
   }
 
+  /**
+   * `Error case - not reproducible` needs to delete the log directory. Since we don't want to
+   * delete the golden tables, we instead copy the table into a temp directory, deleting that temp
+   * directory when we are done.
+   */
   test("versionAsOf") {
-    withLogForGoldenTable("time-travel-start-start20-start40") { (log, _) =>
-      // Correct cases
-      verifySnapshot(log.getSnapshotForVersionAsOf(0), start_data_files, 0)
-      verifySnapshot(log.getSnapshotForVersionAsOf(1), start_start20_data_files, 1)
-      verifySnapshot(log.getSnapshotForVersionAsOf(2), start_start20_start40_data_files, 2)
+    withGoldenTable("time-travel-start-start20-start40") { tablePath =>
+      val tempDir = Files.createTempDirectory(UUID.randomUUID().toString).toFile
+      try {
+        FileUtils.copyDirectory(new File(tablePath), tempDir)
+        val log = DeltaLog.forTable(new Configuration(), tempDir)
 
-      // Error case - version after latest commit
-      val e1 = intercept[DeltaErrors.DeltaTimeTravelException] {
-        log.getSnapshotForVersionAsOf(3)
+        // Correct cases
+        verifySnapshot(log.getSnapshotForVersionAsOf(0), start_data_files, 0)
+        verifySnapshot(log.getSnapshotForVersionAsOf(1), start_start20_data_files, 1)
+        verifySnapshot(log.getSnapshotForVersionAsOf(2), start_start20_start40_data_files, 2)
+
+        // Error case - version after latest commit
+        val e1 = intercept[DeltaErrors.DeltaTimeTravelException] {
+          log.getSnapshotForVersionAsOf(3)
+        }
+        assert(e1.getMessage == DeltaErrors.versionNotExistException(3, 0, 2).getMessage)
+
+        // Error case - version before earliest commit
+        val e2 = intercept[DeltaErrors.DeltaTimeTravelException] {
+          log.getSnapshotForVersionAsOf(-1)
+        }
+        assert(e2.getMessage == DeltaErrors.versionNotExistException(-1, 0, 2).getMessage)
+
+        // Error case - not reproducible
+        new File(FileNames.deltaFile(log.getLogPath, 0).toUri).delete()
+        val e3 = intercept[DeltaErrors.DeltaTimeTravelException] {
+          log.getSnapshotForVersionAsOf(0)
+        }
+        assert(e3.getMessage == DeltaErrors.noReproducibleHistoryFound(log.getLogPath).getMessage)
+      } finally {
+        FileUtils.deleteDirectory(tempDir)
       }
-      assert(e1.getMessage == DeltaErrors.versionNotExistException(3, 0, 2).getMessage)
-
-      // Error case - version before earliest commit
-      val e2 = intercept[DeltaErrors.DeltaTimeTravelException] {
-        log.getSnapshotForVersionAsOf(-1)
-      }
-      assert(e2.getMessage == DeltaErrors.versionNotExistException(-1, 0, 2).getMessage)
-
-      // Error case - not reproducible
-      // TODO need to copy the directory
-//      new File(FileNames.deltaFile(log.getLogPath, 0).toUri).delete()
-//      val e3 = intercept[DeltaErrors.DeltaTimeTravelException] {
-//        log.getSnapshotForVersionAsOf(0)
-//      }
-//      assert(e3.getMessage == DeltaErrors.noReproducibleHistoryFound(log.getLogPath).getMessage)
     }
   }
 
