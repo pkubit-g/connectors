@@ -1,3 +1,3 @@
 {"protocol":{"minReaderVersion":1,"minWriterVersion":2}}
-{"metaData":{"id":"54876bc9-f50a-42b4-a136-f4fb3cf1a5ed","format":{"provider":"parquet","options":{}},"partitionColumns":[],"configuration":{},"createdTime":1603309637599}}
+{"metaData":{"id":"aaf9139d-5d09-4c99-af0b-52b6c351c9e2","format":{"provider":"parquet","options":{}},"partitionColumns":[],"configuration":{},"createdTime":1603376888640}}
 {"add":{"path":"/some/unqualified/absolute/path","partitionValues":{},"size":100,"modificationTime":10,"dataChange":true}}

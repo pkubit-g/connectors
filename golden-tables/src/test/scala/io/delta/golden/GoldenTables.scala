@@ -16,6 +16,7 @@
 package io.delta.golden
 
 import java.io.File
+import java.math.{BigDecimal => JBigDecimal}
 
 import scala.concurrent.duration._
 import scala.language.implicitConversions
@@ -26,12 +27,13 @@ import org.apache.hadoop.fs.Path
 
 import org.apache.spark.network.util.JavaUtils
 import org.apache.spark.sql.delta.DeltaLog
-import org.apache.spark.sql.QueryTest
+import org.apache.spark.sql.{QueryTest, Row}
 import org.apache.spark.sql.delta.DeltaOperations.ManualUpdate
 import org.apache.spark.sql.delta.actions.{Action, AddFile, Metadata, Protocol, RemoveFile}
 import org.apache.spark.sql.delta.sources.DeltaSQLConf
 import org.apache.spark.sql.delta.util.{FileNames, JsonUtils}
 import org.apache.spark.sql.test.SharedSparkSession
+import org.apache.spark.sql.types._
 
 /**
  * This is a special class to generate golden tables for other projects. Run the following commands
@@ -311,4 +313,33 @@ class GoldenTables extends QueryTest with SharedSparkSession {
   // io.delta.alpine.internal.DeltaDataReaderSuite
   ///////////////////////////////////////////////////////////////////////////
 
+  private def writeDataWithSchema(tblLoc: String, data: Seq[Row], schema: StructType): Unit = {
+    val df = spark.createDataFrame(spark.sparkContext.parallelize(data), schema)
+    df.write.format("delta").save(tblLoc)
+  }
+
+  /** TEST: DeltaDataReaderSuite > read - primitives */
+  generateGoldenTable("data-reader-primitives") { tablePath =>
+    def createRow(i: Int): Row = {
+      Row(i, i.longValue, i.toByte, i.shortValue, i % 2 == 0, i.floatValue, i.doubleValue,
+        i.toString, Array[Byte](i.toByte, i.toByte), new JBigDecimal(i))
+    }
+
+    val schema = new StructType()
+      .add("as_int", IntegerType)
+      .add("as_long", LongType)
+      .add("as_byte", ByteType)
+      .add("as_short", ShortType)
+      .add("as_boolean", BooleanType)
+      .add("as_float", FloatType)
+      .add("as_double", DoubleType)
+      .add("as_string", StringType)
+      .add("as_binary", BinaryType)
+      .add("as_big_decimal", DecimalType(1, 0))
+
+    val data = (0 until 10).map(createRow)
+    writeDataWithSchema(tablePath, data, schema)
+  }
+
+  generateGoldenTab
 }

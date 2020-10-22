@@ -26,6 +26,7 @@ import scala.collection.JavaConverters._
 import io.delta.alpine.data.{RowRecord => JRowRecord}
 import io.delta.alpine.DeltaLog
 import io.delta.alpine.internal.sources.AlpineHadoopConf
+import io.delta.alpine.internal.util.GoldenTableUtils._
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.spark.sql.{QueryTest, Row}
@@ -34,40 +35,11 @@ import org.apache.spark.sql.types._
 
 class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
 
-  private def writeDataPrintInfo(tblLoc: String, data: Seq[Row], schema: StructType): Unit = {
-    val df = spark.createDataFrame(spark.sparkContext.parallelize(data), schema)
-    df.write.format("delta").save(tblLoc)
-    df.printSchema()
-    df.show(false)
-  }
+  private def writeDataPrintInfo(tblLoc: String, data: Seq[Row], schema: StructType): Unit = { }
 
   test("read - primitives") {
-    withTempDir { dir =>
-      def createRow(i: Int): Row = {
-        Row(i, i.longValue, i.toByte, i.shortValue, i % 2 == 0, i.floatValue, i.doubleValue,
-          i.toString, Array[Byte](i.toByte, i.toByte), new JBigDecimal(i))
-      }
-
-      val schema = new StructType()
-        .add("as_int", IntegerType)
-        .add("as_long", LongType)
-        .add("as_byte", ByteType)
-        .add("as_short", ShortType)
-        .add("as_boolean", BooleanType)
-        .add("as_float", FloatType)
-        .add("as_double", DoubleType)
-        .add("as_string", StringType)
-        .add("as_binary", BinaryType)
-        .add("as_big_decimal", DecimalType(1, 0))
-
-      val tblLoc = dir.getCanonicalPath
-      val data = (0 until 10).map(createRow)
-      writeDataPrintInfo(tblLoc, data, schema)
-
-      val hadoopConf = spark.sessionState.newHadoopConf()
-      val alpineLog = DeltaLog.forTable(hadoopConf, tblLoc)
-      val recordIter = alpineLog.snapshot().open()
-
+    withLogForGoldenTable("data-reader-primitives") { (log, tablePath) =>
+      val recordIter = log.snapshot().open()
       while (recordIter.hasNext) {
         val row = recordIter.next()
         val i = row.getInt("as_int")
