@@ -470,4 +470,18 @@ class GoldenTables extends QueryTest with SharedSparkSession {
       .add("array_can_contain_null", ArrayType(StringType, containsNull = true))
     writeDataWithSchema(tablePath, data, schema)
   }
+
+  generateGoldenTable("data-reader-absolute-paths-escaped-chars") { tablePath =>
+    val log = DeltaLog.forTable(spark, new Path(tablePath))
+    assert(new File(log.logPath.toUri).mkdirs())
+
+    val add1 = AddFile(
+      s"../$tablePath/foo.snappy.parquet", Map.empty, 1L, System.currentTimeMillis(),
+      dataChange = true)
+    log.startTransaction().commit(add1 :: Nil, testOp)
+
+    val add2 = AddFile(
+      "bar%2Dbar.snappy.parquet", Map.empty, 1L, System.currentTimeMillis(), dataChange = true)
+    log.startTransaction().commit(add2 :: Nil, testOp)
+  }
 }

@@ -103,6 +103,7 @@ private[internal] class SnapshotImpl(
 
     replay.append(0, actions.iterator)
 
+    // TODO: assert replay.currentMetaData not null?
     State(
       replay.currentProtocolVersion,
       replay.currentMetaData,

@@ -44,7 +44,7 @@ class DeltaDataReaderSuite extends FunSuite {
   // scalastyle:on funsuite
 
   test("read - primitives") {
-    withLogForGoldenTable("data-reader-primitives") { (log, tablePath) =>
+    withLogForGoldenTable("data-reader-primitives") { (log, _) =>
       val recordIter = log.snapshot().open()
       var count = 0
       while (recordIter.hasNext) {
@@ -95,7 +95,7 @@ class DeltaDataReaderSuite extends FunSuite {
   }
 
   test("read - array of primitives") {
-    withLogForGoldenTable("data-reader-array-primitives") { (log, tablePath) =>
+    withLogForGoldenTable("data-reader-array-primitives") { (log, _) =>
       val recordIter = log.snapshot().open()
       var count = 0
       while (recordIter.hasNext) {
@@ -121,7 +121,7 @@ class DeltaDataReaderSuite extends FunSuite {
   }
 
   test("read - array of complex objects") {
-    withLogForGoldenTable("data-reader-array-complex-objects") { (log, tablePath) =>
+    withLogForGoldenTable("data-reader-array-complex-objects") { (log, _) =>
       val recordIter = log.snapshot().open()
       var count = 0
       while (recordIter.hasNext) {
@@ -167,7 +167,7 @@ class DeltaDataReaderSuite extends FunSuite {
   }
 
   test("read - map") {
-    withLogForGoldenTable("data-reader-map") { (log, tablePath) =>
+    withLogForGoldenTable("data-reader-map") { (log, _) =>
       val recordIter = log.snapshot().open()
       var count = 0
       while (recordIter.hasNext) {
@@ -192,7 +192,7 @@ class DeltaDataReaderSuite extends FunSuite {
   }
 
   test("read - nested struct") {
-    withLogForGoldenTable("data-reader-nested-struct") { (log, tablePath) =>
+    withLogForGoldenTable("data-reader-nested-struct") { (log, _) =>
       val recordIter = log.snapshot().open()
       var count = 0
       while (recordIter.hasNext) {
@@ -213,7 +213,7 @@ class DeltaDataReaderSuite extends FunSuite {
   }
 
   test("read - nullable field, invalid schema column key") {
-    withLogForGoldenTable("data-reader-nullable-field-invalid-schema-key") { (log, tablePath) =>
+    withLogForGoldenTable("data-reader-nullable-field-invalid-schema-key") { (log, _) =>
       val recordIter = log.snapshot().open()
 
       if (!recordIter.hasNext) fail(s"No row record")
@@ -230,7 +230,10 @@ class DeltaDataReaderSuite extends FunSuite {
     }
   }
 
-  test("test absolute path") {
-
+  test("test absolute path and escaped char sequences in path") {
+    withLogForGoldenTable("data-reader-absolute-paths-escaped-chars") { (log, _) =>
+//      val recordIter = log.snapshot().open()
+      // TODO
+    }
   }
 }
