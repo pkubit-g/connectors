@@ -197,7 +197,7 @@ class DeltaLogSuite extends FunSuite {
 
   test("error - versions not contiguous") {
     val ex = intercept[IllegalStateException] {
-      withGoldenTable("versions-not-contiguous") { _ => }
+      withLogForGoldenTable("versions-not-contiguous") { (_, _) => }
     }
 
     assert(ex.getMessage ===
