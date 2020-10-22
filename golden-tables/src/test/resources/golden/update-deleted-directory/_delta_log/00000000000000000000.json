@@ -1,4 +1,4 @@
-{"commitInfo":{"timestamp":1603376873533,"operation":"Manual Update","operationParameters":{},"isBlindAppend":true}}
+{"commitInfo":{"timestamp":1603378707036,"operation":"Manual Update","operationParameters":{},"isBlindAppend":true}}
 {"protocol":{"minReaderVersion":1,"minWriterVersion":2}}
 {"add":{"path":"1","partitionValues":{},"size":1,"modificationTime":1,"dataChange":true}}
 {"add":{"path":"2","partitionValues":{},"size":1,"modificationTime":1,"dataChange":true}}

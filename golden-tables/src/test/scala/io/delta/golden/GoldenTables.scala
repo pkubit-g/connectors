@@ -17,6 +17,8 @@ package io.delta.golden
 
 import java.io.File
 import java.math.{BigDecimal => JBigDecimal}
+import java.sql.Timestamp
+import java.util.TimeZone
 
 import scala.concurrent.duration._
 import scala.language.implicitConversions
@@ -341,5 +343,130 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     writeDataWithSchema(tablePath, data, schema)
   }
 
-  generateGoldenTab
+  /** TEST: DeltaDataReaderSuite > read - date types */
+  Seq("UTC", "Iceland", "PST", "America/Los_Angeles", "Etc/GMT+9", "Asia/Beirut",
+    "JST").foreach { timeZoneId =>
+    generateGoldenTable(s"data-reader-date-types-$timeZoneId") { tablePath =>
+      val timeZone = TimeZone.getTimeZone(timeZoneId)
+      TimeZone.setDefault(timeZone)
+
+      val timestamp = Timestamp.valueOf("2020-01-01 08:09:10")
+      val date = java.sql.Date.valueOf("2020-01-01")
+
+      val data = Row(timestamp, date) :: Nil
+      val schema = new StructType()
+        .add("timestamp", TimestampType)
+        .add("date", DateType)
+
+      writeDataWithSchema(tablePath, data, schema)
+    }
+  }
+
+  /** TEST: DeltaDataReaderSuite > read - array of primitives */
+  generateGoldenTable("data-reader-array-primitives") { tablePath =>
+    def createRow(i: Int): Row = {
+      Row(Array(i), Array(i.longValue), Array(i.toByte), Array(i.shortValue),
+        Array(i % 2 == 0), Array(i.floatValue), Array(i.doubleValue), Array(i.toString),
+        Array(Array(i.toByte, i.toByte)),
+        Array(new JBigDecimal(i))
+      )
+    }
+
+    val schema = new StructType()
+      .add("as_array_int", ArrayType(IntegerType))
+      .add("as_array_long", ArrayType(LongType))
+      .add("as_array_byte", ArrayType(ByteType))
+      .add("as_array_short", ArrayType(ShortType))
+      .add("as_array_boolean", ArrayType(BooleanType))
+      .add("as_array_float", ArrayType(FloatType))
+      .add("as_array_double", ArrayType(DoubleType))
+      .add("as_array_string", ArrayType(StringType))
+      .add("as_array_binary", ArrayType(BinaryType))
+      .add("as_array_big_decimal", ArrayType(DecimalType(1, 0)))
+
+    val data = (0 until 10).map(createRow)
+    writeDataWithSchema(tablePath, data, schema)
+  }
+
+  /** TEST: DeltaDataReaderSuite > read - array of complex objects */
+  generateGoldenTable("data-reader-array-complex-objects") { tablePath =>
+    def createRow(i: Int): Row = {
+      Row(
+        i,
+        Array(Array(Array(i, i, i), Array(i, i, i)), Array(Array(i, i, i), Array(i, i, i))),
+        Array(
+          Array(Array(Array(i, i, i), Array(i, i, i)), Array(Array(i, i, i), Array(i, i, i))),
+          Array(Array(Array(i, i, i), Array(i, i, i)), Array(Array(i, i, i), Array(i, i, i)))
+        ),
+        Array(
+          Map[String, Long](i.toString -> i.toLong),
+          Map[String, Long](i.toString -> i.toLong)
+        ),
+        Array(Row(i), Row(i), Row(i))
+      )
+    }
+
+    val schema = new StructType()
+      .add("i", IntegerType)
+      .add("3d_int_list", ArrayType(ArrayType(ArrayType(IntegerType))))
+      .add("4d_int_list", ArrayType(ArrayType(ArrayType(ArrayType(IntegerType)))))
+      .add("list_of_maps", ArrayType(MapType(StringType, LongType)))
+      .add("list_of_records", ArrayType(new StructType().add("val", IntegerType)))
+
+    val data = (0 until 10).map(createRow)
+    writeDataWithSchema(tablePath, data, schema)
+  }
+
+  /** TEST: DeltaDataReaderSuite > read - map */
+  generateGoldenTable("data-reader-map") { tablePath =>
+    def createRow(i: Int): Row = {
+      Row(
+        i,
+        Map(i -> i),
+        Map(i.toLong -> i.toByte),
+        Map(i.toShort -> (i % 2 == 0)),
+        Map(i.toFloat -> i.toDouble),
+        Map(i.toString -> new JBigDecimal(i)),
+        Map(i -> Array(Row(i), Row(i), Row(i)))
+      )
+    }
+
+    val schema = new StructType()
+      .add("i", IntegerType)
+      .add("a", MapType(IntegerType, IntegerType))
+      .add("b", MapType(LongType, ByteType))
+      .add("c", MapType(ShortType, BooleanType))
+      .add("d", MapType(FloatType, DoubleType))
+      .add("e", MapType(StringType, DecimalType(1, 0)))
+      .add("f", MapType(IntegerType, ArrayType(new StructType().add("val", IntegerType))))
+
+
+  }
+
+  /** TEST: DeltaDataReaderSuite > read - nested struct */
+  generateGoldenTable("data-reader-nested-struct") { tablePath =>
+    def createRow(i: Int): Row = Row(Row(i.toString, i.toString, Row(i, i.toLong)), i)
+
+    val schema = new StructType()
+      .add("a", new StructType()
+        .add("aa", StringType)
+        .add("ab", StringType)
+        .add("ac", new StructType()
+          .add("aca", IntegerType)
+          .add("acb", LongType)
+        )
+      )
+      .add("b", IntegerType)
+
+    val data = (0 until 10).map(createRow)
+    writeDataWithSchema(tablePath, data, schema)
+  }
+
+  /** TEST: DeltaDataReaderSuite > read - nullable field, invalid schema column key */
+  generateGoldenTable("data-reader-nullable-field-invalid-schema-key") { tablePath =>
+    val data = Row(Seq(null, null, null)) :: Nil
+    val schema = new StructType()
+      .add("array_can_contain_null", ArrayType(StringType, containsNull = true))
+    writeDataWithSchema(tablePath, data, schema)
+  }
 }

@@ -28,18 +28,25 @@ import io.delta.alpine.DeltaLog
 import io.delta.alpine.internal.sources.AlpineHadoopConf
 import io.delta.alpine.internal.util.GoldenTableUtils._
 import org.apache.hadoop.conf.Configuration
+// scalastyle:off funsuite
+import org.scalatest.FunSuite
 
-import org.apache.spark.sql.{QueryTest, Row}
-import org.apache.spark.sql.test.SharedSparkSession
-import org.apache.spark.sql.types._
-
-class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
-
-  private def writeDataPrintInfo(tblLoc: String, data: Seq[Row], schema: StructType): Unit = { }
+/**
+ * Instead of using Spark in this project to WRITE data and log files for tests, we have
+ * io.delta.golden.GoldenTables do it instead. During tests, we then refer by name to specific
+ * golden tables that that class is responsible for generating ahead of time. This allows us to
+ * focus on READING only so that we may fully decouple from Spark and not have it as a dependency.
+ *
+ * See io.delta.golden.GoldenTables for documentation on how to ensure that the needed files have
+ * been generated.
+ */
+class DeltaDataReaderSuite extends FunSuite {
+  // scalastyle:on funsuite
 
   test("read - primitives") {
     withLogForGoldenTable("data-reader-primitives") { (log, tablePath) =>
       val recordIter = log.snapshot().open()
+
       while (recordIter.hasNext) {
         val row = recordIter.next()
         val i = row.getInt("as_int")
@@ -59,26 +66,18 @@ class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
   test("read - date types") {
     Seq("UTC", "Iceland", "PST", "America/Los_Angeles", "Etc/GMT+9", "Asia/Beirut",
       "JST").foreach { timeZoneId =>
-      withTempDir { dir =>
+      withGoldenTable(s"data-reader-date-types-$timeZoneId") { tablePath =>
         val timeZone = TimeZone.getTimeZone(timeZoneId)
         TimeZone.setDefault(timeZone)
 
         val timestamp = Timestamp.valueOf("2020-01-01 08:09:10")
         val date = java.sql.Date.valueOf("2020-01-01")
 
-        val data = Row(timestamp, date) :: Nil
-        val schema = new StructType()
-          .add("timestamp", TimestampType)
-          .add("date", DateType)
-
-        val tblLoc = dir.getCanonicalPath
-        writeDataPrintInfo(tblLoc, data, schema)
-
         val hadoopConf = new Configuration()
         hadoopConf.set(AlpineHadoopConf.PARQUET_DATA_TIME_ZONE_ID, timeZoneId)
 
-        val alpineLog = DeltaLog.forTable(hadoopConf, tblLoc)
-        val recordIter = alpineLog.snapshot().open()
+        val log = DeltaLog.forTable(hadoopConf, tablePath)
+        val recordIter = log.snapshot().open()
 
         val row = recordIter.next()
 
@@ -91,34 +90,8 @@ class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
   }
 
   test("read - array of primitives") {
-    withTempDir { dir =>
-      def createRow(i: Int): Row = {
-        Row(Array(i), Array(i.longValue), Array(i.toByte), Array(i.shortValue),
-          Array(i % 2 == 0), Array(i.floatValue), Array(i.doubleValue), Array(i.toString),
-          Array(Array(i.toByte, i.toByte)),
-          Array(new JBigDecimal(i))
-        )
-      }
-
-      val schema = new StructType()
-        .add("as_array_int", ArrayType(IntegerType))
-        .add("as_array_long", ArrayType(LongType))
-        .add("as_array_byte", ArrayType(ByteType))
-        .add("as_array_short", ArrayType(ShortType))
-        .add("as_array_boolean", ArrayType(BooleanType))
-        .add("as_array_float", ArrayType(FloatType))
-        .add("as_array_double", ArrayType(DoubleType))
-        .add("as_array_string", ArrayType(StringType))
-        .add("as_array_binary", ArrayType(BinaryType))
-        .add("as_array_big_decimal", ArrayType(DecimalType(1, 0)))
-
-      val tblLoc = dir.getCanonicalPath
-      val data = (0 until 10).map(createRow)
-      writeDataPrintInfo(tblLoc, data, schema)
-
-      val hadoopConf = spark.sessionState.newHadoopConf()
-      val alpineLog = DeltaLog.forTable(hadoopConf, tblLoc)
-      val recordIter = alpineLog.snapshot().open()
+    withLogForGoldenTable("data-reader-array-primitives") { (log, tablePath) =>
+      val recordIter = log.snapshot().open()
 
       while (recordIter.hasNext) {
         val row = recordIter.next()
@@ -140,37 +113,8 @@ class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
   }
 
   test("read - array of complex objects") {
-    withTempDir { dir =>
-      def createRow(i: Int): Row = {
-        Row(
-          i,
-          Array(Array(Array(i, i, i), Array(i, i, i)), Array(Array(i, i, i), Array(i, i, i))),
-          Array(
-            Array(Array(Array(i, i, i), Array(i, i, i)), Array(Array(i, i, i), Array(i, i, i))),
-            Array(Array(Array(i, i, i), Array(i, i, i)), Array(Array(i, i, i), Array(i, i, i)))
-          ),
-          Array(
-            Map[String, Long](i.toString -> i.toLong),
-            Map[String, Long](i.toString -> i.toLong)
-          ),
-          Array(Row(i), Row(i), Row(i))
-        )
-      }
-
-      val schema = new StructType()
-        .add("i", IntegerType)
-        .add("3d_int_list", ArrayType(ArrayType(ArrayType(IntegerType))))
-        .add("4d_int_list", ArrayType(ArrayType(ArrayType(ArrayType(IntegerType)))))
-        .add("list_of_maps", ArrayType(MapType(StringType, LongType)))
-        .add("list_of_records", ArrayType(new StructType().add("val", IntegerType)))
-
-      val tblLoc = dir.getCanonicalPath
-      val data = (0 until 10).map(createRow)
-      writeDataPrintInfo(tblLoc, data, schema)
-
-      val hadoopConf = spark.sessionState.newHadoopConf()
-      val alpineLog = DeltaLog.forTable(hadoopConf, tblLoc)
-      val recordIter = alpineLog.snapshot().open()
+    withLogForGoldenTable("data-reader-array-complex-objects") { (log, tablePath) =>
+      val recordIter = log.snapshot().open()
 
       while (recordIter.hasNext) {
         val row = recordIter.next()
@@ -212,35 +156,8 @@ class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
   }
 
   test("read - map") {
-    withTempDir { dir =>
-      def createRow(i: Int): Row = {
-        Row(
-          i,
-          Map(i -> i),
-          Map(i.toLong -> i.toByte),
-          Map(i.toShort -> (i % 2 == 0)),
-          Map(i.toFloat -> i.toDouble),
-          Map(i.toString -> new JBigDecimal(i)),
-          Map(i -> Array(Row(i), Row(i), Row(i)))
-        )
-      }
-
-      val schema = new StructType()
-        .add("i", IntegerType)
-        .add("a", MapType(IntegerType, IntegerType))
-        .add("b", MapType(LongType, ByteType))
-        .add("c", MapType(ShortType, BooleanType))
-        .add("d", MapType(FloatType, DoubleType))
-        .add("e", MapType(StringType, DecimalType(1, 0)))
-        .add("f", MapType(IntegerType, ArrayType(new StructType().add("val", IntegerType))))
-
-      val tblLoc = dir.getCanonicalPath
-      val data = (0 until 10).map(createRow)
-      writeDataPrintInfo(tblLoc, data, schema)
-
-      val hadoopConf = spark.sessionState.newHadoopConf()
-      val alpineLog = DeltaLog.forTable(hadoopConf, tblLoc)
-      val recordIter = alpineLog.snapshot().open()
+    withLogForGoldenTable("data-reader-map") { (log, tablePath) =>
+      val recordIter = log.snapshot().open()
 
       while (recordIter.hasNext) {
         val row = recordIter.next()
@@ -261,27 +178,8 @@ class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
   }
 
   test("read - nested struct") {
-    withTempDir { dir =>
-      def createRow(i: Int): Row = Row(Row(i.toString, i.toString, Row(i, i.toLong)), i)
-
-      val schema = new StructType()
-        .add("a", new StructType()
-          .add("aa", StringType)
-          .add("ab", StringType)
-          .add("ac", new StructType()
-            .add("aca", IntegerType)
-            .add("acb", LongType)
-          )
-        )
-        .add("b", IntegerType)
-
-      val tblLoc = dir.getCanonicalPath
-      val data = (0 until 10).map(createRow)
-      writeDataPrintInfo(tblLoc, data, schema)
-
-      val hadoopConf = spark.sessionState.newHadoopConf()
-      val alpineLog = DeltaLog.forTable(hadoopConf, tblLoc)
-      val recordIter = alpineLog.snapshot().open()
+    withLogForGoldenTable("data-reader-nested-struct") { (log, tablePath) =>
+      val recordIter = log.snapshot().open()
 
       while (recordIter.hasNext) {
         val row = recordIter.next()
@@ -298,17 +196,8 @@ class DeltaDataReaderSuite extends QueryTest with SharedSparkSession {
   }
 
   test("read - nullable field, invalid schema column key") {
-    withTempDir { dir =>
-      val data = Row(Seq(null, null, null)) :: Nil
-      val schema = new StructType()
-        .add("array_can_contain_null", ArrayType(StringType, containsNull = true))
-
-      val tblLoc = dir.getCanonicalPath
-      writeDataPrintInfo(tblLoc, data, schema)
-
-      val hadoopConf = spark.sessionState.newHadoopConf()
-      val alpineLog = DeltaLog.forTable(hadoopConf, tblLoc)
-      val recordIter = alpineLog.snapshot().open()
+    withLogForGoldenTable("data-reader-nullable-field-invalid-schema-key") { (log, tablePath) =>
+      val recordIter = log.snapshot().open()
 
       val row = recordIter.next()
       row.getList[String]("array_can_contain_null").forEach(elem => assert(elem == null))
