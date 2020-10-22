@@ -99,7 +99,7 @@ private[internal] case class RowParquetRecordImpl(
       case (x: MapType, y: MapParquetRecord) => decodeMap(x.getKeyType, x.getValueType, y)
       case (x: StructType, y: RowParquetRecord) => RowParquetRecordImpl(y, x, timeZone)
       case _ =>
-        throw new RuntimeException("Unknown non-primitive decode type") // TODO put debugging info
+        throw new RuntimeException(s"Unknown non-primitive decode type $elemTypeName, $parquetVal")
     }
   }
 
@@ -123,7 +123,7 @@ private[internal] case class RowParquetRecordImpl(
       case x: StructType =>
         // List of records
         list.map { case y: RowParquetRecord => RowParquetRecordImpl(y, x, timeZone) }.asJava
-      case _ => throw new RuntimeException("Unknown non-primitive list decode type")
+      case _ => throw new RuntimeException(s"Unknown non-primitive list decode type $elemTypeName")
     }
   }
 
@@ -143,44 +143,44 @@ private[internal] case class RowParquetRecordImpl(
   private val customDecimalCodec: ValueCodec[java.math.BigDecimal] =
     new OptionalValueCodec[java.math.BigDecimal] {
       override def decodeNonNull(
-        value: Value,
-        configuration: ValueCodecConfiguration): java.math.BigDecimal = {
+          value: Value,
+          configuration: ValueCodecConfiguration): java.math.BigDecimal = {
         value match {
           // parquet4s.ValueCodec.decimalCodec doesn't match on IntValue
           case IntValue(int) => new java.math.BigDecimal(int)
           case DoubleValue(double) => BigDecimal.decimal(double).bigDecimal
           case FloatValue(float) => BigDecimal.decimal(float).bigDecimal
           case BinaryValue(binary) => Decimals.decimalFromBinary(binary).bigDecimal
-          case _ => throw new RuntimeException("Unknown decimal decode type")
+          case _ => throw new RuntimeException(s"Unknown decimal decode type $value")
         }
       }
 
       override def encodeNonNull(
-        data: java.math.BigDecimal,
-        configuration: ValueCodecConfiguration): Value = {
-        throw new UnsupportedOperationException("Shouldn't be encoding in the reader")
+          data: java.math.BigDecimal,
+          configuration: ValueCodecConfiguration): Value = {
+        throw new UnsupportedOperationException("Shouldn't be encoding in the reader (decimal)")
       }
     }
 
   private def customSeqCodec[T](elementCodec: ValueCodec[T])(implicit
-    classTag: ClassTag[T],
-    factory: Factory[T, Seq[T]]): ValueCodec[Seq[T]] = new OptionalValueCodec[Seq[T]] {
+      classTag: ClassTag[T],
+      factory: Factory[T, Seq[T]]): ValueCodec[Seq[T]] = new OptionalValueCodec[Seq[T]] {
     override def decodeNonNull(
-      value: Value,
-      configuration: ValueCodecConfiguration): Seq[T] = {
+        value: Value,
+        configuration: ValueCodecConfiguration): Seq[T] = {
       value match {
         case listRecord: ListParquetRecord =>
           listRecord.map(elementCodec.decode(_, codecConf))
         case binaryValue: BinaryValue if classTag.runtimeClass == classOf[Byte] =>
           binaryValue.value.getBytes.asInstanceOf[Seq[T]]
-        case _ => throw new RuntimeException("Unknown list decode type")
+        case _ => throw new RuntimeException(s"Unknown list decode type $value")
       }
     }
 
     override def encodeNonNull(
-      data: Seq[T],
-      configuration: ValueCodecConfiguration): Value = {
-      throw new UnsupportedOperationException("Shouldn't be encoding in the reader")
+        data: Seq[T],
+        configuration: ValueCodecConfiguration): Value = {
+      throw new UnsupportedOperationException("Shouldn't be encoding in the reader (seq)")
     }
   }
 
