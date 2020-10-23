@@ -20,17 +20,15 @@ import java.util.TimeZone
 
 import com.github.mjakubowski84.parquet4s._
 import com.github.mjakubowski84.parquet4s.ParquetReader.Options
-import io.delta.alpine.data.{CloseableIterator, RowParquetRecord => RowParquetRecordJ}
+import io.delta.alpine.data.{CloseableIterator, RowRecord => RowParquetRecordJ}
 import io.delta.alpine.types.StructType
 
 private[internal] case class CloseableParquetDataIterator(
     dataFilePaths: Seq[String],
-    dataPath: String,
     schema: StructType,
     timeZoneId: String) extends CloseableIterator[RowParquetRecordJ] {
-  private val correctedTimeZoneId = if (null == timeZoneId) "UTC" else timeZoneId
-  private val readTimeZone = TimeZone.getTimeZone(correctedTimeZoneId)
-
+  private val readTimeZone =
+    if (null == timeZoneId) TimeZone.getDefault else TimeZone.getTimeZone(timeZoneId)
   private val dataFilePathsIter = dataFilePaths.iterator
   private var parquetRows = if (dataFilePathsIter.hasNext) readNextFile else null
   private var parquetRowsIter = if (null != parquetRows) parquetRows.iterator else null
@@ -73,7 +71,6 @@ private[internal] case class CloseableParquetDataIterator(
   }
 
   private def readNextFile: ParquetIterable[RowParquetRecord] = {
-    ParquetReader.read[RowParquetRecord](
-      s"$dataPath/${dataFilePathsIter.next()}", Options(readTimeZone))
+    ParquetReader.read[RowParquetRecord](dataFilePathsIter.next(), Options(readTimeZone))
   }
 }

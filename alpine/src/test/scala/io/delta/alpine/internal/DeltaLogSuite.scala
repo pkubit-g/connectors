@@ -16,359 +16,191 @@
 
 package io.delta.alpine.internal
 
-import java.io.{File, FileNotFoundException}
+import java.io.File
+import java.nio.file.Files
+import java.util.UUID
 
-import io.delta.alpine.internal.exception.{DeltaErrors => DeltaErrorsAlpine}
-import io.delta.alpine.internal.util.ConversionUtils
-import io.delta.tables.DeltaTable
+import scala.collection.JavaConverters._
+
+import io.delta.alpine.{DeltaLog, Snapshot}
+import io.delta.alpine.internal.exception.DeltaErrors
+import io.delta.alpine.internal.util.GoldenTableUtils._
+import org.apache.commons.io.FileUtils
+import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
-import org.apache.spark.network.util.JavaUtils
-import org.apache.spark.sql.QueryTest
-import org.apache.spark.sql.delta.{DeltaLog => DeltaLogOSS}
-import org.apache.spark.sql.delta.actions._
-import org.apache.spark.sql.delta.DeltaOperations.ManualUpdate
-import org.apache.spark.sql.delta.sources.DeltaSQLConf
-import org.apache.spark.sql.delta.util.{FileNames, JsonUtils}
-import org.apache.spark.sql.test.SharedSparkSession
+// scalastyle:off funsuite
+import org.scalatest.FunSuite
 
-class DeltaLogSuite extends QueryTest with SharedSparkSession with ConversionUtils {
-
-  private val testOp = ManualUpdate
-
+/**
+ * Instead of using Spark in this project to WRITE data and log files for tests, we have
+ * io.delta.golden.GoldenTables do it instead. During tests, we then refer by name to specific
+ * golden tables that that class is responsible for generating ahead of time. This allows us to
+ * focus on READING only so that we may fully decouple from Spark and not have it as a dependency.
+ *
+ * See io.delta.golden.GoldenTables for documentation on how to ensure that the needed files have
+ * been generated.
+ */
+class DeltaLogSuite extends FunSuite {
+  // scalastyle:on funsuite
   test("checkpoint") {
-    withTempDir { dir =>
-      val log1 = DeltaLogOSS.forTable(spark, new Path(dir.getCanonicalPath))
-
-      (1 to 15).foreach { i =>
-        val txn = log1.startTransaction()
-        val file = AddFile(i.toString, Map.empty, 1, 1, true) :: Nil
-        val delete: Seq[Action] = if (i > 1) {
-          RemoveFile(i - 1 toString, Some(System.currentTimeMillis()), true) :: Nil
-        } else {
-          Nil
-        }
-        txn.commit(delete ++ file, testOp)
-      }
-
-      DeltaLogOSS.clearCache()
-      val log2 = DeltaLogOSS.forTable(spark, new Path(dir.getCanonicalPath))
-      assert(log2.snapshot.version == log1.snapshot.version)
-      assert(log2.snapshot.allFiles.count == 1)
-
-      val hadoopConf = spark.sessionState.newHadoopConf()
-      val alpineLog = DeltaLogImpl.forTable(hadoopConf, new Path(dir.getCanonicalPath))
-      assert(alpineLog.snapshot.version == log1.snapshot.version)
-      assert(alpineLog.snapshot.allFilesScala.size == 1)
-      assert(alpineLog.snapshot.numOfFiles == 1)
+    withLogForGoldenTable("checkpoint") { (log, _) =>
+      assert(log.snapshot.getVersion == 14)
+      assert(log.snapshot.getAllFiles.size == 1)
+      assert(log.snapshot.getNumOfFiles == 1)
     }
   }
 
   test("snapshot") {
-    import testImplicits._
+    def getDirDataFiles(tablePath: String): Array[File] = {
+      val dir = new File(tablePath)
+      dir.listFiles().filter(_.isFile).filter(_.getName.endsWith("snappy.parquet"))
+    }
 
-    withTempDir { dir =>
-      val hadoopConf = spark.sessionState.newHadoopConf()
-      val alpineLog = DeltaLogImpl.forTable(hadoopConf, new Path(dir.getCanonicalPath))
-      val log = DeltaLogOSS.forTable(spark, new Path(dir.getCanonicalPath))
+    def verifySnapshot(
+        snapshot: Snapshot,
+        expectedFiles: Array[File],
+        expectedVersion: Int): Unit = {
+      assert(snapshot.getVersion == expectedVersion)
+      assert(snapshot.getAllFiles.size() == expectedFiles.length)
+      assert(
+        snapshot.getAllFiles.stream().allMatch(f => expectedFiles.exists(_.getName == f.getPath)))
+    }
 
-      def writeData(data: Seq[(Int, String)], mode: String): Unit = {
-        data.toDS
-          .toDF("col1", "col2")
-          .write
-          .mode(mode)
-          .format("delta")
-          .save(dir.getCanonicalPath)
-      }
+    // Append data0
+    var data0_files: Array[File] = Array.empty
+    withLogForGoldenTable("snapshot-data0") { (log, tablePath) =>
+      data0_files = getDirDataFiles(tablePath) // data0 files
+      verifySnapshot(log.snapshot(), data0_files, 0)
+    }
 
-      def getDirSnapshotFiles: Array[File] = {
-        dir.listFiles().filter(_.isFile).filter(_.getName.endsWith("snappy.parquet"))
-      }
+    // Append data1
+    var data0_data1_files: Array[File] = Array.empty
+    withLogForGoldenTable("snapshot-data1") { (log, tablePath) =>
+      data0_data1_files = getDirDataFiles(tablePath) // data0 & data1 files
+      verifySnapshot(log.snapshot(), data0_data1_files, 1)
+    }
 
-      def updateLogs(): Unit = {
-        log.update()
-        alpineLog.update()
-      }
+    // Overwrite with data2
+    var data2_files: Array[File] = Array.empty
+    withLogForGoldenTable("snapshot-data2") { (log, tablePath) =>
+      // we have overwritten files for data0 & data1; only data2 files should remain
+      data2_files = getDirDataFiles(tablePath)
+        .filterNot(f => data0_data1_files.exists(_.getName == f.getName))
+      verifySnapshot(log.snapshot(), data2_files, 2)
+    }
 
-      def compareSnapshots(correctSnapshotFiles: Array[File], correctSnapshotVersion: Int): Unit = {
-        val logAllFiles = log.snapshot.allFiles.collect()
-        val alpineLogAllFiles = alpineLog.snapshot.allFilesScala
+    // Append data3
+    withLogForGoldenTable("snapshot-data3") { (log, tablePath) =>
+      // we have overwritten files for data0 & data1; only data2 & data3 files should remain
+      val data2_data3_files = getDirDataFiles(tablePath)
+        .filterNot(f => data0_data1_files.exists(_.getName == f.getName))
+      verifySnapshot(log.snapshot(), data2_data3_files, 3)
+    }
 
-        // Alpine snapshot version is correct and is same as DeltaLogImpl snapshot version
-        assert(alpineLog.snapshot.version == correctSnapshotVersion &&
-          alpineLog.snapshot.version == log.snapshot.version)
+    // Delete data2 files
+    withLogForGoldenTable("snapshot-data2-deleted") { (log, tablePath) =>
+      // we have overwritten files for data0 & data1, and deleted data2 files; only data3 files
+      // should remain
+      val data3_files = getDirDataFiles(tablePath)
+        .filterNot(f => data0_data1_files.exists(_.getName == f.getName))
+        .filterNot(f => data2_files.exists(_.getName == f.getName))
+      verifySnapshot(log.snapshot(), data3_files, 4)
+    }
 
-        // Alpine snapshot files matches correctSnapshotFiles and matches DeltaLogImpl all files
-        assert(alpineLogAllFiles.size == correctSnapshotFiles.length
-          && alpineLogAllFiles.size == logAllFiles.length
-          && alpineLogAllFiles.forall { f =>
-          correctSnapshotFiles.exists(_.getName == f.path) && logAllFiles.exists(_.path == f.path)
-        })
+    // Repartition into 2 files
+    withLogForGoldenTable("snapshot-repartitioned") { (log, tablePath) =>
+      assert(log.snapshot().getNumOfFiles == 2)
+      assert(log.snapshot().getVersion == 5)
+    }
 
-        assert(convertMetaData(alpineLog.snapshot.metadataScala) == log.snapshot.metadata)
-        assert(convertProtocol(alpineLog.snapshot.protocolScala) == log.snapshot.protocol)
-      }
-
-      // Step 1: append data
-      val data0 = (0 until 10).map(x => (x, s"data-0-$x"))
-      writeData(data0, "append")
-      val snapshotFiles0 = getDirSnapshotFiles // includes data0 snapshots
-      assert(alpineLog.snapshot.version == -1)
-      updateLogs()
-      compareSnapshots(snapshotFiles0, 0)
-
-      // Step 2: append data again
-      val data1 = (0 until 10).map(x => (x, s"data-1-$x"))
-      writeData(data1, "append")
-      val snapshotFiles1 = getDirSnapshotFiles // includes data0 & data1 snapshots
-      updateLogs()
-      compareSnapshots(snapshotFiles1, 1)
-
-      // Step 3: overwrite data
-      val data2 = (0 until 10).map(x => (x, s"data-2-$x"))
-      writeData(data2, "overwrite")
-      // we have overwritten snapshots for data0,1; so only data2 snapshots should remain
-      val snapshotFiles2 = getDirSnapshotFiles
-        .filterNot(f => snapshotFiles1.exists(_.getName == f.getName))
-      updateLogs()
-      compareSnapshots(snapshotFiles2, 2)
-
-      // Step 4: append data again
-      val data3 = (0 until 20).map(x => (x, s"data-3-$x"))
-      writeData(data3, "append")
-      // we have overwritten snapshots for data0,1; so only data2,3 snapshots should remain
-      val snapshotFiles3 = getDirSnapshotFiles
-        .filterNot(f => snapshotFiles1.exists(_.getName == f.getName))
-      updateLogs()
-      compareSnapshots(snapshotFiles3, 3)
-
-      // Step 5: delete data-2-* data
-      DeltaTable.forPath(spark, dir.getCanonicalPath).delete("col2 like 'data-2-%'")
-      val snapshotFiles4 = getDirSnapshotFiles
-        .filterNot(f => snapshotFiles1.exists(_.getName == f.getName))
-        .filterNot(f => snapshotFiles2.exists(_.getName == f.getName))
-      updateLogs()
-      compareSnapshots(snapshotFiles4, 4)
-
-      // Step 7: compact
-      val preCompactionFiles = getDirSnapshotFiles
-      spark.read
-        .format("delta")
-        .load(dir.getCanonicalPath)
-        .repartition(2)
-        .write
-        .option("dataChange", "false")
-        .format("delta")
-        .mode("overwrite")
-        .save(dir.getCanonicalPath)
-      val snapshotFiles5 = getDirSnapshotFiles
-        .filterNot(f => preCompactionFiles.exists(_.getName == f.getName))
-      updateLogs()
-      compareSnapshots(snapshotFiles5, 5)
-
-      // Step 8: vacuum
-      withSQLConf(DeltaSQLConf.DELTA_VACUUM_RETENTION_CHECK_ENABLED.key -> "false") {
-        DeltaTable.forPath(spark, dir.getCanonicalPath).vacuum(0.0)
-        updateLogs()
-        compareSnapshots(snapshotFiles5, 5) // snapshots & version same as before
-      }
+    // Vacuum
+    withLogForGoldenTable("snapshot-vacuumed") { (log, tablePath) =>
+      // all remaining dir data files should be needed for current snapshot version
+      // vacuum doesn't change the snapshot version
+      verifySnapshot(log.snapshot(), getDirDataFiles(tablePath), 5)
     }
   }
 
   test("SC-8078: update deleted directory") {
-    withTempDir { dir =>
-      val path = new Path(dir.getCanonicalPath)
-      val log = DeltaLogOSS.forTable(spark, path)
-
-      // Commit data so the in-memory state isn't consistent with an empty log.
-      val txn = log.startTransaction()
-      val files = (1 to 10).map(f => AddFile(f.toString, Map.empty, 1, 1, true))
-      txn.commit(files, testOp)
-      log.checkpoint()
-
-      val hadoopConf = spark.sessionState.newHadoopConf()
-      val alpineLog = DeltaLogImpl.forTable(hadoopConf, new Path(dir.getCanonicalPath))
-
-      val fs = path.getFileSystem(hadoopConf)
-      fs.delete(path, true)
-
-      val ex = intercept[FileNotFoundException] {
-        log.update()
+    withGoldenTable("update-deleted-directory") { tablePath =>
+      val tempDir = Files.createTempDirectory(UUID.randomUUID().toString).toFile
+      try {
+        FileUtils.copyDirectory(new File(tablePath), tempDir)
+        val log = DeltaLog.forTable(new Configuration(), tempDir)
+        FileUtils.deleteDirectory(tempDir)
+        assert(log.update().getVersion == -1)
+      } finally {
+        // just in case
+        FileUtils.deleteDirectory(tempDir)
       }
-      assert(ex.getMessage().contains("No delta log found"))
-      assert(alpineLog.update().version == -1)
     }
   }
 
-  test("update shouldn't pick up delta files earlier than checkpoint") {
-    withTempDir { dir =>
-      val log1 = DeltaLogOSS.forTable(spark, new Path(dir.getCanonicalPath))
+  test("handle corrupted '_last_checkpoint' file") {
+    withLogImplForGoldenTable("corrupted-last-checkpoint") { (log1, tablePath) =>
+      assert(log1.lastCheckpoint.isDefined)
 
-      def addDeleteCommit(range: Range.Inclusive): Unit = {
-        range.foreach { i =>
-          val txn = log1.startTransaction()
-          val file = AddFile(i.toString, Map.empty, 1, 1, true) :: Nil
-          val delete: Seq[Action] = if (i > 1) {
-            RemoveFile(i - 1 toString, Some(System.currentTimeMillis()), true) :: Nil
-          } else {
-            Nil
-          }
-          txn.commit(delete ++ file, testOp)
-        }
-      }
+      val lastCheckpoint = log1.lastCheckpoint.get
 
-      addDeleteCommit(1 to 5)
+      // Create an empty "_last_checkpoint" (corrupted)
+      val fs = log1.LAST_CHECKPOINT.getFileSystem(log1.hadoopConf)
+      fs.create(log1.LAST_CHECKPOINT, true /* overwrite */).close()
 
-      val hadoopConf = spark.sessionState.newHadoopConf()
-      val alpineLog = DeltaLogImpl.forTable(hadoopConf, new Path(dir.getCanonicalPath))
+      // Create a new DeltaLog
+      val log2 = DeltaLogImpl.forTable(new Configuration(), new Path(tablePath))
 
-      addDeleteCommit(6 to 15)
+      // Make sure we create a new DeltaLog in order to test the loading logic.
+      assert(log1 ne log2)
 
-      // Since alpineLog is a separate instance, it shouldn't be updated to version 15
-      assert(alpineLog.snapshot.version == 4)
-      val alpineUpdateLog2 = alpineLog.update()
-      assert(alpineUpdateLog2.version == log1.snapshot.version, "Did not update to correct version")
-
-      val deltas = alpineLog.snapshot.logSegment.deltas
-      assert(deltas.length === 4, "Expected 4 files starting at version 11 to 14")
-      val versions = deltas.map(f => FileNames.deltaVersion(f.getPath)).sorted
-      assert(versions === Seq[Long](11, 12, 13, 14), "Received the wrong files for update")
+      // We should get the same metadata even if "_last_checkpoint" is corrupted.
+      assert(CheckpointInstance(log2.lastCheckpoint.get) === CheckpointInstance(lastCheckpoint))
     }
   }
-
-// TODO test("handle corrupted '_last_checkpoint' file") { }
 
   test("paths should be canonicalized - normal characters") {
-    Seq("file:", "file://").foreach { scheme =>
-      withTempDir { dir =>
-        val log = DeltaLogOSS.forTable(spark, dir)
-        assert(new File(log.logPath.toUri).mkdirs())
+    withLogForGoldenTable("canonicalized-paths-normal-a") { (log, _) =>
+      assert(log.update().getVersion == 1)
+      assert(log.snapshot.getNumOfFiles == 0)
+    }
 
-        JavaUtils.deleteRecursively(dir)
-        val hadoopConf = spark.sessionState.newHadoopConf()
-        val alpineLog = DeltaLogImpl.forTable(hadoopConf, new Path(dir.getCanonicalPath))
-        assert(new File(alpineLog.logPath.toUri).mkdirs())
-
-        val path = "/some/unqualified/absolute/path"
-        val add = AddFile(path, Map.empty, 100L, 10L, dataChange = true)
-        val rm = RemoveFile(s"$scheme$path", Some(200L), dataChange = false)
-
-        log.store.write(
-          FileNames.deltaFile(log.logPath, 0L),
-          Iterator(Protocol(), Metadata(), add).map(a => JsonUtils.toJson(a.wrap)))
-        log.store.write(
-          FileNames.deltaFile(log.logPath, 1L),
-          Iterator(JsonUtils.toJson(rm.wrap)))
-
-        assert(alpineLog.update().version === 1)
-        assert(alpineLog.snapshot.numOfFiles === 0)
-      }
+    withLogForGoldenTable("canonicalized-paths-normal-b") { (log, _) =>
+      assert(log.update().getVersion == 1)
+      assert(log.snapshot.getNumOfFiles == 0)
     }
   }
 
   test("paths should be canonicalized - special characters") {
-    Seq("file:", "file://").foreach { scheme =>
-      withTempDir { dir =>
-        val log = DeltaLogOSS.forTable(spark, dir)
-        assert(new File(log.logPath.toUri).mkdirs())
+    withLogForGoldenTable("canonicalized-paths-special-a") { (log, _) =>
+      assert(log.update().getVersion == 1)
+      assert(log.snapshot.getNumOfFiles == 0)
+    }
 
-        JavaUtils.deleteRecursively(dir)
-        val hadoopConf = spark.sessionState.newHadoopConf()
-        val alpineLog = DeltaLogImpl.forTable(hadoopConf, new Path(dir.getCanonicalPath))
-        assert(new File(alpineLog.logPath.toUri).mkdirs())
-
-        val path = new Path("/some/unqualified/with space/p@#h").toUri.toString
-        val add = AddFile(path, Map.empty, 100L, 10L, dataChange = true)
-        val rm = RemoveFile(s"$scheme$path", Some(200L), dataChange = false)
-
-        log.store.write(
-          FileNames.deltaFile(log.logPath, 0L),
-          Iterator(Protocol(), Metadata(), add).map(a => JsonUtils.toJson(a.wrap)))
-        log.store.write(
-          FileNames.deltaFile(log.logPath, 1L),
-          Iterator(JsonUtils.toJson(rm.wrap)))
-
-        assert(alpineLog.update().version === 1)
-        assert(alpineLog.snapshot.numOfFiles === 0)
-      }
+    withLogForGoldenTable("canonicalized-paths-special-b") { (log, _) =>
+      assert(log.update().getVersion == 1)
+      assert(log.snapshot.getNumOfFiles == 0)
     }
   }
 
-//  test("do not relativize paths in RemoveFiles") {
-//    withTempDir { dir =>
-//      val log = DeltaLogOSS.forTable(spark, dir)
-//      assert(new File(log.logPath.toUri).mkdirs())
-//
-//      JavaUtils.deleteRecursively(dir)
-//
-//      val hadoopConf = spark.sessionState.newHadoopConf()
-//      val alpineLog = DeltaLogImpl.forTable(hadoopConf, new Path(dir.getCanonicalPath))
-//      assert(new File(alpineLog.logPath.toUri).mkdirs())
-//
-//      val path = new File(dir, "a/b/c").getCanonicalPath
-//      val rm = RemoveFile(path, Some(System.currentTimeMillis()), dataChange = true)
-//      log.startTransaction().commit(Seq(rm), testOp)
-//
-//      val committedRemove = log.update(stalenessAcceptable = false).tombstones.collect()
-//      assert(committedRemove.head.path === s"file://$path")
-//
-//      val alpineCommittedRemove = alpineLog.update().tombstones
-//      assert(alpineCommittedRemove.head.path === s"file://$path")
-//    }
-//  }
-
   test("delete and re-add the same file in different transactions") {
-    withTempDir { dir =>
-      val hadoopConf = spark.sessionState.newHadoopConf()
-      val alpineLog = DeltaLogImpl.forTable(hadoopConf, new Path(dir.getCanonicalPath))
+    withLogForGoldenTable("delete-re-add-same-file-different-transactions") { (log, _) =>
+      assert(log.snapshot().getAllFiles.size() == 2)
 
-      val log = DeltaLogOSS.forTable(spark, dir)
-      assert(new File(log.logPath.toUri).mkdirs())
+      assert(log.snapshot().getAllFiles.asScala.map(_.getPath).toSet == Set("foo", "bar"))
 
-      val add1 = AddFile("foo", Map.empty, 1L, System.currentTimeMillis(), dataChange = true)
-      log.startTransaction().commit(add1 :: Nil, testOp)
-
-      val rm = add1.remove
-      log.startTransaction().commit(rm :: Nil, testOp)
-
-      val add2 = AddFile("foo", Map.empty, 1L, System.currentTimeMillis(), dataChange = true)
-      log.startTransaction().commit(add2 :: Nil, testOp)
-
-      // Add a new transaction to replay logs using the previous snapshot. If it contained
-      // AddFile("foo") and RemoveFile("foo"), "foo" would get removed and fail this test.
-      val otherAdd = AddFile("bar", Map.empty, 1L, System.currentTimeMillis(), dataChange = true)
-      log.startTransaction().commit(otherAdd :: Nil, testOp)
-
-      assert(Some(convertAddFile(alpineLog.update().allFilesScala.find(_.path == "foo").get))
-        // `dataChange` is set to `false` after replaying logs.
-        === Some(add2.copy(dataChange = false)))
+      // We added two add files with the same path `foo`. The first should have been removed.
+      // The second should remain, and should have a hard-coded modification time of 1700000000000L
+      assert(log.snapshot().getAllFiles.asScala.find(_.getPath == "foo").get.getModificationTime
+        == 1700000000000L)
     }
   }
 
   test("error - versions not contiguous") {
-    withTempDir { dir =>
-      val log = DeltaLogOSS.forTable(spark, dir)
-      assert(new File(log.logPath.toUri).mkdirs())
-
-      val add1 = AddFile("foo", Map.empty, 1L, System.currentTimeMillis(), dataChange = true)
-      log.startTransaction().commit(add1 :: Nil, testOp)
-
-      val add2 = AddFile("foo", Map.empty, 1L, System.currentTimeMillis(), dataChange = true)
-      log.startTransaction().commit(add2 :: Nil, testOp)
-
-      val add3 = AddFile("foo", Map.empty, 1L, System.currentTimeMillis(), dataChange = true)
-      log.startTransaction().commit(add3 :: Nil, testOp)
-
-      new File(new Path(log.logPath, "00000000000000000001.json").toUri).delete()
-
-      DeltaLogOSS.clearCache()
-      val ex = intercept[IllegalStateException] {
-        val hadoopConf = spark.sessionState.newHadoopConf()
-        DeltaLogImpl.forTable(hadoopConf, new Path(dir.getCanonicalPath))
-      }
-
-      assert(ex.getMessage ===
-        DeltaErrorsAlpine.deltaVersionsNotContiguousException(Vector(0, 2)).getMessage)
+    val ex = intercept[IllegalStateException] {
+      withLogForGoldenTable("versions-not-contiguous") { (_, _) => }
     }
+
+    assert(ex.getMessage ===
+      DeltaErrors.deltaVersionsNotContiguousException(Vector(0, 2)).getMessage)
   }
 }

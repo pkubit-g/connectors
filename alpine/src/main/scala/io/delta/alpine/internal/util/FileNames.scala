@@ -16,6 +16,8 @@
 
 package io.delta.alpine.internal.util
 
+import java.net.URI
+
 import org.apache.hadoop.fs.Path
 
 private[internal] object FileNames {
@@ -66,6 +68,18 @@ private[internal] object FileNames {
       throw new AssertionError(
         s"Unexpected file type found in transaction log: $path")
       // scalastyle:on throwerror
+    }
+  }
+
+  /**
+   * Returns the `child` path as an absolute path and resolves any escaped char sequences
+   */
+  def absolutePath(parentDir: Path, child: String): Path = {
+    val p = new Path(new URI(child))
+    if (p.isAbsolute) {
+      p
+    } else {
+      new Path(parentDir, p)
     }
   }
 }

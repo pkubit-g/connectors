@@ -286,34 +286,36 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") 
 lazy val alpine = (project in file("alpine")) settings (
   name := "alpine",
   commonSettings,
+  unmanagedResourceDirectories in Test += file("golden-tables/src/test/resources"),
+  libraryDependencies ++= Seq(
+    "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
+    "org.apache.parquet" % "parquet-hadoop" % "1.10.1" excludeAll(
+      ExclusionRule("org.apache.hadoop", "hadoop-client")
+      ),
+    "com.github.mjakubowski84" %% "parquet4s-core" % "1.2.1" excludeAll(
+      ExclusionRule("org.apache.parquet", "parquet-hadoop")
+      ),
+    "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.10.0",
+    "org.json4s" %% "json4s-jackson" % "3.6.6" excludeAll (
+      ExclusionRule("com.fasterxml.jackson.core"),
+      ExclusionRule("com.fasterxml.jackson.module")
+    ),
+    "org.scalatest" %% "scalatest" % "3.0.8" % "test"
+  )
+)
+
+lazy val goldenTables = (project in file("golden-tables")) settings (
+  name := "golden-tables",
+  commonSettings,
 
   libraryDependencies ++= Seq(
-    "org.apache.hadoop" % "hadoop-client" % hadoopVersion,
-
-    // Parquet reader
-    "com.github.mjakubowski84" %% "parquet4s-core" % "1.4.0",
-
-    // https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind
-    "com.fasterxml.jackson.core" % "jackson-databind" % "2.6.7.3",
-
-    // https://mvnrepository.com/artifact/com.fasterxml.jackson.module/jackson-module-scala
-    "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.6.7.1",
-
-    // Adding tests classifier seems to break transitive resolution of the core dependencies
-    "org.apache.spark" %% "spark-sql" % sparkVersion % "test",
-
-    // https://mvnrepository.com/artifact/org.json4s/json4s-jackson
-    "org.json4s" %% "json4s-jackson" % "3.5.3" excludeAll(
-      ExclusionRule(organization = "com.fasterxml.jackson.module"),
-      ExclusionRule(organization = "com.fasterxml.jackson.core")
-    ),
-
     // Test Dependencies
     "org.scalatest" %% "scalatest" % "3.0.5" % "test",
+    "org.apache.spark" %% "spark-sql" % sparkVersion % "test",
+    "io.delta" %% "delta-core" % deltaVersion % "test",
+    "commons-io" % "commons-io" % "2.8.0" % "test",
     "org.apache.spark" %% "spark-catalyst" % sparkVersion % "test" classifier "tests",
     "org.apache.spark" %% "spark-core" % sparkVersion % "test" classifier "tests",
-    "org.apache.spark" %% "spark-sql" % sparkVersion % "test" classifier "tests",
-    "io.delta" %% "delta-core" % deltaVersion % "test"
-      excludeAll (ExclusionRule("org.apache.hadoop"))
+    "org.apache.spark" %% "spark-sql" % sparkVersion % "test" classifier "tests"
   )
 )

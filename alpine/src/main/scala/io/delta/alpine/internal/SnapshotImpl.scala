@@ -24,10 +24,10 @@ import com.github.mjakubowski84.parquet4s.ParquetReader
 import io.delta.alpine
 import io.delta.alpine.internal.actions._
 import io.delta.alpine.{DeltaLog, Snapshot}
-import io.delta.alpine.data.{CloseableIterator, RowParquetRecord => RowParquetRecordJ}
+import io.delta.alpine.data.{CloseableIterator, RowRecord => RowParquetRecordJ}
 import io.delta.alpine.internal.data.CloseableParquetDataIterator
-import io.delta.alpine.internal.util.{ConversionUtils, JsonUtils}
-import io.delta.alpine.sources.AlpineHadoopConf
+import io.delta.alpine.internal.sources.AlpineHadoopConf
+import io.delta.alpine.internal.util.{ConversionUtils, JsonUtils, FileNames}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
@@ -55,8 +55,9 @@ private[internal] class SnapshotImpl(
 
   override def open(): CloseableIterator[RowParquetRecordJ] =
     CloseableParquetDataIterator(
-      allFilesScala.map(_.path),
-      deltaLog.dataPath.toString,
+      allFilesScala
+        .map(_.path)
+        .map(FileNames.absolutePath(deltaLog.dataPath, _).toString),
       getMetadata.getSchema,
       hadoopConf.get(AlpineHadoopConf.PARQUET_DATA_TIME_ZONE_ID))
 
@@ -73,7 +74,7 @@ private[internal] class SnapshotImpl(
   private def load(paths: Seq[Path]): Seq[SingleAction] = {
     paths.map(_.toString).sortWith(_ < _).par.flatMap { path =>
       if (path.endsWith("json")) {
-        deltaLog.store.read(path).asScala.map { line =>
+        deltaLog.store.read(path).map { line =>
           JsonUtils.mapper.readValue[SingleAction](line)
         }
       } else if (path.endsWith("parquet")) {
@@ -101,6 +102,7 @@ private[internal] class SnapshotImpl(
 
     replay.append(0, actions.iterator)
 
+    // TODO: assert replay.currentMetaData not null?
     State(
       replay.currentProtocolVersion,
       replay.currentMetaData,

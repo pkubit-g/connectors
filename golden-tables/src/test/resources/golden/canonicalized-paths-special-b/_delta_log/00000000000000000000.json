@@ -1,0 +1,3 @@
+{"protocol":{"minReaderVersion":1,"minWriterVersion":2}}
+{"metaData":{"id":"25025050-4662-4abb-889c-0aeef4761fff","format":{"provider":"parquet","options":{}},"partitionColumns":[],"configuration":{},"createdTime":1603398575241}}
+{"add":{"path":"/some/unqualified/with%20space/p@%23h","partitionValues":{},"size":100,"modificationTime":10,"dataChange":true}}

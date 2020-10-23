@@ -16,134 +16,56 @@
 
 package io.delta.alpine.internal
 
-import java.io.{BufferedReader, File, FileNotFoundException, InputStreamReader}
-import java.nio.charset.StandardCharsets.UTF_8
-import java.util.stream.Collectors
+import java.io.File
 
-import collection.JavaConverters._
-
-import io.delta.alpine.internal.storage.{HDFSReadOnlyLogStore, ReadOnlyLogStoreProvider}
-import io.delta.alpine.sources.AlpineHadoopConf
-import io.delta.alpine.ReadOnlyLogStore
-import org.apache.commons.io.IOUtils
+import io.delta.alpine.internal.storage.HDFSReadOnlyLogStore
+import io.delta.alpine.internal.util.GoldenTableUtils._
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileStatus, Path}
+import org.apache.hadoop.fs.Path
 
-import org.apache.spark.sql.delta.storage.LogStore
-import org.apache.spark.sql.QueryTest
-import org.apache.spark.sql.test.SharedSparkSession
+// scalastyle:off funsuite
+import org.scalatest.FunSuite
 
-// TODO private[internal] ??
-abstract class ReadOnlyLogStoreSuiteBase extends QueryTest
-    with ReadOnlyLogStoreProvider
-    with SharedSparkSession {
-
-  def logStoreClassName: Option[String]
-
-  def hadoopConf: Configuration = {
-    val conf = new Configuration()
-    if (logStoreClassName.isDefined) {
-      conf.set(AlpineHadoopConf.LOG_STORE_CLASS_KEY, logStoreClassName.get)
-    }
-    conf
-  }
-
-  test("instantiation through hadoopConf") {
-    if (logStoreClassName.isDefined) {
-      assert(hadoopConf.get(AlpineHadoopConf.LOG_STORE_CLASS_KEY) == logStoreClassName.get)
-      assert(createLogStore(hadoopConf).getClass.getName == logStoreClassName.get)
-    } else {
-      assert(createLogStore(hadoopConf).getClass.getName ==
-        ReadOnlyLogStoreProvider.defaultLogStoreClassName)
-    }
-  }
+/**
+ * Instead of using Spark in this project to WRITE data and log files for tests, we have
+ * io.delta.golden.GoldenTables do it instead. During tests, we then refer by name to specific
+ * golden tables that that class is responsible for generating ahead of time. This allows us to
+ * focus on READING only so that we may fully decouple from Spark and not have it as a dependency.
+ *
+ * See io.delta.golden.GoldenTables for documentation on how to ensure that the needed files have
+ * been generated.
+ */
+class ReadOnlyLogStoreSuite extends FunSuite {
+  // scalastyle:on funsuite
 
   test("read") {
-    withTempDir { tempDir =>
-      val writeStore = LogStore(spark.sparkContext)
-      val readStore = createLogStore(hadoopConf)
+    withGoldenTable("log-store-read") { tablePath =>
+      val readStore = new HDFSReadOnlyLogStore(new Configuration())
 
-      val deltas = Seq(0, 1).map(i => new File(tempDir, i.toString)).map(_.getCanonicalPath)
-      writeStore.write(deltas.head, Iterator("zero", "none"))
-      writeStore.write(deltas(1), Iterator("one"))
-
-      assert(readStore.read(deltas.head).asScala == Seq("zero", "none"))
-      assert(readStore.read(deltas(1)).asScala == Seq("one"))
+      val deltas = Seq(0, 1).map(i => new File(tablePath, i.toString)).map(_.getCanonicalPath)
+      assert(readStore.read(deltas.head) == Seq("zero", "none"))
+      assert(readStore.read(deltas(1)) == Seq("one"))
     }
   }
 
   test("listFrom") {
-    withTempDir { tempDir =>
-      val writeStore = LogStore(spark.sparkContext)
-      val readStore = createLogStore(hadoopConf)
-
+    withGoldenTable("log-store-listFrom") { tablePath =>
+      val readStore = new HDFSReadOnlyLogStore(new Configuration())
       val deltas = Seq(0, 1, 2, 3, 4)
-        .map(i => new File(tempDir, i.toString))
+        .map(i => new File(tablePath, i.toString))
         .map(_.toURI)
         .map(new Path(_))
 
-      writeStore.write(deltas(1), Iterator("zero"))
-      writeStore.write(deltas(2), Iterator("one"))
-      writeStore.write(deltas(3), Iterator("two"))
-      assert(readStore.listFrom(deltas.head).asScala.map(_.getPath.getName).toArray ===
-        Seq(1, 2, 3).map(_.toString))
-      assert(readStore.listFrom(deltas(1)).asScala.map(_.getPath.getName).toArray ===
-        Seq(1, 2, 3).map(_.toString))
-      assert(readStore.listFrom(deltas(2)).asScala.map(_.getPath.getName).toArray ===
-        Seq(2, 3).map(_.toString))
-      assert(readStore.listFrom(deltas(3)).asScala.map(_.getPath.getName).toArray ===
-        Seq(3).map(_.toString))
-      assert(readStore.listFrom(deltas(4)).asScala.map(_.getPath.getName).toArray === Nil)
+      assert(readStore.listFrom(deltas.head).map(_.getPath.getName)
+        .filterNot(_ == "_delta_log").toArray === Seq(1, 2, 3).map(_.toString))
+      assert(readStore.listFrom(deltas(1)).map(_.getPath.getName)
+        .filterNot(_ == "_delta_log").toArray === Seq(1, 2, 3).map(_.toString))
+      assert(readStore.listFrom(deltas(2)).map(_.getPath.getName)
+        .filterNot(_ == "_delta_log").toArray === Seq(2, 3).map(_.toString))
+      assert(readStore.listFrom(deltas(3)).map(_.getPath.getName)
+        .filterNot(_ == "_delta_log").toArray === Seq(3).map(_.toString))
+      assert(readStore.listFrom(deltas(4)).map(_.getPath.getName)
+        .filterNot(_ == "_delta_log").toArray === Nil)
     }
-  }
-}
-
-/**
- * Test providing a system-defined (alpine.internal.storage) log store
- */
-class HDFSReadOnlyLogStoreSuite extends ReadOnlyLogStoreSuiteBase {
-  override def logStoreClassName: Option[String] = Some(classOf[HDFSReadOnlyLogStore].getName)
-}
-
-/**
- * Test not providing a log store class name, in which case [[ReadOnlyLogStoreProvider]] will use
- * the default value
- */
-class DefaultReadOnlyLogStoreSuite extends ReadOnlyLogStoreSuiteBase {
-  override def logStoreClassName: Option[String] = None
-}
-
-/**
- * Test providing a user-defined log store
- */
-class UserDefinedReadOnlyLogStoreSuite extends ReadOnlyLogStoreSuiteBase {
-  override def logStoreClassName: Option[String] =
-    Some(classOf[UserDefinedReadOnlyLogStore].getName)
-}
-
-/**
- * Sample user-defined log store implementing public Java ABC [[ReadOnlyLogStore]]
- */
-class UserDefinedReadOnlyLogStore(hadoopConf: Configuration) extends ReadOnlyLogStore {
-
-  override def read(path: Path): java.util.List[String] = {
-    val fs = path.getFileSystem(hadoopConf)
-    val stream = fs.open(path)
-    try {
-      val reader = new BufferedReader(new InputStreamReader(stream, UTF_8))
-      IOUtils.readLines(reader).stream().map[String](x => x.trim)
-        .collect(Collectors.toList[String])
-    } finally {
-      stream.close()
-    }
-  }
-
-  override def listFrom(path: Path): java.util.Iterator[FileStatus] = {
-    val fs = path.getFileSystem(hadoopConf)
-    if (!fs.exists(path.getParent)) {
-      throw new FileNotFoundException(s"No such file or directory: ${path.getParent}")
-    }
-    val files = fs.listStatus(path.getParent)
-    files.filter(_.getPath.getName >= path.getName).sortBy(_.getPath.getName).iterator.asJava
   }
 }

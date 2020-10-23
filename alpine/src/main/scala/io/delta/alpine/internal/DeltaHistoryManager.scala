@@ -18,13 +18,11 @@ package io.delta.alpine.internal
 
 import java.sql.Timestamp
 
-import collection.JavaConverters._
-
 import io.delta.alpine.internal.actions.CommitMarker
 import io.delta.alpine.internal.exception.DeltaErrors
-import io.delta.alpine.ReadOnlyLogStore
 import io.delta.alpine.internal.exception.DeltaErrors.DeltaTimeTravelException
 import io.delta.alpine.internal.util.FileNames
+import io.delta.alpine.internal.storage.ReadOnlyLogStore
 import org.apache.hadoop.fs.Path
 
 private[internal] case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
@@ -76,7 +74,7 @@ private[internal] case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
    * commits are contiguous.
    */
   private def getEarliestReproducibleCommitVersion: Long = {
-    val files = deltaLog.store.listFrom(FileNames.deltaFile(deltaLog.logPath, 0)).asScala
+    val files = deltaLog.store.listFrom(FileNames.deltaFile(deltaLog.logPath, 0))
       .filter(f => FileNames.isDeltaFile(f.getPath) || FileNames.isCheckpointFile(f.getPath))
 
     // A map of checkpoint version and number of parts, to number of parts observed
@@ -126,12 +124,11 @@ private[internal] case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
   }
 
   private def getCommits(
-    logStore: ReadOnlyLogStore,
-    logPath: Path,
-    start: Long,
-    end: Long): Array[Commit] = {
+      logStore: ReadOnlyLogStore,
+      logPath: Path,
+      start: Long,
+      end: Long): Array[Commit] = {
     val commits = logStore.listFrom(FileNames.deltaFile(logPath, start))
-      .asScala
       .filter(f => FileNames.isDeltaFile(f.getPath))
       .map { fileStatus =>
         Commit(FileNames.deltaVersion(fileStatus.getPath), fileStatus.getModificationTime)

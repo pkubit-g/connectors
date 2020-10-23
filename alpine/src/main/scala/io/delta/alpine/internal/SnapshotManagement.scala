@@ -16,7 +16,6 @@
 
 package io.delta.alpine.internal
 
-import collection.JavaConverters._
 import java.io.FileNotFoundException
 import java.sql.Timestamp
 
@@ -88,7 +87,6 @@ private[internal] trait SnapshotManagement { self: DeltaLogImpl =>
     // List from the starting checkpoint. If a checkpoint doesn't exist, this will still return
     // deltaVersion=0.
     val newFiles = store.listFrom(checkpointPrefix(logPath, startCheckpoint.getOrElse(0L)))
-      .asScala
       // Pick up all checkpoint and delta files
       .filter { file => isCheckpointFile(file.getPath) || isDeltaFile(file.getPath) }
       // filter out files that aren't atomically visible. Checkpoint files of 0 size are invalid
