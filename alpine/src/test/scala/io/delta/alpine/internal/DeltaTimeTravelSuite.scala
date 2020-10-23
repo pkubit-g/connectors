@@ -131,7 +131,7 @@ class DeltaTimeTravelSuite extends FunSuite {
   }
 
   test("timestampAsOf with timestamp in between commits - should use commit before timestamp") {
-    withLogForGoldenTable("time-travel-start-start20-start40") { (log, _) =>
+    withLogForGoldenTable("time-travel-start-start20-start40") { log =>
       verifySnapshot(
         log.getSnapshotForTimestampAsOf(start + 10.minutes), start_data_files, 0)
       verifySnapshot(
@@ -140,7 +140,7 @@ class DeltaTimeTravelSuite extends FunSuite {
   }
 
   test("timestampAsOf with timestamp after last commit should fail") {
-    withLogForGoldenTable("time-travel-start-start20-start40") { (log, _) =>
+    withLogForGoldenTable("time-travel-start-start20-start40") { log =>
       val e = intercept[IllegalArgumentException] {
         log.getSnapshotForTimestampAsOf(start + 50.minutes) // later by 10 mins
       }
@@ -153,7 +153,7 @@ class DeltaTimeTravelSuite extends FunSuite {
   }
 
   test("timestampAsOf with timestamp on exact commit timestamp") {
-    withLogForGoldenTable("time-travel-start-start20-start40") { (log, _) =>
+    withLogForGoldenTable("time-travel-start-start20-start40") { log =>
       verifySnapshot(
         log.getSnapshotForTimestampAsOf(start), start_data_files, 0)
       verifySnapshot(
@@ -172,7 +172,7 @@ class DeltaTimeTravelSuite extends FunSuite {
 
     // then append more data to that "same" table using a different schema
     // reading version 0 should show only the original-schema data files
-    withLogForGoldenTable("time-travel-schema-changes-b") { (log, _) =>
+    withLogForGoldenTable("time-travel-schema-changes-b") { log =>
       verifySnapshot(log.getSnapshotForVersionAsOf(0), orig_schema_data_files, 0)
     }
   }

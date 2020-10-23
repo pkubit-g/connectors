@@ -31,13 +31,12 @@ object GoldenTableUtils {
    * Create a [[DeltaLog]] for the given golden table and execute the test function.
    *
    * @param name The name of the golden table to load.
-   * @param testFunc The test to execute which takes the [[DeltaLog]] and full table path as input
-   *                 args.
+   * @param testFunc The test to execute which takes the [[DeltaLog]] as input arg.
    */
-  def withLogForGoldenTable(name: String)(testFunc: (DeltaLog, String) => Unit): Unit = {
+  def withLogForGoldenTable(name: String)(testFunc: DeltaLog => Unit): Unit = {
     val tablePath = new File(goldenTable, name).getCanonicalPath
     val log = DeltaLog.forTable(new Configuration(), tablePath)
-    testFunc(log, tablePath)
+    testFunc(log)
   }
 
   /**
@@ -47,13 +46,12 @@ object GoldenTableUtils {
    * doesn't expose but [[DeltaLogImpl]] does) are needed by the test function.
    *
    * @param name The name of the golden table to load.
-   * @param testFunc The test to execute which takes the [[DeltaLogImpl]] and full table path as
-   *                 input args.
+   * @param testFunc The test to execute which takes the [[DeltaLogImpl]] as input arg.
    */
-  def withLogImplForGoldenTable(name: String)(testFunc: (DeltaLogImpl, String) => Unit): Unit = {
+  def withLogImplForGoldenTable(name: String)(testFunc: DeltaLogImpl => Unit): Unit = {
     val tablePath = new File(goldenTable, name).getCanonicalPath
     val log = DeltaLogImpl.forTable(new Configuration(), tablePath)
-    testFunc(log, tablePath)
+    testFunc(log)
   }
 
   /**

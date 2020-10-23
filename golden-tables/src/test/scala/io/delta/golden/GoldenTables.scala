@@ -82,7 +82,7 @@ class GoldenTables extends QueryTest with SharedSparkSession {
   /**
    * Helper class for to ensure initial commits contain a Metadata action.
    */
-  implicit class OptimisticTxnTestHelper(txn: OptimisticTransaction) {
+  private implicit class OptimisticTxnTestHelper(txn: OptimisticTransaction) {
     def commitManually(actions: Action*): Long = {
       if (txn.readVersion == -1 && !actions.exists(_.isInstanceOf[Metadata])) {
         txn.commit(Metadata() +: actions, ManualUpdate)
@@ -174,9 +174,6 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     log.checkpoint()
   }
 
-  /** TEST: DeltaLogSuite > update shouldn't pick up delta files earlier than checkpoint */
-  // TODO
-
   /** TEST: DeltaLogSuite > handle corrupted '_last_checkpoint' file */
   generateGoldenTable("corrupted-last-checkpoint") { tablePath =>
     val log = DeltaLog.forTable(spark, new Path(tablePath))
@@ -250,6 +247,30 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     log.startTransaction().commit(add3 :: Nil, ManualUpdate)
 
     new File(new Path(log.logPath, "00000000000000000001.json").toUri).delete()
+  }
+
+  /** TEST: DeltaLogSuite > state reconstruction without Protocol should fail */
+  generateGoldenTable("deltalog-state-reconstruction-without-protocol") { tablePath =>
+    val log = DeltaLog.forTable(spark, new Path(tablePath))
+    assert(new File(log.logPath.toUri).mkdirs())
+    val file = AddFile("abc", Map.empty, 1, 1, true)
+    log.store.write(
+      FileNames.deltaFile(log.logPath, 0L),
+
+      // no protocol
+      Iterator(Metadata(), file).map(a => JsonUtils.toJson(a.wrap)))
+  }
+
+  /** TEST: DeltaLogSuite > state reconstruction without Metadata should fail */
+  generateGoldenTable("deltalog-state-reconstruction-without-metadata") { tablePath =>
+    val log = DeltaLog.forTable(spark, new Path(tablePath))
+    assert(new File(log.logPath.toUri).mkdirs())
+    val file = AddFile("abc", Map.empty, 1, 1, true)
+    log.store.write(
+      FileNames.deltaFile(log.logPath, 0L),
+
+      // no metadata
+      Iterator(Protocol(), file).map(a => JsonUtils.toJson(a.wrap)))
   }
 
   ///////////////////////////////////////////////////////////////////////////
