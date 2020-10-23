@@ -88,7 +88,7 @@ private[internal] trait Checkpoints {
   /** Loads the checkpoint metadata from the _last_checkpoint file. */
   private def loadMetadataFromFile(tries: Int): Option[CheckpointMetaData] = {
     try {
-      val checkpointMetadataJson = store.read(LAST_CHECKPOINT).asScala
+      val checkpointMetadataJson = store.read(LAST_CHECKPOINT)
       val checkpointMetadata =
         JsonUtils.mapper.readValue[CheckpointMetaData](checkpointMetadataJson.head)
       Some(checkpointMetadata)
@@ -123,7 +123,6 @@ private[internal] trait Checkpoints {
     var cur = math.max(cv.version, 0L)
     while (cur >= 0) {
       val checkpoints = store.listFrom(checkpointPrefix(logPath, math.max(0, cur - 1000)))
-        .asScala
         .map(_.getPath)
         .filter(isCheckpointFile)
         .map(CheckpointInstance(_))
@@ -140,8 +139,8 @@ private[internal] trait Checkpoints {
   }
 
   def getLatestCompleteCheckpointFromList(
-    instances: Array[CheckpointInstance],
-    notLaterThan: CheckpointInstance): Option[CheckpointInstance] = {
+      instances: Array[CheckpointInstance],
+      notLaterThan: CheckpointInstance): Option[CheckpointInstance] = {
     val complete = instances.filter(_.isNotLaterThan(notLaterThan)).groupBy(identity).filter {
       case (CheckpointInstance(_, None), inst) => inst.length == 1
       case (CheckpointInstance(_, Some(parts)), inst) => inst.length == parts

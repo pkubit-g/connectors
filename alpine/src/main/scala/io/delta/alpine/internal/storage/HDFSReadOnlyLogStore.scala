@@ -18,35 +18,32 @@ package io.delta.alpine.internal.storage
 
 import java.io.{BufferedReader, FileNotFoundException, InputStreamReader}
 import java.nio.charset.StandardCharsets.UTF_8
-import java.util.stream.Collectors
 
 import scala.collection.JavaConverters._
 
-import io.delta.alpine.storage.{ReadOnlyLogStore => JReadOnlyLogStore}
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
 
-private[internal] class HDFSReadOnlyLogStore(hadoopConf: Configuration) extends JReadOnlyLogStore {
+private[internal] class HDFSReadOnlyLogStore(hadoopConf: Configuration) extends ReadOnlyLogStore {
 
-  override def read(path: Path): java.util.List[String] = {
+  override def read(path: Path): Seq[String] = {
     val fs = path.getFileSystem(hadoopConf)
     val stream = fs.open(path)
     try {
       val reader = new BufferedReader(new InputStreamReader(stream, UTF_8))
-      IOUtils.readLines(reader).stream().map[String](x => x.trim)
-        .collect(Collectors.toList[String])
+      IOUtils.readLines(reader).asScala.map(_.trim)
     } finally {
       stream.close()
     }
   }
 
-  override def listFrom(path: Path): java.util.Iterator[FileStatus] = {
+  override def listFrom(path: Path): Iterator[FileStatus] = {
     val fs = path.getFileSystem(hadoopConf)
     if (!fs.exists(path.getParent)) {
       throw new FileNotFoundException(s"No such file or directory: ${path.getParent}")
     }
     val files = fs.listStatus(path.getParent)
-    files.filter(_.getPath.getName >= path.getName).sortBy(_.getPath.getName).iterator.asJava
+    files.filter(_.getPath.getName >= path.getName).sortBy(_.getPath.getName).iterator
   }
 }

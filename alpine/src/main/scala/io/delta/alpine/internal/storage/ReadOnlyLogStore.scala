@@ -16,23 +16,25 @@
 
 package io.delta.alpine.internal.storage
 
-import io.delta.alpine.internal.sources.AlpineHadoopConf
-import io.delta.alpine.storage.{ReadOnlyLogStore => JReadOnlyLogStore}
-import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileStatus, Path}
 
-private[internal] object ReadOnlyLogStore {
-  val defaultLogStoreClassName: String = classOf[HDFSReadOnlyLogStore].getName
+private[internal] trait ReadOnlyLogStore {
 
-  def createLogStore(hadoopConf: Configuration): JReadOnlyLogStore = {
-    val logStoreClassName =
-      hadoopConf.get(AlpineHadoopConf.LOG_STORE_CLASS_KEY, defaultLogStoreClassName)
+  /** Read the given `path` */
+  def read(path: String): Seq[String] = read(new Path(path))
 
-    // scalastyle:off classforname
-    val logStoreClass =
-      Class.forName(logStoreClassName, true, Thread.currentThread().getContextClassLoader)
-    // scalastyle:on classforname
+  /** Read the given `path` */
+  def read(path: Path): Seq[String]
 
-    logStoreClass.getConstructor(classOf[Configuration]).newInstance(hadoopConf)
-      .asInstanceOf[JReadOnlyLogStore]
-  }
+  /**
+   * List the paths in the same directory that are lexicographically greater or equal to
+   * (UTF-8 sorting) the given `path`. The result should also be sorted by the file name.
+   */
+  def listFrom(path: String): Iterator[FileStatus] = listFrom(new Path(path))
+
+  /**
+   * List the paths in the same directory that are lexicographically greater or equal to
+   * (UTF-8 sorting) the given `path`. The result should also be sorted by the file name.
+   */
+  def listFrom(path: Path): Iterator[FileStatus]
 }

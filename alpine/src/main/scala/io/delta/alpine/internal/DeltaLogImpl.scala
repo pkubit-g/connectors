@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-
 package io.delta.alpine.internal
 
 import java.io.File
 import java.util.concurrent.locks.ReentrantLock
 
 import io.delta.alpine.DeltaLog
-import io.delta.alpine.internal.storage.ReadOnlyLogStore
+import io.delta.alpine.internal.storage.HDFSReadOnlyLogStore
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
@@ -37,7 +36,7 @@ private[internal] class DeltaLogImpl private(
 
   override def getDataPath: Path = dataPath
 
-  lazy val store = ReadOnlyLogStore.createLogStore(hadoopConf)
+  lazy val store = new HDFSReadOnlyLogStore(hadoopConf)
 
   private val deltaLogLock = new ReentrantLock()
 

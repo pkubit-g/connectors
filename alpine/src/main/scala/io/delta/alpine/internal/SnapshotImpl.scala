@@ -74,7 +74,7 @@ private[internal] class SnapshotImpl(
   private def load(paths: Seq[Path]): Seq[SingleAction] = {
     paths.map(_.toString).sortWith(_ < _).par.flatMap { path =>
       if (path.endsWith("json")) {
-        deltaLog.store.read(path).asScala.map { line =>
+        deltaLog.store.read(path).map { line =>
           JsonUtils.mapper.readValue[SingleAction](line)
         }
       } else if (path.endsWith("parquet")) {
