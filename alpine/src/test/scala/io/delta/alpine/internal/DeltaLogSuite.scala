@@ -206,23 +206,28 @@ class DeltaLogSuite extends FunSuite {
       DeltaErrors.deltaVersionsNotContiguousException(Vector(0, 2)).getMessage)
   }
 
-  test(s"state reconstruction without Protocol should fail") {
-    val e = intercept[IllegalStateException] {
-      withLogForGoldenTable("deltalog-state-reconstruction-without-protocol") { log =>
-        // snapshot.state is a lazy val; need it to be accessed for the replay to begin
-        log.snapshot().getAllFiles
+  Seq("protocol", "metadata").foreach { action =>
+    test(s"state reconstruction without $action should fail") {
+      val e = intercept[IllegalStateException] {
+        withLogForGoldenTable(s"deltalog-state-reconstruction-without-$action") { log =>
+          // snapshot.state is a lazy val; need it to be accessed for the replay to begin
+          log.snapshot().getAllFiles
+        }
       }
+      assert(e.getMessage === DeltaErrors.actionNotFoundException(action, 0).getMessage)
     }
-    assert(e.getMessage === DeltaErrors.actionNotFoundException("protocol", 0).getMessage)
   }
 
-  test(s"state reconstruction without Metadata should fail") {
-    val e = intercept[IllegalStateException] {
-      withLogForGoldenTable("deltalog-state-reconstruction-without-metadata") { log =>
-        // snapshot.state is a lazy val; need it to be accessed for the replay to begin
-        log.snapshot().getAllFiles
+  Seq("protocol", "metadata").foreach { action =>
+    test(s"state reconstruction from checkpoint with missing $action should fail") {
+      val e = intercept[IllegalStateException] {
+        val tblName = s"deltalog-state-reconstruction-from-checkpoint-missing-$action"
+        withLogForGoldenTable(tblName) { log =>
+          log.snapshot().getAllFiles
+        }
       }
+
+      assert (e.getMessage === DeltaErrors.actionNotFoundException(action, 10).getMessage)
     }
-    assert(e.getMessage === DeltaErrors.actionNotFoundException("metadata", 0).getMessage)
   }
 }

@@ -32,6 +32,7 @@ import io.delta.alpine.internal.util.{ConversionUtils, FileNames, JsonUtils}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
+// TODO protocol version check
 private[internal] class SnapshotImpl(
     val hadoopConf: Configuration,
     val path: Path,

@@ -32,7 +32,7 @@ import org.apache.spark.network.util.JavaUtils
 import org.apache.spark.sql.delta.{DeltaLog, OptimisticTransaction}
 import org.apache.spark.sql.{QueryTest, Row}
 import org.apache.spark.sql.delta.DeltaOperations.ManualUpdate
-import org.apache.spark.sql.delta.actions.{Action, AddFile, Metadata, Protocol, RemoveFile}
+import org.apache.spark.sql.delta.actions.{Action, AddFile, Metadata, Protocol, RemoveFile, SingleAction}
 import org.apache.spark.sql.delta.sources.DeltaSQLConf
 import org.apache.spark.sql.delta.util.{FileNames, JsonUtils}
 import org.apache.spark.sql.test.SharedSparkSession
@@ -249,28 +249,76 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     new File(new Path(log.logPath, "00000000000000000001.json").toUri).delete()
   }
 
-  /** TEST: DeltaLogSuite > state reconstruction without Protocol should fail */
-  generateGoldenTable("deltalog-state-reconstruction-without-protocol") { tablePath =>
-    val log = DeltaLog.forTable(spark, new Path(tablePath))
-    assert(new File(log.logPath.toUri).mkdirs())
-    val file = AddFile("abc", Map.empty, 1, 1, true)
-    log.store.write(
-      FileNames.deltaFile(log.logPath, 0L),
+  /** TEST: DeltaLogSuite > state reconstruction without Protocol/Metadata should fail */
+  Seq("protocol", "metadata").foreach { action =>
+    generateGoldenTable("deltalog-state-reconstruction-without-protocol") { tablePath =>
+      val log = DeltaLog.forTable(spark, new Path(tablePath))
+      assert(new File(log.logPath.toUri).mkdirs())
 
-      // no protocol
-      Iterator(Metadata(), file).map(a => JsonUtils.toJson(a.wrap)))
+      val selectedAction = if (action == "metadata") {
+        Protocol()
+      } else {
+        Metadata()
+      }
+
+      val file = AddFile("abc", Map.empty, 1, 1, true)
+      log.store.write(
+        FileNames.deltaFile(log.logPath, 0L),
+        Iterator(selectedAction, file).map(a => JsonUtils.toJson(a.wrap)))
+    }
   }
 
-  /** TEST: DeltaLogSuite > state reconstruction without Metadata should fail */
-  generateGoldenTable("deltalog-state-reconstruction-without-metadata") { tablePath =>
-    val log = DeltaLog.forTable(spark, new Path(tablePath))
-    assert(new File(log.logPath.toUri).mkdirs())
-    val file = AddFile("abc", Map.empty, 1, 1, true)
-    log.store.write(
-      FileNames.deltaFile(log.logPath, 0L),
+  /**
+   * TEST: DeltaLogSuite > state reconstruction from checkpoint with missing Protocol/Metadata
+   * should fail
+   */
+  Seq("protocol", "metadata").foreach { action =>
+    generateGoldenTable(s"deltalog-state-reconstruction-from-checkpoint-missing-$action") {
+      tablePath =>
+        val log = DeltaLog.forTable(spark, tablePath)
+        val checkpointInterval = log.checkpointInterval
+        // Create a checkpoint regularly
+        for (f <- 0 to checkpointInterval) {
+          val txn = log.startTransaction()
+          if (f == 0) {
+            txn.commitManually(AddFile(f.toString, Map.empty, 1, 1, true))
+          } else {
+            txn.commit(Seq(AddFile(f.toString, Map.empty, 1, 1, true)), ManualUpdate)
+          }
+        }
 
-      // no metadata
-      Iterator(Protocol(), file).map(a => JsonUtils.toJson(a.wrap)))
+        // Create an incomplete checkpoint without the action and overwrite the
+        // original checkpoint
+        val checkpointPath = FileNames.checkpointFileSingular(log.logPath, log.snapshot.version)
+        withTempDir { tmpCheckpoint =>
+          val takeAction = if (action == "metadata") {
+            "protocol"
+          } else {
+            "metadata"
+          }
+          val corruptedCheckpointData = spark.read.parquet(checkpointPath.toString)
+            .where(s"add is not null or $takeAction is not null")
+            .as[SingleAction].collect()
+
+          // Keep the add files and also filter by the additional condition
+          corruptedCheckpointData.toSeq.toDS().coalesce(1).write
+            .mode("overwrite").parquet(tmpCheckpoint.toString)
+          val writtenCheckpoint =
+            tmpCheckpoint.listFiles().toSeq.filter(_.getName.startsWith("part")).head
+          val checkpointFile = new File(checkpointPath.toUri)
+          new File(log.logPath.toUri).listFiles().toSeq.foreach { file =>
+            if (file.getName.startsWith(".0")) {
+              // we need to delete checksum files, otherwise trying to replace our incomplete
+              // checkpoint file fails due to the LocalFileSystem's checksum checks.
+              require(file.delete(), "Failed to delete checksum file")
+            }
+          }
+          require(checkpointFile.delete(), "Failed to delete old checkpoint")
+          require(writtenCheckpoint.renameTo(checkpointFile),
+            "Failed to rename corrupt checkpoint")
+        }
+
+    }
   }
 
   ///////////////////////////////////////////////////////////////////////////

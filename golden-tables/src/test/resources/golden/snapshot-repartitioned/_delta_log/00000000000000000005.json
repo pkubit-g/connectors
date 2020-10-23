@@ -1,6 +1,6 @@
-{"commitInfo":{"timestamp":1603481350050,"operation":"WRITE","operationParameters":{"mode":"Overwrite","partitionBy":"[]"},"readVersion":4,"isBlindAppend":false}}
-{"add":{"path":"part-00000-4a569e2a-2476-4c96-b3d2-90cefe08d10c-c000.snappy.parquet","partitionValues":{},"size":695,"modificationTime":1603481349000,"dataChange":false}}
-{"add":{"path":"part-00001-30e351c8-2e1b-44ad-9002-56ecd9a1f7c8-c000.snappy.parquet","partitionValues":{},"size":697,"modificationTime":1603481349000,"dataChange":false}}
-{"remove":{"path":"part-00000-128c434b-2225-43e8-a0ea-61ddf86e526c-c000.snappy.parquet","deletionTimestamp":1603481350049,"dataChange":false}}
-{"remove":{"path":"part-00000-be8a90ab-4440-48a1-ac51-9fdff4a967ae-c000.snappy.parquet","deletionTimestamp":1603481350049,"dataChange":false}}
-{"remove":{"path":"part-00001-37f25d0e-8daa-429b-a5f6-b665841cd7a2-c000.snappy.parquet","deletionTimestamp":1603481350049,"dataChange":false}}
+{"commitInfo":{"timestamp":1603483096662,"operation":"WRITE","operationParameters":{"mode":"Overwrite","partitionBy":"[]"},"readVersion":4,"isBlindAppend":false}}
+{"add":{"path":"part-00000-17d29514-afc0-4810-8b7a-b9064575ea4d-c000.snappy.parquet","partitionValues":{},"size":695,"modificationTime":1603483096000,"dataChange":false}}
+{"add":{"path":"part-00001-14a40bab-8290-4b03-b833-8e5a041eb687-c000.snappy.parquet","partitionValues":{},"size":697,"modificationTime":1603483096000,"dataChange":false}}
+{"remove":{"path":"part-00000-69a1ae4c-4c70-428d-8675-ac45dd747c3d-c000.snappy.parquet","deletionTimestamp":1603483096661,"dataChange":false}}
+{"remove":{"path":"part-00000-f15b7482-73d3-49f3-902a-e6df00ebae9a-c000.snappy.parquet","deletionTimestamp":1603483096661,"dataChange":false}}
+{"remove":{"path":"part-00001-03de14f2-93c8-483c-86e4-d88a05dd6b7b-c000.snappy.parquet","deletionTimestamp":1603483096661,"dataChange":false}}

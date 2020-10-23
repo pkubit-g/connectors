@@ -1,2 +1,2 @@
-{"commitInfo":{"timestamp":1603481367336,"operation":"Manual Update","operationParameters":{},"readVersion":2,"isBlindAppend":true}}
-{"add":{"path":"bar","partitionValues":{},"size":1,"modificationTime":1603481367329,"dataChange":true}}
+{"commitInfo":{"timestamp":1603483114535,"operation":"Manual Update","operationParameters":{},"readVersion":2,"isBlindAppend":true}}
+{"add":{"path":"bar","partitionValues":{},"size":1,"modificationTime":1603483114528,"dataChange":true}}
