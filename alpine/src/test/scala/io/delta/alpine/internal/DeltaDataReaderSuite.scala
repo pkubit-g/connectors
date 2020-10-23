@@ -266,7 +266,7 @@ class DeltaDataReaderSuite extends FunSuite {
 
       val expectedSchema = new StructType(Array(
         new StructField("timestamp", new TimestampType),
-        new StructField("date",  new DateType),
+        new StructField("date", new DateType)
       ))
 
       assert(row.getSchema == expectedSchema)
