@@ -27,6 +27,14 @@ private [internal] object DeltaErrors {
     new IllegalStateException(s"Versions ($deltaVersions) are not contiguous.")
   }
 
+  def actionNotFoundException(action: String, version: Long): Throwable = {
+    new IllegalStateException(
+      s"""
+         |The $action of your Delta table couldn't be recovered while Reconstructing
+         |version: ${version.toString}. Did you manually delete files in the _delta_log directory?
+       """.stripMargin)
+  }
+
   def emptyDirectoryException(directory: String): Throwable = {
     new FileNotFoundException(s"No file found in the directory: $directory.")
   }

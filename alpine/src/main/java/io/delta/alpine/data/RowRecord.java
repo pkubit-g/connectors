@@ -32,7 +32,6 @@ public interface RowRecord {
      * @throws IllegalArgumentException when `fieldName` does not exist.
      * @throws NullPointerException when null value found for field declared to be not nullable.
      * @throws ClassCastException when data type does not match.
-     * @throws RuntimeException when unable to decode parquet data for this field.
      */
     int getInt(String fieldName);
     long getLong(String fieldName);

@@ -29,7 +29,7 @@ import org.apache.commons.io.FileUtils
 import org.apache.hadoop.fs.Path
 
 import org.apache.spark.network.util.JavaUtils
-import org.apache.spark.sql.delta.DeltaLog
+import org.apache.spark.sql.delta.{DeltaLog, OptimisticTransaction}
 import org.apache.spark.sql.{QueryTest, Row}
 import org.apache.spark.sql.delta.DeltaOperations.ManualUpdate
 import org.apache.spark.sql.delta.actions.{Action, AddFile, Metadata, Protocol, RemoveFile}
@@ -53,8 +53,6 @@ class GoldenTables extends QueryTest with SharedSparkSession {
   TimeZone.setDefault(TimeZone.getTimeZone("America/Los_Angeles"))
   // Add Locale setting
   Locale.setDefault(Locale.US)
-
-  private val testOp = ManualUpdate
 
   private val shouldGenerateGoldenTables = sys.env.contains("GENERATE_GOLDEN_TABLES")
 
@@ -81,6 +79,19 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     }
   }
 
+  /**
+   * Helper class for to ensure initial commits contain a Metadata action.
+   */
+  implicit class OptimisticTxnTestHelper(txn: OptimisticTransaction) {
+    def commitManually(actions: Action*): Long = {
+      if (txn.readVersion == -1 && !actions.exists(_.isInstanceOf[Metadata])) {
+        txn.commit(Metadata() +: actions, ManualUpdate)
+      } else {
+        txn.commit(actions, ManualUpdate)
+      }
+    }
+  }
+
   ///////////////////////////////////////////////////////////////////////////
   // io.delta.alpine.internal.DeltaLogSuite
   ///////////////////////////////////////////////////////////////////////////
@@ -96,7 +107,7 @@ class GoldenTables extends QueryTest with SharedSparkSession {
       } else {
         Nil
       }
-      txn.commit(delete ++ file, testOp)
+      txn.commitManually(delete ++ file: _*)
     }
   }
 
@@ -159,7 +170,7 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     val log = DeltaLog.forTable(spark, new Path(tablePath))
     val txn = log.startTransaction()
     val files = (1 to 10).map(f => AddFile(f.toString, Map.empty, 1, 1, true))
-    txn.commit(files, testOp)
+    txn.commitManually(files: _*)
     log.checkpoint()
   }
 
@@ -172,7 +183,7 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     val checkpointInterval = log.checkpointInterval
     for (f <- 0 to checkpointInterval) {
       val txn = log.startTransaction()
-      txn.commit(AddFile(f.toString, Map.empty, 1, 1, true) :: Nil, testOp)
+      txn.commitManually(AddFile(f.toString, Map.empty, 1, 1, true))
     }
   }
 
@@ -210,18 +221,18 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     assert(new File(log.logPath.toUri).mkdirs())
 
     val add1 = AddFile("foo", Map.empty, 1L, 1600000000000L, dataChange = true)
-    log.startTransaction().commit(add1 :: Nil, testOp)
+    log.startTransaction().commitManually(add1)
 
     val rm = add1.remove
-    log.startTransaction().commit(rm :: Nil, testOp)
+    log.startTransaction().commit(rm :: Nil, ManualUpdate)
 
     val add2 = AddFile("foo", Map.empty, 1L, 1700000000000L, dataChange = true)
-    log.startTransaction().commit(add2 :: Nil, testOp)
+    log.startTransaction().commit(add2 :: Nil, ManualUpdate)
 
     // Add a new transaction to replay logs using the previous snapshot. If it contained
     // AddFile("foo") and RemoveFile("foo"), "foo" would get removed and fail this test.
     val otherAdd = AddFile("bar", Map.empty, 1L, System.currentTimeMillis(), dataChange = true)
-    log.startTransaction().commit(otherAdd :: Nil, testOp)
+    log.startTransaction().commit(otherAdd :: Nil, ManualUpdate)
   }
 
   /** TEST: DeltaLogSuite > error - versions not contiguous */
@@ -230,13 +241,13 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     assert(new File(log.logPath.toUri).mkdirs())
 
     val add1 = AddFile("foo", Map.empty, 1L, System.currentTimeMillis(), dataChange = true)
-    log.startTransaction().commit(add1 :: Nil, testOp)
+    log.startTransaction().commitManually(add1)
 
     val add2 = AddFile("foo", Map.empty, 1L, System.currentTimeMillis(), dataChange = true)
-    log.startTransaction().commit(add2 :: Nil, testOp)
+    log.startTransaction().commit(add2 :: Nil, ManualUpdate)
 
     val add3 = AddFile("foo", Map.empty, 1L, System.currentTimeMillis(), dataChange = true)
-    log.startTransaction().commit(add3 :: Nil, testOp)
+    log.startTransaction().commit(add3 :: Nil, ManualUpdate)
 
     new File(new Path(log.logPath, "00000000000000000001.json").toUri).delete()
   }

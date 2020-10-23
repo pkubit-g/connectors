@@ -26,8 +26,9 @@ import io.delta.alpine.internal.actions._
 import io.delta.alpine.{DeltaLog, Snapshot}
 import io.delta.alpine.data.{CloseableIterator, RowRecord => RowParquetRecordJ}
 import io.delta.alpine.internal.data.CloseableParquetDataIterator
+import io.delta.alpine.internal.exception.DeltaErrors
 import io.delta.alpine.internal.sources.AlpineHadoopConf
-import io.delta.alpine.internal.util.{ConversionUtils, JsonUtils, FileNames}
+import io.delta.alpine.internal.util.{ConversionUtils, FileNames, JsonUtils}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
@@ -102,7 +103,13 @@ private[internal] class SnapshotImpl(
 
     replay.append(0, actions.iterator)
 
-    // TODO: assert replay.currentMetaData not null?
+    if (null == replay.currentProtocolVersion) {
+      throw DeltaErrors.actionNotFoundException("protocol", version)
+    }
+    if (null == replay.currentMetaData) {
+      throw DeltaErrors.actionNotFoundException("metadata", version)
+    }
+
     State(
       replay.currentProtocolVersion,
       replay.currentMetaData,
