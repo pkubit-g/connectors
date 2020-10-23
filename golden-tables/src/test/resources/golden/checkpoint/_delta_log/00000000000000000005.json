@@ -1,3 +1,3 @@
-{"commitInfo":{"timestamp":1603398538645,"operation":"Manual Update","operationParameters":{},"readVersion":4,"isBlindAppend":false}}
-{"remove":{"path":"5","deletionTimestamp":1603398538644,"dataChange":true}}
+{"commitInfo":{"timestamp":1603471508344,"operation":"Manual Update","operationParameters":{},"readVersion":4,"isBlindAppend":false}}
+{"remove":{"path":"5","deletionTimestamp":1603471508344,"dataChange":true}}
 {"add":{"path":"6","partitionValues":{},"size":1,"modificationTime":1,"dataChange":true}}

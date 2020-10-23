@@ -23,9 +23,6 @@ import org.apache.hadoop.fs.Path
 
 private [internal] object DeltaErrors {
 
-  // TODO make this RuntimeException?
-  class DeltaTimeTravelException(message: String) extends Exception(message)
-
   def deltaVersionsNotContiguousException(deltaVersions: Seq[Long]): Throwable = {
     new IllegalStateException(s"Versions ($deltaVersions) are not contiguous.")
   }
@@ -48,13 +45,13 @@ private [internal] object DeltaErrors {
   }
 
   def noReproducibleHistoryFound(logPath: Path): Throwable = {
-    new DeltaTimeTravelException(s"No reproducible commits found at $logPath")
+    new RuntimeException(s"No reproducible commits found at $logPath")
   }
 
   def timestampEarlierThanTableFirstCommit(
       userTimestamp: java.sql.Timestamp,
       commitTs: java.sql.Timestamp): Throwable = {
-    new DeltaTimeTravelException(
+    new IllegalArgumentException(
       s"""The provided timestamp ($userTimestamp) is before the earliest version available to this
          |table ($commitTs). Please use a timestamp greater than or equal to $commitTs.
        """.stripMargin)
@@ -63,18 +60,18 @@ private [internal] object DeltaErrors {
   def timestampLaterThanTableLastCommit(
       userTimestamp: java.sql.Timestamp,
       commitTs: java.sql.Timestamp): Throwable = {
-    new DeltaTimeTravelException(
+    new IllegalArgumentException(
       s"""The provided timestamp ($userTimestamp) is after the latest version available to this
          |table ($commitTs). Please use a timestamp less than or equal to $commitTs.
        """.stripMargin)
   }
 
   def noHistoryFound(logPath: Path): Throwable = {
-    new DeltaTimeTravelException(s"No commits found at $logPath")
+    new RuntimeException(s"No commits found at $logPath")
   }
 
   def versionNotExistException(userVersion: Long, earliest: Long, latest: Long): Throwable = {
-    new DeltaTimeTravelException(s"Cannot time travel Delta table to version $userVersion. " +
+    new IllegalArgumentException(s"Cannot time travel Delta table to version $userVersion. " +
       s"Available versions: [$earliest, $latest].")
   }
 

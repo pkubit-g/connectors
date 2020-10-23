@@ -18,7 +18,7 @@ package io.delta.golden
 import java.io.File
 import java.math.{BigDecimal => JBigDecimal}
 import java.sql.Timestamp
-import java.util.TimeZone
+import java.util.{Locale, TimeZone}
 
 import scala.concurrent.duration._
 import scala.language.implicitConversions
@@ -47,6 +47,11 @@ import org.apache.spark.sql.types._
 class GoldenTables extends QueryTest with SharedSparkSession {
 
   import testImplicits._
+
+  // Timezone is fixed to America/Los_Angeles for timezone-sensitive tests
+  TimeZone.setDefault(TimeZone.getTimeZone("America/Los_Angeles"))
+  // Add Locale setting
+  Locale.setDefault(Locale.US)
 
   private val testOp = ManualUpdate
 

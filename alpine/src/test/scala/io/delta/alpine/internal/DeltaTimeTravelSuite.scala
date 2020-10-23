@@ -107,20 +107,20 @@ class DeltaTimeTravelSuite extends FunSuite {
         verifySnapshot(log.getSnapshotForVersionAsOf(2), start_start20_start40_data_files, 2)
 
         // Error case - version after latest commit
-        val e1 = intercept[DeltaErrors.DeltaTimeTravelException] {
+        val e1 = intercept[IllegalArgumentException] {
           log.getSnapshotForVersionAsOf(3)
         }
         assert(e1.getMessage == DeltaErrors.versionNotExistException(3, 0, 2).getMessage)
 
         // Error case - version before earliest commit
-        val e2 = intercept[DeltaErrors.DeltaTimeTravelException] {
+        val e2 = intercept[IllegalArgumentException] {
           log.getSnapshotForVersionAsOf(-1)
         }
         assert(e2.getMessage == DeltaErrors.versionNotExistException(-1, 0, 2).getMessage)
 
         // Error case - not reproducible
         new File(FileNames.deltaFile(log.getLogPath, 0).toUri).delete()
-        val e3 = intercept[DeltaErrors.DeltaTimeTravelException] {
+        val e3 = intercept[RuntimeException] {
           log.getSnapshotForVersionAsOf(0)
         }
         assert(e3.getMessage == DeltaErrors.noReproducibleHistoryFound(log.getLogPath).getMessage)
@@ -141,7 +141,7 @@ class DeltaTimeTravelSuite extends FunSuite {
 
   test("timestampAsOf with timestamp after last commit should fail") {
     withLogForGoldenTable("time-travel-start-start20-start40") { (log, _) =>
-      val e = intercept[DeltaErrors.DeltaTimeTravelException] {
+      val e = intercept[IllegalArgumentException] {
         log.getSnapshotForTimestampAsOf(start + 50.minutes) // later by 10 mins
       }
 
