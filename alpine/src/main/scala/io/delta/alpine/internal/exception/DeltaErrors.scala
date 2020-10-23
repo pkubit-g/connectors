@@ -84,7 +84,7 @@ private [internal] object DeltaErrors {
   }
 
   def nullValueFoundForNonNullSchemaField(fieldName: String, schema: StructType): Throwable = {
-    new RuntimeException(s"Read a null value for field $fieldName, yet schema indicates " +
+    new NullPointerException(s"Read a null value for field $fieldName, yet schema indicates " +
       s"that this field can't be null. Schema: ${schema.getTreeString}")
   }
 }

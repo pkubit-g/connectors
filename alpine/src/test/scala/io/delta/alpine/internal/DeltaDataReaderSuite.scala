@@ -27,6 +27,7 @@ import io.delta.alpine.data.{RowRecord => JRowRecord}
 import io.delta.alpine.DeltaLog
 import io.delta.alpine.internal.sources.AlpineHadoopConf
 import io.delta.alpine.internal.util.GoldenTableUtils._
+import io.delta.alpine.types.{DateType, StructField, StructType, TimestampType}
 import org.apache.hadoop.conf.Configuration
 // scalastyle:off funsuite
 import org.scalatest.FunSuite
@@ -243,6 +244,32 @@ class DeltaDataReaderSuite extends FunSuite {
       }
 
       assert(count == 3)
+    }
+  }
+
+  test("test bad type cast") {
+    withLogForGoldenTable("data-reader-primitives") { (log, _) =>
+      val recordIter = log.snapshot().open()
+      assertThrows[ClassCastException] {
+        val row = recordIter.next()
+        row.getString("as_big_decimal")
+      }
+    }
+  }
+
+  test("correct schema and length") {
+    withLogForGoldenTable("data-reader-date-types-UTC") { (log, _) =>
+      val recordIter = log.snapshot().open()
+      if (!recordIter.hasNext) fail(s"No row record")
+      val row = recordIter.next()
+      assert(row.getLength == 2)
+
+      val expectedSchema = new StructType(Array(
+        new StructField("timestamp", new TimestampType),
+        new StructField("date",  new DateType),
+      ))
+
+      assert(row.getSchema == expectedSchema)
     }
   }
 }
