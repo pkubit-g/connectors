@@ -29,7 +29,6 @@ private[internal] case class CloseableParquetDataIterator(
     timeZoneId: String) extends CloseableIterator[RowParquetRecordJ] {
   private val readTimeZone =
     if (null == timeZoneId) TimeZone.getDefault else TimeZone.getTimeZone(timeZoneId)
-
   private val dataFilePathsIter = dataFilePaths.iterator
   private var parquetRows = if (dataFilePathsIter.hasNext) readNextFile else null
   private var parquetRowsIter = if (null != parquetRows) parquetRows.iterator else null
