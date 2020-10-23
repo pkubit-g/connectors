@@ -57,8 +57,7 @@ private[internal] class SnapshotImpl(
     CloseableParquetDataIterator(
       allFilesScala
         .map(_.path)
-        .map(FileNames.absolutePath(deltaLog.dataPath, _))
-        .map(_.toString),
+        .map(FileNames.absolutePath(deltaLog.dataPath, _).toString),
       getMetadata.getSchema,
       hadoopConf.get(AlpineHadoopConf.PARQUET_DATA_TIME_ZONE_ID))
 

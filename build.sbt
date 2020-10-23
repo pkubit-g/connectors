@@ -288,31 +288,19 @@ lazy val alpine = (project in file("alpine")) settings (
   commonSettings,
   unmanagedResourceDirectories in Test += file("golden-tables/src/test/resources"),
   libraryDependencies ++= Seq(
-    "org.apache.hadoop" % "hadoop-client" % hadoopVersion,
-
-    // Parquet reader
-    "com.github.mjakubowski84" %% "parquet4s-core" % "1.4.0",
-
-    // https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind
-    "com.fasterxml.jackson.core" % "jackson-databind" % "2.6.7.3",
-
-    // https://mvnrepository.com/artifact/com.fasterxml.jackson.module/jackson-module-scala
-    "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.6.7.1",
-
-    // Adding tests classifier seems to break transitive resolution of the core dependencies
-    "org.apache.spark" %% "spark-sql" % sparkVersion % "test",
-
-    // https://mvnrepository.com/artifact/org.json4s/json4s-jackson
-    "org.json4s" %% "json4s-jackson" % "3.5.3" excludeAll(
-      ExclusionRule(organization = "com.fasterxml.jackson.module"),
-      ExclusionRule(organization = "com.fasterxml.jackson.core")
+    "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
+    "org.apache.parquet" % "parquet-hadoop" % "1.10.1" excludeAll(
+      ExclusionRule("org.apache.hadoop", "hadoop-client")
+      ),
+    "com.github.mjakubowski84" %% "parquet4s-core" % "1.2.1" excludeAll(
+      ExclusionRule("org.apache.parquet", "parquet-hadoop")
+      ),
+    "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.10.0",
+    "org.json4s" %% "json4s-jackson" % "3.6.6" excludeAll (
+      ExclusionRule("com.fasterxml.jackson.core"),
+      ExclusionRule("com.fasterxml.jackson.module")
     ),
-
-    // Test Dependencies
-    "org.scalatest" %% "scalatest" % "3.0.5" % "test",
-    "commons-io" % "commons-io" % "2.8.0" % "test" classifier "tests",
-    "io.delta" %% "delta-core" % deltaVersion % "test"
-      excludeAll (ExclusionRule("org.apache.hadoop"))
+    "org.scalatest" %% "scalatest" % "3.0.8" % "test"
   )
 )
 

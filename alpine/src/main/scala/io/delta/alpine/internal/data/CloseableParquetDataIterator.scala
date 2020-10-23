@@ -27,8 +27,8 @@ private[internal] case class CloseableParquetDataIterator(
     dataFilePaths: Seq[String],
     schema: StructType,
     timeZoneId: String) extends CloseableIterator[RowParquetRecordJ] {
-  private val readTimeZone = if (null == timeZoneId) TimeZone.getDefault
-    else TimeZone.getTimeZone(timeZoneId)
+  private val readTimeZone =
+    if (null == timeZoneId) TimeZone.getDefault else TimeZone.getTimeZone(timeZoneId)
 
   private val dataFilePathsIter = dataFilePaths.iterator
   private var parquetRows = if (dataFilePathsIter.hasNext) readNextFile else null
@@ -72,7 +72,6 @@ private[internal] case class CloseableParquetDataIterator(
   }
 
   private def readNextFile: ParquetIterable[RowParquetRecord] = {
-    ParquetReader.read[RowParquetRecord](
-      s"${dataFilePathsIter.next()}", Options(readTimeZone))
+    ParquetReader.read[RowParquetRecord](dataFilePathsIter.next(), Options(readTimeZone))
   }
 }

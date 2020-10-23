@@ -19,7 +19,7 @@ package io.delta.alpine.internal
 import java.io.File
 import java.nio.file.Files
 import java.sql.Timestamp
-import java.util.UUID
+import java.util.{Locale, TimeZone, UUID}
 
 import scala.concurrent.duration._
 import scala.language.implicitConversions
@@ -45,6 +45,11 @@ import org.scalatest.FunSuite
  */
 class DeltaTimeTravelSuite extends FunSuite {
   // scalastyle:on funsuite
+
+  // Timezone is fixed to America/Los_Angeles for timezone-sensitive tests
+  TimeZone.setDefault(TimeZone.getTimeZone("America/Los_Angeles"))
+  // Add Locale setting
+  Locale.setDefault(Locale.US)
 
   /** Same start time as used in GoldenTables */
   private val start = 1540415658000L
