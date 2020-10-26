@@ -23,11 +23,20 @@ import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
 
 /** Useful json functions used around the Delta codebase. */
 private[internal] object JsonUtils {
-  /** Used to convert between classes and JSON. */
-  val mapper = new ObjectMapper with ScalaObjectMapper
-  mapper.setSerializationInclusion(Include.NON_ABSENT)
-  mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-  mapper.registerModule(DefaultScalaModule)
+  // scalastyle:off
+  /**
+   * Used to convert between classes and JSON. Use `lazy` so that it's easier to see the real
+   * error when an incompatible `jackson-module-scala` version is on the classpath rather than
+   * `java.lang.NoClassDefFoundError: Could not initialize class io.delta.alpine.internal.util.JsonUtils$`
+   */
+  // scalastyle:on
+  lazy val mapper = {
+    val mapper = new ObjectMapper with ScalaObjectMapper
+    mapper.setSerializationInclusion(Include.NON_ABSENT)
+    mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+    mapper.registerModule(DefaultScalaModule)
+    mapper
+  }
 
   def toJson[T: Manifest](obj: T): String = {
     mapper.writeValueAsString(obj)
