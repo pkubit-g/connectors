@@ -24,12 +24,18 @@ import io.delta.alpine.internal.util.FileNames
 import io.delta.alpine.internal.storage.ReadOnlyLogStore
 import org.apache.hadoop.fs.Path
 
+/**
+ * This class keeps tracks of the version of commits and their timestamps for a Delta table to
+ * help with operations like describing the history of a table.
+ *
+ * @param deltaLog  the transaction log of this table
+ */
 private[internal] case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
 
   /**
    * Check whether the given version can be recreated by replaying the DeltaLog.
    *
-   * @throws IllegalArgumentException  if version is outside range of available versions
+   * @throws IllegalArgumentException if version is outside range of available versions
    */
   def checkVersionExists(version: Long): Unit = {
     val earliestVersion = getEarliestReproducibleCommitVersion
@@ -40,11 +46,12 @@ private[internal] case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
   }
 
   /**
-   * @param timestamp  the timestamp to search for
+   * Returns the latest commit that happened at or before `time`.
    *
-   * @throws RuntimeException  if the state at the given commit in not recreatable
-   * @throws IllegalArgumentException  if the provided timestamp is before the earliest commit
-   * @throws IllegalArgumentException  if the provided timestamp is after the latest commit
+   * @param timestamp  the timestamp to search for
+   * @throws RuntimeException if the state at the given commit in not recreatable
+   * @throws IllegalArgumentException if the provided timestamp is before the earliest commit or
+   *                                  after the latest commit
    */
   def getActiveCommitAtTime(timestamp: Timestamp): Commit = {
     val time = timestamp.getTime
