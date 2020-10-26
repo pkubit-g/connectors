@@ -22,7 +22,7 @@ import io.delta.alpine.types.StructType
 import org.apache.hadoop.fs.Path
 
 private [internal] object DeltaErrors {
-  
+
   /** Thrown when the protocol version of a table is greater than supported by this client. */
   case class InvalidProtocolVersionException(
       clientProtocolVersion: Int,
