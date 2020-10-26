@@ -144,7 +144,7 @@ private[internal] class SnapshotImpl(
       val tblVersion = protocolScala.minReaderVersion
 
       if (clientVersion < tblVersion) {
-        throw DeltaErrors.invalidProtocolVersionException(clientVersion, tblVersion)
+        throw DeltaErrors.InvalidProtocolVersionException(clientVersion, tblVersion)
       }
     }
   }
