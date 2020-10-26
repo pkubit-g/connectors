@@ -223,10 +223,10 @@ class DeltaLogSuite extends FunSuite {
       val e = intercept[IllegalStateException] {
         val tblName = s"deltalog-state-reconstruction-from-checkpoint-missing-$action"
         withLogForGoldenTable(tblName) { log =>
+          // snapshot.state is a lazy val; need it to be accessed for the replay to begin
           log.snapshot().getAllFiles
         }
       }
-
       assert (e.getMessage === DeltaErrors.actionNotFoundException(action, 10).getMessage)
     }
   }
