@@ -230,11 +230,11 @@ class DeltaLogSuite extends FunSuite {
   }
 
   test("table protocol version greater than client reader protocol version") {
-    val e = intercept[RuntimeException] {
+    val e = intercept[DeltaErrors.InvalidProtocolVersionException] {
       withLogForGoldenTable("deltalog-invalid-protocol-version") { _ => }
     }
 
     assert(e.getMessage ===
-      DeltaErrors.invalidProtocolVersionException(Action.readerVersion, 99).getMessage)
+      DeltaErrors.InvalidProtocolVersionException(Action.readerVersion, 99).getMessage)
   }
 }

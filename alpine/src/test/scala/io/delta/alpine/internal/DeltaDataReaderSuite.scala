@@ -272,8 +272,11 @@ class DeltaDataReaderSuite extends FunSuite {
       assert(row.getSchema == expectedSchema)
     }
   }
+<<<<<<< HEAD
 
   // TODO: read partitioned data test, update javadoc
 
   // TODO: read when there is 0 data? update javadoc
+=======
+>>>>>>> non_spark_api_dev
 }

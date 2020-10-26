@@ -23,6 +23,13 @@ import org.apache.hadoop.fs.Path
 
 private [internal] object DeltaErrors {
 
+  /** Thrown when the protocol version of a table is greater than supported by this client. */
+  case class InvalidProtocolVersionException(
+      clientProtocolVersion: Int,
+      tableProtocolVersion: Int) extends RuntimeException(
+    s"Delta protocol version $tableProtocolVersion is too new for this version of Delta Alpine " +
+      s"Reader $clientProtocolVersion. Please upgrade to a newer release.")
+
   def deltaVersionsNotContiguousException(deltaVersions: Seq[Long]): Throwable = {
     new IllegalStateException(s"Versions ($deltaVersions) are not contiguous.")
   }
@@ -47,9 +54,9 @@ private [internal] object DeltaErrors {
       s"transaction log has been truncated due to manual deletion or the log retention policy ")
   }
 
-  def missingPartFilesException(version: Long, ae: Exception): Throwable = {
+  def missingPartFilesException(version: Long, e: Exception): Throwable = {
     new IllegalStateException(
-      s"Couldn't find all part files of the checkpoint version: $version", ae)
+      s"Couldn't find all part files of the checkpoint version: $version", e)
   }
 
   def noReproducibleHistoryFound(logPath: Path): Throwable = {
@@ -91,13 +98,5 @@ private [internal] object DeltaErrors {
   def nullValueFoundForNonNullSchemaField(fieldName: String, schema: StructType): Throwable = {
     new NullPointerException(s"Read a null value for field $fieldName, yet schema indicates " +
       s"that this field can't be null. Schema: ${schema.getTreeString}")
-  }
-
-  /** Thrown when the protocol version of a table is greater than supported by this client. */
-  def invalidProtocolVersionException(
-      clientProtocolVersion: Int,
-      tableProtocolVersion: Int): Throwable = {
-    new RuntimeException(s"Delta protocol version $tableProtocolVersion is too new for this " +
-      s"version of Delta Alpine Reader $clientProtocolVersion. Please upgrade to a newer release.")
   }
 }
