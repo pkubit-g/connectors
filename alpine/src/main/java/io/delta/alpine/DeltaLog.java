@@ -8,7 +8,7 @@ import org.apache.hadoop.fs.Path;
 
 /**
  * Used to query (read-only) the current state of the log.
- *
+ * <p>
  * Internally, this class implements an optimistic concurrency control
  * algorithm to handle multiple readers or writers. Any single read
  * is guaranteed to see a consistent snapshot of the table.
@@ -21,7 +21,7 @@ public interface DeltaLog {
     Snapshot snapshot();
 
     /**
-     * Update DeltaLog by applying the new Delta files if any.
+     * Update DeltaLog by applying the new delta files if any.
      *
      * @return the updated snapshot
      */
@@ -42,8 +42,7 @@ public interface DeltaLog {
      * @param timestamp  the number of miliseconds since midnight, January 1, 1970 UTC
      * @return the snapshot nearest to, but not after, the provided {@code timestamp}
      * @throws RuntimeException if the snapshot is unable to be recreated
-     * @throws IllegalArgumentException if the {@code timestamp} is before the earliest possible
-     *                                  snapshot or after the latest possible snapshot
+     * @throws IllegalArgumentException if the {@code timestamp} is before the earliest possible snapshot or after the latest possible snapshot
      */
     Snapshot getSnapshotForTimestampAsOf(long timestamp);
 
@@ -53,8 +52,7 @@ public interface DeltaLog {
     Path getLogPath();
 
     /**
-     * the path to the data files for this log
-     * @return
+     * @return the path to the data files for this log
      */
     Path getDataPath();
 

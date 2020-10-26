@@ -272,4 +272,6 @@ class DeltaDataReaderSuite extends FunSuite {
       assert(row.getSchema == expectedSchema)
     }
   }
+
+  // TODO: read partitioned data test
 }
