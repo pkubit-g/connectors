@@ -11,7 +11,7 @@ public final class Metadata {
     private final String name;
     private final String description;
     private final Format format;
-    private final String schemaString;
+    private final String schemaString; // json
     private final List<String> partitionColumns;
     private final Optional<Long> createdTime;
     private final StructType schema;
