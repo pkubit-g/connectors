@@ -26,8 +26,9 @@ import io.delta.alpine.internal.actions._
 import io.delta.alpine.{DeltaLog, Snapshot}
 import io.delta.alpine.data.{CloseableIterator, RowRecord => RowParquetRecordJ}
 import io.delta.alpine.internal.data.CloseableParquetDataIterator
+import io.delta.alpine.internal.exception.DeltaErrors
 import io.delta.alpine.internal.sources.AlpineHadoopConf
-import io.delta.alpine.internal.util.{ConversionUtils, JsonUtils, FileNames}
+import io.delta.alpine.internal.util.{ConversionUtils, FileNames, JsonUtils}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
@@ -38,7 +39,12 @@ private[internal] class SnapshotImpl(
     val logSegment: LogSegment,
     val deltaLog: DeltaLogImpl,
     val timestamp: Long) extends Snapshot {
+
   import SnapshotImpl._
+
+  ///////////////////////////////////////////////////////////////////////////
+  // Public API Methods
+  ///////////////////////////////////////////////////////////////////////////
 
   override def getAllFiles: java.util.List[alpine.actions.AddFile] =
     state.activeFiles.values.map(ConversionUtils.convertAddFile).toList.asJava
@@ -60,6 +66,10 @@ private[internal] class SnapshotImpl(
         .map(FileNames.absolutePath(deltaLog.dataPath, _).toString),
       getMetadata.getSchema,
       hadoopConf.get(AlpineHadoopConf.PARQUET_DATA_TIME_ZONE_ID))
+
+  ///////////////////////////////////////////////////////////////////////////
+  // Internal-Only Methods
+  ///////////////////////////////////////////////////////////////////////////
 
   def allFilesScala: Seq[AddFile] = state.activeFiles.values.toSeq
   def protocolScala: Protocol = state.protocol
@@ -83,6 +93,10 @@ private[internal] class SnapshotImpl(
     }.toList
   }
 
+  /**
+   * Computes some statistics around the transaction log, therefore on the actions made on this
+   * Delta table.
+   */
   protected lazy val state: State = {
     val logPathURI = path.toUri
     val replay = new InMemoryLogReplay(hadoopConf)
@@ -102,7 +116,13 @@ private[internal] class SnapshotImpl(
 
     replay.append(0, actions.iterator)
 
-    // TODO: assert replay.currentMetaData not null?
+    if (null == replay.currentProtocolVersion) {
+      throw DeltaErrors.actionNotFoundException("protocol", version)
+    }
+    if (null == replay.currentMetaData) {
+      throw DeltaErrors.actionNotFoundException("metadata", version)
+    }
+
     State(
       replay.currentProtocolVersion,
       replay.currentMetaData,
@@ -113,10 +133,28 @@ private[internal] class SnapshotImpl(
       replay.numProtocol
     )
   }
+
+  /**
+   * Asserts that the client is up to date with the protocol and allowed
+   * to read the table that is using this Snapshot's `protocol`.
+   */
+  def assertProtocolRead(): Unit = {
+    if (null != protocolScala) {
+      val clientVersion = Action.readerVersion
+      val tblVersion = protocolScala.minReaderVersion
+
+      if (clientVersion < tblVersion) {
+        throw DeltaErrors.InvalidProtocolVersionException(clientVersion, tblVersion)
+      }
+    }
+  }
+
+  /** Complete initialization by checking protocol version. */
+  assertProtocolRead()
 }
 
 object SnapshotImpl {
-  /** Canonicalize the paths for Actions */
+  /** Canonicalize the paths for Actions. */
   def canonicalizePath(path: String, hadoopConf: Configuration): String = {
     val hadoopPath = new Path(new URI(path))
     if (hadoopPath.isAbsoluteAndSchemeAuthorityNull) {

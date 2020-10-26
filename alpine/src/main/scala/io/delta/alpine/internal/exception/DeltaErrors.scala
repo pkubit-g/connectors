@@ -22,12 +22,24 @@ import io.delta.alpine.types.StructType
 import org.apache.hadoop.fs.Path
 
 private [internal] object DeltaErrors {
-
-  // TODO make this RuntimeException?
-  class DeltaTimeTravelException(message: String) extends Exception(message)
+  
+  /** Thrown when the protocol version of a table is greater than supported by this client. */
+  case class InvalidProtocolVersionException(
+      clientProtocolVersion: Int,
+      tableProtocolVersion: Int) extends RuntimeException(
+    s"Delta protocol version $tableProtocolVersion is too new for this version of Delta Alpine " +
+      s"Reader $clientProtocolVersion. Please upgrade to a newer release.")
 
   def deltaVersionsNotContiguousException(deltaVersions: Seq[Long]): Throwable = {
     new IllegalStateException(s"Versions ($deltaVersions) are not contiguous.")
+  }
+
+  def actionNotFoundException(action: String, version: Long): Throwable = {
+    new IllegalStateException(
+      s"""
+         |The $action of your Delta table couldn't be recovered while Reconstructing
+         |version: ${version.toString}. Did you manually delete files in the _delta_log directory?
+       """.stripMargin)
   }
 
   def emptyDirectoryException(directory: String): Throwable = {
@@ -42,19 +54,19 @@ private [internal] object DeltaErrors {
       s"transaction log has been truncated due to manual deletion or the log retention policy ")
   }
 
-  def missingPartFilesException(version: Long, ae: Exception): Throwable = {
+  def missingPartFilesException(version: Long, e: Exception): Throwable = {
     new IllegalStateException(
-      s"Couldn't find all part files of the checkpoint version: $version", ae)
+      s"Couldn't find all part files of the checkpoint version: $version", e)
   }
 
   def noReproducibleHistoryFound(logPath: Path): Throwable = {
-    new DeltaTimeTravelException(s"No reproducible commits found at $logPath")
+    new RuntimeException(s"No reproducible commits found at $logPath")
   }
 
   def timestampEarlierThanTableFirstCommit(
       userTimestamp: java.sql.Timestamp,
       commitTs: java.sql.Timestamp): Throwable = {
-    new DeltaTimeTravelException(
+    new IllegalArgumentException(
       s"""The provided timestamp ($userTimestamp) is before the earliest version available to this
          |table ($commitTs). Please use a timestamp greater than or equal to $commitTs.
        """.stripMargin)
@@ -63,18 +75,18 @@ private [internal] object DeltaErrors {
   def timestampLaterThanTableLastCommit(
       userTimestamp: java.sql.Timestamp,
       commitTs: java.sql.Timestamp): Throwable = {
-    new DeltaTimeTravelException(
+    new IllegalArgumentException(
       s"""The provided timestamp ($userTimestamp) is after the latest version available to this
          |table ($commitTs). Please use a timestamp less than or equal to $commitTs.
        """.stripMargin)
   }
 
   def noHistoryFound(logPath: Path): Throwable = {
-    new DeltaTimeTravelException(s"No commits found at $logPath")
+    new RuntimeException(s"No commits found at $logPath")
   }
 
   def versionNotExistException(userVersion: Long, earliest: Long, latest: Long): Throwable = {
-    new DeltaTimeTravelException(s"Cannot time travel Delta table to version $userVersion. " +
+    new IllegalArgumentException(s"Cannot time travel Delta table to version $userVersion. " +
       s"Available versions: [$earliest, $latest].")
   }
 
@@ -84,7 +96,7 @@ private [internal] object DeltaErrors {
   }
 
   def nullValueFoundForNonNullSchemaField(fieldName: String, schema: StructType): Throwable = {
-    new RuntimeException(s"Read a null value for field $fieldName, yet schema indicates " +
+    new NullPointerException(s"Read a null value for field $fieldName, yet schema indicates " +
       s"that this field can't be null. Schema: ${schema.getTreeString}")
   }
 }

@@ -81,8 +81,8 @@ private[internal] trait SnapshotManagement { self: DeltaLogImpl =>
    *         startCheckpoint. None, if there are no new files after `startCheckpoint`.
    */
   protected def getLogSegmentForVersion(
-    startCheckpoint: Option[Long],
-    versionToLoad: Option[Long] = None): LogSegment = {
+      startCheckpoint: Option[Long],
+      versionToLoad: Option[Long] = None): LogSegment = {
 
     // List from the starting checkpoint. If a checkpoint doesn't exist, this will still return
     // deltaVersion=0.

@@ -20,14 +20,17 @@ import java.sql.Timestamp
 
 import io.delta.alpine.internal.actions.CommitMarker
 import io.delta.alpine.internal.exception.DeltaErrors
-import io.delta.alpine.internal.exception.DeltaErrors.DeltaTimeTravelException
 import io.delta.alpine.internal.util.FileNames
 import io.delta.alpine.internal.storage.ReadOnlyLogStore
 import org.apache.hadoop.fs.Path
 
 private[internal] case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
 
-  /** Check whether the given version can be recreated by replaying the DeltaLog. */
+  /**
+   * Check whether the given version can be recreated by replaying the DeltaLog.
+   *
+   * @throws IllegalArgumentException  if version is outside range of available versions
+   */
   def checkVersionExists(version: Long): Unit = {
     val earliestVersion = getEarliestReproducibleCommitVersion
     val latestVersion = deltaLog.update().version
@@ -37,10 +40,11 @@ private[internal] case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
   }
 
   /**
-   * @param timestamp The timestamp to search for
-   * @throws DeltaTimeTravelException if the state at the given commit in not recreatable
-   * @throws DeltaTimeTravelException if the provided timestamp is before the earliest commit
-   * @throws DeltaTimeTravelException if the provided timestamp is after the latest commit
+   * @param timestamp  the timestamp to search for
+   *
+   * @throws RuntimeException  if the state at the given commit in not recreatable
+   * @throws IllegalArgumentException  if the provided timestamp is before the earliest commit
+   * @throws IllegalArgumentException  if the provided timestamp is after the latest commit
    */
   def getActiveCommitAtTime(timestamp: Timestamp): Commit = {
     val time = timestamp.getTime

@@ -40,6 +40,10 @@ private[internal] case class RowParquetRecordImpl(
   // Public API Methods
   ///////////////////////////////////////////////////////////////////////////
 
+  override def getSchema: StructType = schema
+
+  override def getLength: Int = record.length
+
   override def getInt(fieldName: String): Int = getAs[Int](fieldName)
 
   override def getLong(fieldName: String): Long = getAs[Long](fieldName)

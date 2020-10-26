@@ -107,20 +107,20 @@ class DeltaTimeTravelSuite extends FunSuite {
         verifySnapshot(log.getSnapshotForVersionAsOf(2), start_start20_start40_data_files, 2)
 
         // Error case - version after latest commit
-        val e1 = intercept[DeltaErrors.DeltaTimeTravelException] {
+        val e1 = intercept[IllegalArgumentException] {
           log.getSnapshotForVersionAsOf(3)
         }
         assert(e1.getMessage == DeltaErrors.versionNotExistException(3, 0, 2).getMessage)
 
         // Error case - version before earliest commit
-        val e2 = intercept[DeltaErrors.DeltaTimeTravelException] {
+        val e2 = intercept[IllegalArgumentException] {
           log.getSnapshotForVersionAsOf(-1)
         }
         assert(e2.getMessage == DeltaErrors.versionNotExistException(-1, 0, 2).getMessage)
 
         // Error case - not reproducible
         new File(FileNames.deltaFile(log.getLogPath, 0).toUri).delete()
-        val e3 = intercept[DeltaErrors.DeltaTimeTravelException] {
+        val e3 = intercept[RuntimeException] {
           log.getSnapshotForVersionAsOf(0)
         }
         assert(e3.getMessage == DeltaErrors.noReproducibleHistoryFound(log.getLogPath).getMessage)
@@ -131,7 +131,7 @@ class DeltaTimeTravelSuite extends FunSuite {
   }
 
   test("timestampAsOf with timestamp in between commits - should use commit before timestamp") {
-    withLogForGoldenTable("time-travel-start-start20-start40") { (log, _) =>
+    withLogForGoldenTable("time-travel-start-start20-start40") { log =>
       verifySnapshot(
         log.getSnapshotForTimestampAsOf(start + 10.minutes), start_data_files, 0)
       verifySnapshot(
@@ -140,8 +140,8 @@ class DeltaTimeTravelSuite extends FunSuite {
   }
 
   test("timestampAsOf with timestamp after last commit should fail") {
-    withLogForGoldenTable("time-travel-start-start20-start40") { (log, _) =>
-      val e = intercept[DeltaErrors.DeltaTimeTravelException] {
+    withLogForGoldenTable("time-travel-start-start20-start40") { log =>
+      val e = intercept[IllegalArgumentException] {
         log.getSnapshotForTimestampAsOf(start + 50.minutes) // later by 10 mins
       }
 
@@ -153,7 +153,7 @@ class DeltaTimeTravelSuite extends FunSuite {
   }
 
   test("timestampAsOf with timestamp on exact commit timestamp") {
-    withLogForGoldenTable("time-travel-start-start20-start40") { (log, _) =>
+    withLogForGoldenTable("time-travel-start-start20-start40") { log =>
       verifySnapshot(
         log.getSnapshotForTimestampAsOf(start), start_data_files, 0)
       verifySnapshot(
@@ -171,9 +171,36 @@ class DeltaTimeTravelSuite extends FunSuite {
     }
 
     // then append more data to that "same" table using a different schema
-    // reading version 0 should show only the original-schema data files
-    withLogForGoldenTable("time-travel-schema-changes-b") { (log, _) =>
+    // reading version 0 should show only the original schema data files
+    withLogForGoldenTable("time-travel-schema-changes-b") { log =>
       verifySnapshot(log.getSnapshotForVersionAsOf(0), orig_schema_data_files, 0)
+    }
+  }
+
+  test("time travel with partition changes - should instantiate old schema") {
+    def getPartitionDirDataFiles(tablePath: String): Array[File] = {
+      val dir = new File(tablePath)
+      dir.listFiles().filter(_.isDirectory).flatMap(_.listFiles).filter(_.isFile)
+        .filter(_.getName.endsWith("snappy.parquet"))
+    }
+
+    var orig_partition_data_files: Array[File] = Array.empty
+
+    // write data to a table with some original partition
+    withGoldenTable("time-travel-partition-changes-a") { tablePath =>
+      orig_partition_data_files = getPartitionDirDataFiles(tablePath)
+    }
+
+    // then append more data to that "same" table using a different partition
+    // reading version 0 should show only the original partition data files
+    withLogForGoldenTable("time-travel-partition-changes-b") { log =>
+      val snapshot = log.getSnapshotForVersionAsOf(0)
+      assert(snapshot.getVersion == 0)
+      assert(snapshot.getAllFiles.size() == orig_partition_data_files.length)
+      assert(
+        snapshot.getAllFiles.stream().allMatch(
+          // use `contains` instead of `==` as f.getPath contains partition, but o.getName does not
+          f => orig_partition_data_files.exists(o => f.getPath.contains(o.getName))))
     }
   }
 }

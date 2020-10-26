@@ -13,12 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.delta.golden
 
 import java.io.File
 import java.math.{BigDecimal => JBigDecimal}
 import java.sql.Timestamp
-import java.util.TimeZone
+import java.util.{Locale, TimeZone}
 
 import scala.concurrent.duration._
 import scala.language.implicitConversions
@@ -28,10 +29,10 @@ import org.apache.commons.io.FileUtils
 import org.apache.hadoop.fs.Path
 
 import org.apache.spark.network.util.JavaUtils
-import org.apache.spark.sql.delta.DeltaLog
+import org.apache.spark.sql.delta.{DeltaLog, OptimisticTransaction}
 import org.apache.spark.sql.{QueryTest, Row}
 import org.apache.spark.sql.delta.DeltaOperations.ManualUpdate
-import org.apache.spark.sql.delta.actions.{Action, AddFile, Metadata, Protocol, RemoveFile}
+import org.apache.spark.sql.delta.actions.{Action, AddFile, Metadata, Protocol, RemoveFile, SingleAction}
 import org.apache.spark.sql.delta.sources.DeltaSQLConf
 import org.apache.spark.sql.delta.util.{FileNames, JsonUtils}
 import org.apache.spark.sql.test.SharedSparkSession
@@ -48,7 +49,10 @@ class GoldenTables extends QueryTest with SharedSparkSession {
 
   import testImplicits._
 
-  private val testOp = ManualUpdate
+  // Timezone is fixed to America/Los_Angeles for timezone-sensitive tests
+  TimeZone.setDefault(TimeZone.getTimeZone("America/Los_Angeles"))
+  // Add Locale setting
+  Locale.setDefault(Locale.US)
 
   private val shouldGenerateGoldenTables = sys.env.contains("GENERATE_GOLDEN_TABLES")
 
@@ -75,6 +79,19 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     }
   }
 
+  /**
+   * Helper class for to ensure initial commits contain a Metadata action.
+   */
+  private implicit class OptimisticTxnTestHelper(txn: OptimisticTransaction) {
+    def commitManually(actions: Action*): Long = {
+      if (txn.readVersion == -1 && !actions.exists(_.isInstanceOf[Metadata])) {
+        txn.commit(Metadata() +: actions, ManualUpdate)
+      } else {
+        txn.commit(actions, ManualUpdate)
+      }
+    }
+  }
+
   ///////////////////////////////////////////////////////////////////////////
   // io.delta.alpine.internal.DeltaLogSuite
   ///////////////////////////////////////////////////////////////////////////
@@ -90,7 +107,7 @@ class GoldenTables extends QueryTest with SharedSparkSession {
       } else {
         Nil
       }
-      txn.commit(delete ++ file, testOp)
+      txn.commitManually(delete ++ file: _*)
     }
   }
 
@@ -153,12 +170,9 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     val log = DeltaLog.forTable(spark, new Path(tablePath))
     val txn = log.startTransaction()
     val files = (1 to 10).map(f => AddFile(f.toString, Map.empty, 1, 1, true))
-    txn.commit(files, testOp)
+    txn.commitManually(files: _*)
     log.checkpoint()
   }
-
-  /** TEST: DeltaLogSuite > update shouldn't pick up delta files earlier than checkpoint */
-  // TODO
 
   /** TEST: DeltaLogSuite > handle corrupted '_last_checkpoint' file */
   generateGoldenTable("corrupted-last-checkpoint") { tablePath =>
@@ -166,7 +180,7 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     val checkpointInterval = log.checkpointInterval
     for (f <- 0 to checkpointInterval) {
       val txn = log.startTransaction()
-      txn.commit(AddFile(f.toString, Map.empty, 1, 1, true) :: Nil, testOp)
+      txn.commitManually(AddFile(f.toString, Map.empty, 1, 1, true))
     }
   }
 
@@ -204,18 +218,18 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     assert(new File(log.logPath.toUri).mkdirs())
 
     val add1 = AddFile("foo", Map.empty, 1L, 1600000000000L, dataChange = true)
-    log.startTransaction().commit(add1 :: Nil, testOp)
+    log.startTransaction().commitManually(add1)
 
     val rm = add1.remove
-    log.startTransaction().commit(rm :: Nil, testOp)
+    log.startTransaction().commit(rm :: Nil, ManualUpdate)
 
     val add2 = AddFile("foo", Map.empty, 1L, 1700000000000L, dataChange = true)
-    log.startTransaction().commit(add2 :: Nil, testOp)
+    log.startTransaction().commit(add2 :: Nil, ManualUpdate)
 
     // Add a new transaction to replay logs using the previous snapshot. If it contained
     // AddFile("foo") and RemoveFile("foo"), "foo" would get removed and fail this test.
     val otherAdd = AddFile("bar", Map.empty, 1L, System.currentTimeMillis(), dataChange = true)
-    log.startTransaction().commit(otherAdd :: Nil, testOp)
+    log.startTransaction().commit(otherAdd :: Nil, ManualUpdate)
   }
 
   /** TEST: DeltaLogSuite > error - versions not contiguous */
@@ -224,15 +238,100 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     assert(new File(log.logPath.toUri).mkdirs())
 
     val add1 = AddFile("foo", Map.empty, 1L, System.currentTimeMillis(), dataChange = true)
-    log.startTransaction().commit(add1 :: Nil, testOp)
+    log.startTransaction().commitManually(add1)
 
     val add2 = AddFile("foo", Map.empty, 1L, System.currentTimeMillis(), dataChange = true)
-    log.startTransaction().commit(add2 :: Nil, testOp)
+    log.startTransaction().commit(add2 :: Nil, ManualUpdate)
 
     val add3 = AddFile("foo", Map.empty, 1L, System.currentTimeMillis(), dataChange = true)
-    log.startTransaction().commit(add3 :: Nil, testOp)
+    log.startTransaction().commit(add3 :: Nil, ManualUpdate)
 
     new File(new Path(log.logPath, "00000000000000000001.json").toUri).delete()
+  }
+
+  /** TEST: DeltaLogSuite > state reconstruction without Protocol/Metadata should fail */
+  Seq("protocol", "metadata").foreach { action =>
+    generateGoldenTable(s"deltalog-state-reconstruction-without-$action") { tablePath =>
+      val log = DeltaLog.forTable(spark, new Path(tablePath))
+      assert(new File(log.logPath.toUri).mkdirs())
+
+      val selectedAction = if (action == "metadata") {
+        Protocol()
+      } else {
+        Metadata()
+      }
+
+      val file = AddFile("abc", Map.empty, 1, 1, true)
+      log.store.write(
+        FileNames.deltaFile(log.logPath, 0L),
+        Iterator(selectedAction, file).map(a => JsonUtils.toJson(a.wrap)))
+    }
+  }
+
+  /**
+   * TEST: DeltaLogSuite > state reconstruction from checkpoint with missing Protocol/Metadata
+   * should fail
+   */
+  Seq("protocol", "metadata").foreach { action =>
+    generateGoldenTable(s"deltalog-state-reconstruction-from-checkpoint-missing-$action") {
+      tablePath =>
+        val log = DeltaLog.forTable(spark, tablePath)
+        val checkpointInterval = log.checkpointInterval
+        // Create a checkpoint regularly
+        for (f <- 0 to checkpointInterval) {
+          val txn = log.startTransaction()
+          if (f == 0) {
+            txn.commitManually(AddFile(f.toString, Map.empty, 1, 1, true))
+          } else {
+            txn.commit(Seq(AddFile(f.toString, Map.empty, 1, 1, true)), ManualUpdate)
+          }
+        }
+
+        // Create an incomplete checkpoint without the action and overwrite the
+        // original checkpoint
+        val checkpointPath = FileNames.checkpointFileSingular(log.logPath, log.snapshot.version)
+        withTempDir { tmpCheckpoint =>
+          val takeAction = if (action == "metadata") {
+            "protocol"
+          } else {
+            "metadata"
+          }
+          val corruptedCheckpointData = spark.read.parquet(checkpointPath.toString)
+            .where(s"add is not null or $takeAction is not null")
+            .as[SingleAction].collect()
+
+          // Keep the add files and also filter by the additional condition
+          corruptedCheckpointData.toSeq.toDS().coalesce(1).write
+            .mode("overwrite").parquet(tmpCheckpoint.toString)
+          val writtenCheckpoint =
+            tmpCheckpoint.listFiles().toSeq.filter(_.getName.startsWith("part")).head
+          val checkpointFile = new File(checkpointPath.toUri)
+          new File(log.logPath.toUri).listFiles().toSeq.foreach { file =>
+            if (file.getName.startsWith(".0")) {
+              // we need to delete checksum files, otherwise trying to replace our incomplete
+              // checkpoint file fails due to the LocalFileSystem's checksum checks.
+              require(file.delete(), "Failed to delete checksum file")
+            }
+          }
+          require(checkpointFile.delete(), "Failed to delete old checkpoint")
+          require(writtenCheckpoint.renameTo(checkpointFile),
+            "Failed to rename corrupt checkpoint")
+        }
+    }
+  }
+
+  /** TEST: DeltaLogSuite > table protocol version greater than client reader protocol version */
+  generateGoldenTable("deltalog-invalid-protocol-version") { tablePath =>
+    val log = DeltaLog.forTable(spark, new Path(tablePath))
+    assert(new File(log.logPath.toUri).mkdirs())
+
+    val file = AddFile("abc", Map.empty, 1, 1, true)
+    log.store.write(
+      FileNames.deltaFile(log.logPath, 0L),
+
+      // Protocol reader version explicitly set too high
+      // Also include a Metadata
+      Iterator(Protocol(99), Metadata(), file).map(a => JsonUtils.toJson(a.wrap)))
   }
 
   ///////////////////////////////////////////////////////////////////////////
@@ -301,6 +400,9 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     generateCommits(tablePath, start + 40.minutes)
   }
 
+  /**
+   * TEST: DeltaTimeTravelSuite > time travel with schema changes - should instantiate old schema
+   */
   generateGoldenTable("time-travel-schema-changes-a") { tablePath =>
     spark.range(10).write.format("delta").mode("append").save(tablePath)
   }
@@ -309,6 +411,25 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     copyDir("time-travel-schema-changes-a", "time-travel-schema-changes-b")
     spark.range(10, 20).withColumn("part", 'id)
       .write.format("delta").mode("append").option("mergeSchema", true).save(tablePath)
+  }
+
+  /**
+   * TEST: DeltaTimeTravelSuite > time travel with partition changes - should instantiate old schema
+   */
+  generateGoldenTable("time-travel-partition-changes-a") { tablePath =>
+    spark.range(10).withColumn("part5", 'id % 5).write.format("delta")
+      .partitionBy("part5").mode("append").save(tablePath)
+  }
+
+  generateGoldenTable("time-travel-partition-changes-b") { tablePath =>
+    copyDir("time-travel-partition-changes-a", "time-travel-partition-changes-b")
+    spark.range(10, 20).withColumn("part2", 'id % 2)
+      .write
+      .format("delta")
+      .partitionBy("part2")
+      .mode("overwrite")
+      .option("overwriteSchema", true)
+      .save(tablePath)
   }
 
   ///////////////////////////////////////////////////////////////////////////
