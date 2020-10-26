@@ -24,6 +24,7 @@ import io.delta.alpine.internal.util.{DataTypeParser, JsonUtils}
 import io.delta.alpine.types.StructType
 
 private[internal] object Action {
+  /** The maximum version of the protocol that this version of Delta understands. */
   val readerVersion = 1
   val writerVersion = 2
   val protocolVersion: Protocol = Protocol(readerVersion, writerVersion)

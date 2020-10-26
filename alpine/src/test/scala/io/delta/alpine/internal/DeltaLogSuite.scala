@@ -23,6 +23,7 @@ import java.util.UUID
 import scala.collection.JavaConverters._
 
 import io.delta.alpine.{DeltaLog, Snapshot}
+import io.delta.alpine.internal.actions.Action
 import io.delta.alpine.internal.exception.DeltaErrors
 import io.delta.alpine.internal.util.GoldenTableUtils._
 import org.apache.commons.io.FileUtils
@@ -124,6 +125,7 @@ class DeltaLogSuite extends FunSuite {
     }
   }
 
+  // TODO check this output against Runtime
   test("SC-8078: update deleted directory") {
     withGoldenTable("update-deleted-directory") { tablePath =>
       val tempDir = Files.createTempDirectory(UUID.randomUUID().toString).toFile
@@ -209,10 +211,8 @@ class DeltaLogSuite extends FunSuite {
   Seq("protocol", "metadata").foreach { action =>
     test(s"state reconstruction without $action should fail") {
       val e = intercept[IllegalStateException] {
-        withLogForGoldenTable(s"deltalog-state-reconstruction-without-$action") { log =>
-          // snapshot.state is a lazy val; need it to be accessed for the replay to begin
-          log.snapshot().getAllFiles
-        }
+        // snapshot initialization triggers state reconstruction
+        withLogForGoldenTable(s"deltalog-state-reconstruction-without-$action") { _ => }
       }
       assert(e.getMessage === DeltaErrors.actionNotFoundException(action, 0).getMessage)
     }
@@ -222,12 +222,19 @@ class DeltaLogSuite extends FunSuite {
     test(s"state reconstruction from checkpoint with missing $action should fail") {
       val e = intercept[IllegalStateException] {
         val tblName = s"deltalog-state-reconstruction-from-checkpoint-missing-$action"
-        withLogForGoldenTable(tblName) { log =>
-          // snapshot.state is a lazy val; need it to be accessed for the replay to begin
-          log.snapshot().getAllFiles
-        }
+        // snapshot initialization triggers state reconstruction
+        withLogForGoldenTable(tblName) { _ => }
       }
-      assert (e.getMessage === DeltaErrors.actionNotFoundException(action, 10).getMessage)
+      assert(e.getMessage === DeltaErrors.actionNotFoundException(action, 10).getMessage)
     }
+  }
+
+  test("table protocol version greater than client reader protocol version") {
+    val e = intercept[RuntimeException] {
+      withLogForGoldenTable("deltalog-invalid-protocol-version") { _ => }
+    }
+
+    assert(e.getMessage ===
+      DeltaErrors.invalidProtocolVersionException(Action.readerVersion, 99).getMessage)
   }
 }

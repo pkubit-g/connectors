@@ -92,4 +92,12 @@ private [internal] object DeltaErrors {
     new NullPointerException(s"Read a null value for field $fieldName, yet schema indicates " +
       s"that this field can't be null. Schema: ${schema.getTreeString}")
   }
+
+  /** Thrown when the protocol version of a table is greater than supported by this client. */
+  def invalidProtocolVersionException(
+      clientProtocolVersion: Int,
+      tableProtocolVersion: Int): Throwable = {
+    new RuntimeException(s"Delta protocol version $tableProtocolVersion is too new for this " +
+      s"version of Delta Alpine Reader $clientProtocolVersion. Please upgrade to a newer release.")
+  }
 }

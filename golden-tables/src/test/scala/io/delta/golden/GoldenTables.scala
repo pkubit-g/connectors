@@ -251,7 +251,7 @@ class GoldenTables extends QueryTest with SharedSparkSession {
 
   /** TEST: DeltaLogSuite > state reconstruction without Protocol/Metadata should fail */
   Seq("protocol", "metadata").foreach { action =>
-    generateGoldenTable("deltalog-state-reconstruction-without-protocol") { tablePath =>
+    generateGoldenTable(s"deltalog-state-reconstruction-without-$action") { tablePath =>
       val log = DeltaLog.forTable(spark, new Path(tablePath))
       assert(new File(log.logPath.toUri).mkdirs())
 
@@ -317,8 +317,21 @@ class GoldenTables extends QueryTest with SharedSparkSession {
           require(writtenCheckpoint.renameTo(checkpointFile),
             "Failed to rename corrupt checkpoint")
         }
-
     }
+  }
+
+  /** TEST: DeltaLogSuite > table protocol version greater than client reader protocol version */
+  generateGoldenTable("deltalog-invalid-protocol-version") { tablePath =>
+    val log = DeltaLog.forTable(spark, new Path(tablePath))
+    assert(new File(log.logPath.toUri).mkdirs())
+
+    val file = AddFile("abc", Map.empty, 1, 1, true)
+    log.store.write(
+      FileNames.deltaFile(log.logPath, 0L),
+
+      // Protocol reader version explicitly set too high
+      // Also include a Metadata
+      Iterator(Protocol(99), Metadata(), file).map(a => JsonUtils.toJson(a.wrap)))
   }
 
   ///////////////////////////////////////////////////////////////////////////
