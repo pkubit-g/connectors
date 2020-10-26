@@ -400,6 +400,9 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     generateCommits(tablePath, start + 40.minutes)
   }
 
+  /**
+   * TEST: DeltaTimeTravelSuite > time travel with schema changes - should instantiate old schema
+   */
   generateGoldenTable("time-travel-schema-changes-a") { tablePath =>
     spark.range(10).write.format("delta").mode("append").save(tablePath)
   }
@@ -408,6 +411,25 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     copyDir("time-travel-schema-changes-a", "time-travel-schema-changes-b")
     spark.range(10, 20).withColumn("part", 'id)
       .write.format("delta").mode("append").option("mergeSchema", true).save(tablePath)
+  }
+
+  /**
+   * TEST: DeltaTimeTravelSuite > time travel with partition changes - should instantiate old schema
+   */
+  generateGoldenTable("time-travel-partition-changes-a") { tablePath =>
+    spark.range(10).withColumn("part5", 'id % 5).write.format("delta")
+      .partitionBy("part5").mode("append").save(tablePath)
+  }
+
+  generateGoldenTable("time-travel-partition-changes-b") { tablePath =>
+    copyDir("time-travel-partition-changes-a", "time-travel-partition-changes-b")
+    spark.range(10, 20).withColumn("part2", 'id % 2)
+      .write
+      .format("delta")
+      .partitionBy("part2")
+      .mode("overwrite")
+      .option("overwriteSchema", true)
+      .save(tablePath)
   }
 
   ///////////////////////////////////////////////////////////////////////////

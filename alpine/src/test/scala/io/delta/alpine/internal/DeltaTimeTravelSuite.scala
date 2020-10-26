@@ -171,9 +171,36 @@ class DeltaTimeTravelSuite extends FunSuite {
     }
 
     // then append more data to that "same" table using a different schema
-    // reading version 0 should show only the original-schema data files
+    // reading version 0 should show only the original schema data files
     withLogForGoldenTable("time-travel-schema-changes-b") { log =>
       verifySnapshot(log.getSnapshotForVersionAsOf(0), orig_schema_data_files, 0)
+    }
+  }
+
+  test("time travel with partition changes - should instantiate old schema") {
+    def getPartitionDirDataFiles(tablePath: String): Array[File] = {
+      val dir = new File(tablePath)
+      dir.listFiles().filter(_.isDirectory).flatMap(_.listFiles).filter(_.isFile)
+        .filter(_.getName.endsWith("snappy.parquet"))
+    }
+
+    var orig_partition_data_files: Array[File] = Array.empty
+
+    // write data to a table with some original partition
+    withGoldenTable("time-travel-partition-changes-a") { tablePath =>
+      orig_partition_data_files = getPartitionDirDataFiles(tablePath)
+    }
+
+    // then append more data to that "same" table using a different partition
+    // reading version 0 should show only the original partition data files
+    withLogForGoldenTable("time-travel-partition-changes-b") { log =>
+      val snapshot = log.getSnapshotForVersionAsOf(0)
+      assert(snapshot.getVersion == 0)
+      assert(snapshot.getAllFiles.size() == orig_partition_data_files.length)
+      assert(
+        snapshot.getAllFiles.stream().allMatch(
+          // use `contains` instead of `==` as f.getPath contains partition, but o.getName does not
+          f => orig_partition_data_files.exists(o => f.getPath.contains(o.getName))))
     }
   }
 }

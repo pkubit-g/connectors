@@ -29,7 +29,7 @@ private[internal] case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
   /**
    * Check whether the given version can be recreated by replaying the DeltaLog.
    *
-   * @throws IllegalArgumentException when version is outside range of available versions.
+   * @throws IllegalArgumentException  if version is outside range of available versions
    */
   def checkVersionExists(version: Long): Unit = {
     val earliestVersion = getEarliestReproducibleCommitVersion
@@ -40,11 +40,11 @@ private[internal] case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
   }
 
   /**
-   * @param timestamp The timestamp to search for.
+   * @param timestamp  the timestamp to search for
    *
-   * @throws RuntimeException when the state at the given commit in not recreatable.
-   * @throws IllegalArgumentException when the provided timestamp is before the earliest commit.
-   * @throws IllegalArgumentException when the provided timestamp is after the latest commit.
+   * @throws RuntimeException  if the state at the given commit in not recreatable
+   * @throws IllegalArgumentException  if the provided timestamp is before the earliest commit
+   * @throws IllegalArgumentException  if the provided timestamp is after the latest commit
    */
   def getActiveCommitAtTime(timestamp: Timestamp): Commit = {
     val time = timestamp.getTime
