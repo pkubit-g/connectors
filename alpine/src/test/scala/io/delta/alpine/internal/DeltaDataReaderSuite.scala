@@ -273,5 +273,7 @@ class DeltaDataReaderSuite extends FunSuite {
     }
   }
 
-  // TODO: read partitioned data test
+  // TODO: read partitioned data test, update javadoc
+
+  // TODO: read when there is 0 data? update javadoc
 }

@@ -42,7 +42,9 @@ public interface Snapshot {
     DeltaLog getDeltaLog();
 
     /**
-     * @return the timestamp of the latest commit in milliseconds. Can also be set to -1 if the timestamp of the commit is unknown or the table has not been initialized (that is, the version is set to -1)
+     * @return the timestamp of the latest commit in milliseconds. Can also be to -1 if the
+     *         timestamp of the commit is unknown or the table has not been initialized (that is,
+     *         the version is set to -1).
      */
     long getTimestamp();
 

@@ -24,7 +24,8 @@ import io.delta.alpine.internal.storage.HDFSReadOnlyLogStore
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
-private[internal] class DeltaLogImpl private(
+// TODO: private[internal]  ??
+class DeltaLogImpl private(
     val hadoopConf: Configuration,
     val logPath: Path,
     val dataPath: Path)
