@@ -6,9 +6,9 @@ import java.util.Collections;
 import java.util.Map;
 
 /**
- * Adds a new file to the table. When multiple {@code AddFile} file actions
- * are seen with the same {@code path} only the metadata from the last one is
- * kept.
+ * Adds a new file to the table. The path of a file acts as the primary key for
+ * the entry in the set of files. When multiple {@code AddFile} actions are
+ * seen with the same {@code path} only the metadata from the last one is kept.
  */
 public final class AddFile {
     private final String path;
@@ -32,56 +32,64 @@ public final class AddFile {
     }
 
     /**
-     * @return the path for data file that this {@code AddFile} instance represents
+     * @return the relative path, from the root of the table, to the data file
+     *         that should be added to the table
      */
     public String getPath() {
         return path;
     }
 
     /**
-     * @return the URI for data file that this {@code AddFile} instance represents
+     * @return the URI for the data file that this {@code AddFile} represents
      */
     public URI getPathAsUri() throws URISyntaxException {
         return new URI(path);
     }
 
     /**
-     * @return a {@code Map} of {@code partitionKey} to {@code partitionValue}
+     * @return an unmodifiable {@code Map} from partition column to value for
+     *         this file
+     * @see <a href="https://github.com/delta-io/delta/blob/master/PROTOCOL.md#Partition-Value-Serialization" target="_blank">Delta Protocol Partition Value Serialization</a>
      */
     public Map<String, String> getPartitionValues() {
         return Collections.unmodifiableMap(partitionValues);
     }
 
     /**
-     * @return the size in bytes of the data file
+     * @return the size of this file in bytes
      */
     public long getSize() {
         return size;
     }
 
     /**
-     * @return the time in milliseconds that the data file was last modified or created
+     * @return the time that this file was last modified or created, as
+     *         milliseconds since the epoch
      */
     public long getModificationTime() {
         return modificationTime;
     }
 
     /**
-     * @return whether any data was changed as a result of this file being created
+     * @return whether any data was changed as a result of this file being
+     *         created
      */
     public boolean isDataChange() {
         return dataChange;
     }
 
     /**
-     * @return statistics about the data file, in a {@code String} representation of JSON
+     * @return statistics (for example: count, min/max values for columns)
+     *         about the data in this file as JSON in {@code String}
+     *         representation
      */
     public String getStats() {
         return stats;
     }
 
     /**
-     * @return an unmodifiable {@code Map} of user-defined metadata for this file
+     * @return an unmodifiable {@code Map} of user-defined metadata for this
+     *         file
      */
     public Map<String, String> getTags() {
         return Collections.unmodifiableMap(tags);
