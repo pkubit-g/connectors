@@ -27,7 +27,7 @@ private[internal] object JsonUtils {
   /**
    * Used to convert between classes and JSON. Use `lazy` so that it's easier to see the real
    * error when an incompatible `jackson-module-scala` version is on the classpath rather than
-   * `java.lang.NoClassDefFoundError: Could not initialize class io.delta.alpine.internal.util.JsonUtils$`
+   * `java.lang.NoClassDefFoundError: Could not initialize class io.delta.standalone.internal.util.JsonUtils$`
    */
   // scalastyle:on
   lazy val mapper = {

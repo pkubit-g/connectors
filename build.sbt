@@ -47,7 +47,7 @@ lazy val commonSettings = Seq(
   (test in Test) := ((test in Test) dependsOn testScalastyle).value
 )
 
-lazy val hive = (project in file("hive")) dependsOn(alpine) settings (
+lazy val hive = (project in file("hive")) dependsOn(standalone) settings (
   name := "hive-delta",
   commonSettings,
 
