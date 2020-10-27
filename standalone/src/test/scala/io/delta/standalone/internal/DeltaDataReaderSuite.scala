@@ -231,6 +231,7 @@ class DeltaDataReaderSuite extends FunSuite {
     }
   }
 
+  /** this also tests reading PARTITIONED data */
   test("test escaped char sequences in path") {
     withLogForGoldenTable("data-reader-escaped-chars") { log =>
       assert(log.snapshot().getAllFiles.asScala.forall(_.getPath.contains("_2=bar")))
