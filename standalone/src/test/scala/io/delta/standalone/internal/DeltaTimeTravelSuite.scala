@@ -73,20 +73,20 @@ class DeltaTimeTravelSuite extends FunSuite {
       snapshot.getAllFiles.stream().allMatch(f => expectedFiles.exists(_.getName == f.getPath)))
   }
 
-  var start_data_files: Array[File] = Array.empty
-  var start_start20_data_files: Array[File] = Array.empty
-  var start_start20_start40_data_files: Array[File] = Array.empty
+  var data_files_version_0: Array[File] = Array.empty
+  var data_files_version_1: Array[File] = Array.empty
+  var data_files_version_2: Array[File] = Array.empty
 
   withGoldenTable("time-travel-start") { tablePath =>
-    start_data_files = getDirDataFiles(tablePath)
+    data_files_version_0 = getDirDataFiles(tablePath)
   }
 
   withGoldenTable("time-travel-start-start20") { tablePath =>
-    start_start20_data_files = getDirDataFiles(tablePath)
+    data_files_version_1 = getDirDataFiles(tablePath)
   }
 
   withGoldenTable("time-travel-start-start20-start40") { tablePath =>
-    start_start20_start40_data_files = getDirDataFiles(tablePath)
+    data_files_version_2 = getDirDataFiles(tablePath)
   }
 
   /**
@@ -102,9 +102,9 @@ class DeltaTimeTravelSuite extends FunSuite {
         val log = DeltaLog.forTable(new Configuration(), tempDir)
 
         // Correct cases
-        verifySnapshot(log.getSnapshotForVersionAsOf(0), start_data_files, 0)
-        verifySnapshot(log.getSnapshotForVersionAsOf(1), start_start20_data_files, 1)
-        verifySnapshot(log.getSnapshotForVersionAsOf(2), start_start20_start40_data_files, 2)
+        verifySnapshot(log.getSnapshotForVersionAsOf(0), data_files_version_0, 0)
+        verifySnapshot(log.getSnapshotForVersionAsOf(1), data_files_version_1, 1)
+        verifySnapshot(log.getSnapshotForVersionAsOf(2), data_files_version_2, 2)
 
         // Error case - version after latest commit
         val e1 = intercept[IllegalArgumentException] {
@@ -131,16 +131,28 @@ class DeltaTimeTravelSuite extends FunSuite {
   }
 
   test("timestampAsOf with timestamp in between commits - should use commit before timestamp") {
-    withLogForGoldenTable("time-travel-start-start20-start40") { log =>
+    withGoldenTable("time-travel-start-start20-start40") { tablePath =>
+      val logDir = new File(tablePath, "_delta_log")
+      new File(logDir, "00000000000000000000.json").setLastModified(start)
+      new File(logDir, "000`00000000000000001.json").setLastModified(start + 20.minutes)
+      new File(logDir, "00000000000000000002.json").setLastModified(start + 40.minutes)
+      val log = DeltaLog.forTable(new Configuration(), tablePath)
+
       verifySnapshot(
-        log.getSnapshotForTimestampAsOf(start + 10.minutes), start_data_files, 0)
+        log.getSnapshotForTimestampAsOf(start + 10.minutes), data_files_version_0, 0)
       verifySnapshot(
-        log.getSnapshotForTimestampAsOf(start + 30.minutes), start_start20_data_files, 1)
+        log.getSnapshotForTimestampAsOf(start + 30.minutes), data_files_version_1, 1)
     }
   }
 
   test("timestampAsOf with timestamp after last commit should fail") {
-    withLogForGoldenTable("time-travel-start-start20-start40") { log =>
+    withGoldenTable("time-travel-start-start20-start40") { tablePath =>
+      val logDir = new File(tablePath, "_delta_log")
+      new File(logDir, "00000000000000000000.json").setLastModified(start)
+      new File(logDir, "00000000000000000001.json").setLastModified(start + 20.minutes)
+      new File(logDir, "00000000000000000002.json").setLastModified(start + 40.minutes)
+      val log = DeltaLog.forTable(new Configuration(), tablePath)
+
       val e = intercept[IllegalArgumentException] {
         log.getSnapshotForTimestampAsOf(start + 50.minutes) // later by 10 mins
       }
@@ -153,13 +165,19 @@ class DeltaTimeTravelSuite extends FunSuite {
   }
 
   test("timestampAsOf with timestamp on exact commit timestamp") {
-    withLogForGoldenTable("time-travel-start-start20-start40") { log =>
+    withGoldenTable("time-travel-start-start20-start40") { tablePath =>
+      val logDir = new File(tablePath, "_delta_log")
+      new File(logDir, "00000000000000000000.json").setLastModified(start)
+      new File(logDir, "00000000000000000001.json").setLastModified(start + 20.minutes)
+      new File(logDir, "00000000000000000002.json").setLastModified(start + 40.minutes)
+      val log = DeltaLog.forTable(new Configuration(), tablePath)
+
       verifySnapshot(
-        log.getSnapshotForTimestampAsOf(start), start_data_files, 0)
+        log.getSnapshotForTimestampAsOf(start), data_files_version_0, 0)
       verifySnapshot(
-        log.getSnapshotForTimestampAsOf(start + 20.minutes), start_start20_data_files, 1)
+        log.getSnapshotForTimestampAsOf(start + 20.minutes), data_files_version_1, 1)
       verifySnapshot(
-        log.getSnapshotForTimestampAsOf(start + 40.minutes), start_start20_start40_data_files, 2)
+        log.getSnapshotForTimestampAsOf(start + 40.minutes), data_files_version_2, 2)
     }
   }
 
