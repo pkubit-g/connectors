@@ -11,6 +11,6 @@ jobs:
             build/sbt "++ 2.12.8 standalone/test"
             build/sbt "++ 2.12.8 hiveMR/test"
             build/sbt "++ 2.12.8 hiveTez/test"
-            build/sbt "++ 2.11.12 alpine/test"
+            build/sbt "++ 2.11.12 standalone/test"
             build/sbt "++ 2.11.12 hiveMR/test"
             build/sbt "++ 2.11.12 hiveTez/test"
