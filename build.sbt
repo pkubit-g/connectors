@@ -165,7 +165,7 @@ lazy val assemblySettings = Seq(
   logLevel in assembly := Level.Info
 )
 
-lazy val hive = (project in file("hive")) dependsOn(alpine) settings (
+lazy val hive = (project in file("hive")) dependsOn(standalone) settings (
   name := "hive-delta",
   commonSettings,
   unmanagedJars in Compile += (packageBin in(core, Compile, packageBin)).value,
@@ -176,7 +176,7 @@ lazy val hive = (project in file("hive")) dependsOn(alpine) settings (
 
   projectDependencies := {
     Seq(
-      (projectID in alpine).value.excludeAll(
+      (projectID in standalone).value.excludeAll(
         ExclusionRule(organization = "org.apache.parquet"),
         ExclusionRule(organization = "org.json4s"),
         ExclusionRule(organization = "com.fasterxml.jackson.module"),
@@ -283,8 +283,8 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") 
   )
 )
 
-lazy val alpine = (project in file("alpine")) settings (
-  name := "alpine",
+lazy val standalone = (project in file("standalone")) settings (
+  name := "standalone",
   commonSettings,
   unmanagedResourceDirectories in Test += file("golden-tables/src/test/resources"),
   libraryDependencies ++= Seq(

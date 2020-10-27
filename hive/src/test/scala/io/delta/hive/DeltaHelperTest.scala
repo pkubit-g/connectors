@@ -2,7 +2,7 @@ package io.delta.hive
 
 import scala.collection.JavaConverters._
 
-import io.delta.alpine.types._
+import io.delta.standalone.types._
 import org.apache.hadoop.hive.metastore.api.MetaException
 import org.apache.hadoop.hive.ql.io.parquet.read.DataWritableReadSupport
 import org.apache.hadoop.hive.serde2.typeinfo.{StructTypeInfo, TypeInfoFactory}
@@ -33,16 +33,16 @@ class DeltaHelperTest extends SparkFunSuite {
       case (name, dataType) => new StructField(name, dataType)
     }.toArray
 
-    val alpineSchema = new StructType(fields)
+    val standaloneSchema = new StructType(fields)
 
-    DeltaHelper.checkTableSchema(alpineSchema, hiveSchema)
+    DeltaHelper.checkTableSchema(standaloneSchema, hiveSchema)
   }
 
   test("DeltaHelper checkTableSchema incorrect throws") {
     val fields = Array(
       new StructField("c1", new IntegerType),
       new StructField("c2", new StringType))
-    val alpineSchema = new StructType(fields)
+    val standaloneSchema = new StructType(fields)
 
     def createHiveSchema(colNamesStr: String, colTypesStr: String): StructTypeInfo = {
       val colNames = DataWritableReadSupport.getColumnNames(colNamesStr)
@@ -55,7 +55,7 @@ class DeltaHelperTest extends SparkFunSuite {
 
     def assertSchemaException(hiveSchema: StructTypeInfo, exMsg: String): Unit = {
       val e = intercept[MetaException] {
-        DeltaHelper.checkTableSchema(alpineSchema, hiveSchema)
+        DeltaHelper.checkTableSchema(standaloneSchema, hiveSchema)
       }
       assert(e.getMessage.contains("The Delta table schema is not the same as the Hive schema"))
       assert(e.getMessage.contains(exMsg))

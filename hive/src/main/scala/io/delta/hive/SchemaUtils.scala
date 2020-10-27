@@ -16,7 +16,7 @@
 
 package io.delta.hive
 
-import io.delta.alpine.types.{ArrayType, DataType, MapType, StructField, StructType}
+import io.delta.standalone.types.{ArrayType, DataType, MapType, StructField, StructType}
 
 object SchemaUtils {
 
