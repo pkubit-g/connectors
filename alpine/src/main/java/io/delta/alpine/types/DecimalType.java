@@ -1,7 +1,7 @@
 package io.delta.alpine.types;
 
 /**
- * The data type representing `java.math.BigDecimal` values.
+ * The data type representing {@code java.math.BigDecimal} values.
  * A Decimal that must have fixed precision (the maximum number of digits) and scale (the number
  * of digits on right side of dot).
  *
@@ -20,10 +20,16 @@ public final class DecimalType extends DataType {
         this.scale = scale;
     }
 
+    /**
+     * @return the maximum number of digits of the decimal
+     */
     public int getPrecision() {
         return precision;
     }
 
+    /**
+     * @return the number of digits on the right side of the decimal point (dot)
+     */
     public int getScale() {
         return scale;
     }

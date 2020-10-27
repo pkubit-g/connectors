@@ -1,7 +1,7 @@
 package io.delta.alpine.types;
 
 /**
- * The data type for Maps. Keys in a map are not allowed to have `null` values.
+ * The data type for Maps. Keys in a map are not allowed to have {@code null} values.
  */
 public final class MapType extends DataType {
     private final DataType keyType;
@@ -9,9 +9,9 @@ public final class MapType extends DataType {
     private final boolean valueContainsNull;
 
     /**
-     * @param keyType The data type of map keys.
-     * @param valueType The data type of map values.
-     * @param valueContainsNull Indicates if map values have `null` values.
+     * @param keyType  the data type of map keys
+     * @param valueType  the data type of map values
+     * @param valueContainsNull  indicates if map values have {@code null} values
      */
     public MapType(DataType keyType, DataType valueType, boolean valueContainsNull) {
         this.keyType = keyType;
@@ -19,18 +19,30 @@ public final class MapType extends DataType {
         this.valueContainsNull = valueContainsNull;
     }
 
+    /**
+     * @return the data type of map keys
+     */
     public DataType getKeyType() {
         return keyType;
     }
 
+    /**
+     * @return the data type of map values
+     */
     public DataType getValueType() {
         return valueType;
     }
 
+    /**
+     * @return {@code true} if this map has null values, else {@code false}
+     */
     public boolean valueContainsNull() {
         return valueContainsNull;
     }
 
+    /**
+     * Builds a readable {@code String} representation of this {@code MapType}.
+     */
     public void buildFormattedString(String prefix, StringBuilder builder) {
         final String nextPrefix = prefix + "    |";
         builder.append(String.format("%s-- key: %s\n", prefix, keyType.getTypeName()));

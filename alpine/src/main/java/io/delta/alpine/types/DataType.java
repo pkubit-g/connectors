@@ -2,7 +2,17 @@ package io.delta.alpine.types;
 
 import java.util.Locale;
 
+/**
+ * The base type of all {@code io.delta.alpine} data types.
+ * Represents a bare-bones Java implementation of the Spark SQL
+ * <a href="https://github.com/apache/spark/blob/master/sql/catalyst/src/main/scala/org/apache/spark/sql/types/DataType.scala" target="_blank">DataType</a>,
+ * allowing Spark SQL schemas to be represented in Java.
+ */
 public abstract class DataType {
+
+    /**
+     * @return the name of the type used in JSON serialization
+     */
     public String getTypeName() {
         String tmp = this.getClass().getSimpleName();
         tmp = stripSuffix(tmp, "$");
@@ -11,17 +21,24 @@ public abstract class DataType {
         return tmp.toLowerCase(Locale.ROOT);
     }
 
-    /** Readable string representation for the type. */
+    /**
+     * @return a readable {@code String} representation for the type
+     */
     public String getSimpleString() {
         return getTypeName();
     }
 
-    /** String representation for the type saved in external catalogs. */
+    /**
+     * @return a {@code String} representation for the type saved in external catalogs
+     */
     public String getCatalogString() {
         return getSimpleString();
     }
 
-    public static void buildFormattedString(
+    /**
+     * Builds a readable {@code String} representation of the {@code ArrayType}
+     */
+    protected static void buildFormattedString(
             DataType dataType,
             String prefix,
             StringBuilder builder) {

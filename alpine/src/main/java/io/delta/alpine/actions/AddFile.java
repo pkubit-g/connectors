@@ -80,8 +80,7 @@ public final class AddFile {
 
     /**
      * @return statistics (for example: count, min/max values for columns)
-     *         about the data in this file as JSON in {@code String}
-     *         representation
+     *         about the data in this file as serialized JSON
      */
     public String getStats() {
         return stats;

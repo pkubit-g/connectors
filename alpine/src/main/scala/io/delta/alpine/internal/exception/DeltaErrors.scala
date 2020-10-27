@@ -90,11 +90,6 @@ private [internal] object DeltaErrors {
       s"Available versions: [$earliest, $latest].")
   }
 
-  def noFieldFoundInSchema(fieldName: String, schema: StructType): Throwable = {
-    new IllegalArgumentException(s"No matching schema column for field $fieldName. " +
-      s"Schema: ${schema.getTreeString}")
-  }
-
   def nullValueFoundForNonNullSchemaField(fieldName: String, schema: StructType): Throwable = {
     new NullPointerException(s"Read a null value for field $fieldName, yet schema indicates " +
       s"that this field can't be null. Schema: ${schema.getTreeString}")

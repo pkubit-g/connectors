@@ -80,10 +80,8 @@ private[internal] case class RowParquetRecordImpl(
   ///////////////////////////////////////////////////////////////////////////
 
   private def getAs[T](fieldName: String): T = {
-    val schemaField = schema.get(fieldName);
+    val schemaField = schema.get(fieldName)
     val parquetVal = record.get(fieldName)
-
-    if (null == schemaField) throw DeltaErrors.noFieldFoundInSchema(fieldName, schema)
 
     if (parquetVal == NullValue && !schemaField.isNullable) {
       throw DeltaErrors.nullValueFoundForNonNullSchemaField(fieldName, schema)

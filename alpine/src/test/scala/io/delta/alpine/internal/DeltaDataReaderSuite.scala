@@ -225,7 +225,7 @@ class DeltaDataReaderSuite extends FunSuite {
       val e = intercept[IllegalArgumentException] {
         row.getInt("foo_key_does_not_exist")
       }
-      assert(e.getMessage.contains("No matching schema column for field"))
+      assert(e.getMessage.contains("Field \"foo_key_does_not_exist\" does not exist."))
 
       recordIter.close()
     }

@@ -66,8 +66,7 @@ public final class Metadata {
     }
 
     /**
-     * @return the {@code StructType} schema of the table, as JSON in
-     *         {@code String} representation
+     * @return the {@code StructType} schema of the table, as serialized JSON
      * @see StructType StructType
      */
     public String getSchemaString() {

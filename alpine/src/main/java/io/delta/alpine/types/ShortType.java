@@ -1,7 +1,7 @@
 package io.delta.alpine.types;
 
 /**
- * The data type representing `Short` values.
+ * The data type representing {@code short} values.
  */
 public final class ShortType extends DataType {
     @Override

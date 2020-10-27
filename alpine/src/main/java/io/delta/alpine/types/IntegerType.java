@@ -1,7 +1,7 @@
 package io.delta.alpine.types;
 
 /**
- * The data type representing `Int` values.
+ * The data type representing {@code int} values.
  */
 public final class IntegerType extends DataType {
     @Override
