@@ -93,7 +93,7 @@ class GoldenTables extends QueryTest with SharedSparkSession {
   }
 
   ///////////////////////////////////////////////////////////////////////////
-  // io.delta.alpine.internal.DeltaLogSuite
+  // io.delta.standalone.internal.DeltaLogSuite
   ///////////////////////////////////////////////////////////////////////////
 
   /** TEST: DeltaLogSuite > checkpoint */
@@ -335,7 +335,7 @@ class GoldenTables extends QueryTest with SharedSparkSession {
   }
 
   ///////////////////////////////////////////////////////////////////////////
-  // io.delta.alpine.internal.ReadOnlyLogStoreSuite
+  // io.delta.standalone.internal.ReadOnlyLogStoreSuite
   ///////////////////////////////////////////////////////////////////////////
 
   /** TEST: ReadOnlyLogStoreSuite > read */
@@ -363,7 +363,7 @@ class GoldenTables extends QueryTest with SharedSparkSession {
   }
 
   ///////////////////////////////////////////////////////////////////////////
-  // io.delta.alpine.internal.DeltaTimeTravelSuite
+  // io.delta.standalone.internal.DeltaTimeTravelSuite
   ///////////////////////////////////////////////////////////////////////////
 
   private implicit def durationToLong(duration: FiniteDuration): Long = {
@@ -433,7 +433,7 @@ class GoldenTables extends QueryTest with SharedSparkSession {
   }
 
   ///////////////////////////////////////////////////////////////////////////
-  // io.delta.alpine.internal.DeltaDataReaderSuite
+  // io.delta.standalone.internal.DeltaDataReaderSuite
   ///////////////////////////////////////////////////////////////////////////
 
   private def writeDataWithSchema(tblLoc: String, data: Seq[Row], schema: StructType): Unit = {
