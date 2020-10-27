@@ -111,6 +111,9 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") 
     "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided"  excludeAll (
       ExclusionRule(organization = "com.google.protobuf")
       ),
+    "org.apache.parquet" % "parquet-hadoop" % "1.10.1" excludeAll(
+      ExclusionRule("org.apache.hadoop", "hadoop-client")
+      ),
     "com.google.protobuf" % "protobuf-java" % "2.5.0",
     "org.apache.hive" % "hive-exec" % hiveVersion % "provided" excludeAll(
       ExclusionRule(organization = "org.apache.spark"),
