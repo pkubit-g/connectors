@@ -141,8 +141,8 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") 
   )
 )
 
-lazy val alpine = (project in file("alpine")) settings (
-  name := "alpine",
+lazy val standalone = (project in file("standalone")) settings (
+  name := "standalone",
   commonSettings,
   unmanagedResourceDirectories in Test += file("golden-tables/src/test/resources"),
   libraryDependencies ++= Seq(

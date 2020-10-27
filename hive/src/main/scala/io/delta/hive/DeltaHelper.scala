@@ -23,9 +23,9 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.control.NonFatal
 
-import io.delta.alpine.actions.AddFile
-import io.delta.alpine.types._
-import io.delta.alpine.{DeltaLog, Snapshot}
+import io.delta.standalone.actions.AddFile
+import io.delta.standalone.types._
+import io.delta.standalone.{DeltaLog, Snapshot}
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{BlockLocation, FileStatus, FileSystem, LocatedFileStatus, Path}
@@ -120,14 +120,14 @@ object DeltaHelper {
   }
 
   @throws(classOf[MetaException])
-  def checkTableSchema(alpineSchema: StructType, hiveSchema: StructTypeInfo): Unit = {
-    val alpineType = normalizeSparkType(alpineSchema).asInstanceOf[StructType]
+  def checkTableSchema(standaloneSchema: StructType, hiveSchema: StructTypeInfo): Unit = {
+    val standaloneType = normalizeSparkType(standaloneSchema).asInstanceOf[StructType]
     val hiveType = hiveTypeToSparkType(hiveSchema).asInstanceOf[StructType]
-    if (alpineType != hiveType) {
+    if (standaloneType != hiveType) {
       val diffs =
-        SchemaUtils.reportDifferences(existingSchema = alpineType, specifiedSchema = hiveType)
+        SchemaUtils.reportDifferences(existingSchema = standaloneType, specifiedSchema = hiveType)
       throw metaInconsistencyException(
-        alpineSchema,
+        standaloneSchema,
         hiveSchema,
         diffs.mkString("\n"))
     }
