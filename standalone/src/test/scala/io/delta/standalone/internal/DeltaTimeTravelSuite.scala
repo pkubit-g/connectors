@@ -134,7 +134,7 @@ class DeltaTimeTravelSuite extends FunSuite {
     withGoldenTable("time-travel-start-start20-start40") { tablePath =>
       val logDir = new File(tablePath, "_delta_log")
       new File(logDir, "00000000000000000000.json").setLastModified(start)
-      new File(logDir, "000`00000000000000001.json").setLastModified(start + 20.minutes)
+      new File(logDir, "00000000000000000001.json").setLastModified(start + 20.minutes)
       new File(logDir, "00000000000000000002.json").setLastModified(start + 40.minutes)
       val log = DeltaLog.forTable(new Configuration(), tablePath)
 
