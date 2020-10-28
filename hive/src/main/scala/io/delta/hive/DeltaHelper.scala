@@ -301,7 +301,9 @@ object DeltaHelper {
       case NonFatal(e) =>
         // This path may have illegal format, and we can not remove its user info and reassemble the
         // uri.
-        LOG.error("Path contains illegal format: " + path, e)
+        if (LOG.isErrorEnabled) {
+          LOG.error("Path contains illegal format: " + path, e)
+        }
         path
     }
   }
