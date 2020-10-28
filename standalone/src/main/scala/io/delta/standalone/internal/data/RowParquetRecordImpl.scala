@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+// TODO licence for parquet4s
 package io.delta.standalone.internal.data
 
 import java.sql.{Date, Timestamp}

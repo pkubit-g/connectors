@@ -72,6 +72,7 @@ private[internal] class SnapshotImpl(
         .map(_.path)
         .map(FileNames.absolutePath(deltaLog.dataPath, _).toString),
       getMetadata.getSchema,
+      // the time zone ID if it exists, else null
       hadoopConf.get(StandaloneHadoopConf.PARQUET_DATA_TIME_ZONE_ID))
 
   ///////////////////////////////////////////////////////////////////////////
