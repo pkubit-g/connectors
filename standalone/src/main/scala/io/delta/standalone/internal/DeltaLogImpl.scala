@@ -25,7 +25,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
 /**
- * Scala implementation of Java interface [[DeltaLog]]
+ * Scala implementation of Java interface [[DeltaLog]].
  */
 private[internal] class DeltaLogImpl private(
     val hadoopConf: Configuration,

@@ -32,6 +32,13 @@ import io.delta.standalone.internal.util.{ConversionUtils, FileNames, JsonUtils}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
+/**
+ * Scala implementation of Java interface [[Snapshot]].
+ *
+ * @param timestamp The timestamp of the latest commit in milliseconds. Can also be set to -1 if the
+ *                  timestamp of the commit is unknown or the table has not been initialized, i.e.
+ *                  `version = -1`.
+ */
 private[internal] class SnapshotImpl(
     val hadoopConf: Configuration,
     val path: Path,
@@ -94,20 +101,21 @@ private[internal] class SnapshotImpl(
   }
 
   /**
-   * Computes some statistics around the transaction log, therefore on the actions made on this
-   * Delta table.
+   * Reconstruct the state by applying deltas in order to the checkpoint.
+   * Then computes some statistics around the transaction log, therefore
+   * on the actions made on this Delta table.
    */
   protected lazy val state: State = {
     val logPathURI = path.toUri
     val replay = new InMemoryLogReplay(hadoopConf)
     val files = (logSegment.deltas ++ logSegment.checkpoints).map(_.getPath)
 
-    // assert log belongs to table
+    // assert that the log belongs to table
     files.foreach { f =>
       if (f.toString.isEmpty || f.getParent != new Path(logPathURI)) {
         // scalastyle:off throwerror
-        throw new AssertionError(s"File (${f.toString}) doesn't belong in the " +
-          s"transaction log at $logPathURI. Please contact Databricks Support.")
+        throw new AssertionError(
+          s"File (${f.toString}) doesn't belong in the transaction log at $logPathURI.")
         // scalastyle:on throwerror
       }
     }
@@ -166,6 +174,16 @@ object SnapshotImpl {
     }
   }
 
+  /**
+   * Metrics and metadata computed around the Delta table
+   * @param protocol The protocol version of the Delta table
+   * @param metadata The metadata of the table
+   * @param activeFiles The files in this table
+   * @param sizeInBytes The total size of the table (of active files, not including tombstones)
+   * @param numOfFiles The number of files in this table
+   * @param numOfMetadata The number of metadata actions in the state. Should be 1
+   * @param numOfProtocol The number of protocol actions in the state. Should be 1
+   */
   case class State(
       protocol: Protocol,
       metadata: Metadata,
@@ -176,6 +194,14 @@ object SnapshotImpl {
       numOfProtocol: Long)
 }
 
+/**
+ * An initial snapshot with only metadata specified.
+ *
+ * @param hadoopConf the hadoop configuration for the table
+ * @param logPath the path to transaction log
+ * @param deltaLog the delta log object
+ * @param metadata the metadata of the table
+ */
 class InitialSnapshotImpl(
     override val hadoopConf: Configuration,
     val logPath: Path,
@@ -187,7 +213,7 @@ class InitialSnapshotImpl(
     hadoopConf,
     logPath,
     deltaLog,
-    Metadata() // TODO: SparkSession.active.sessionState.conf ?
+    Metadata()
   )
 
   override lazy val state: SnapshotImpl.State = {
