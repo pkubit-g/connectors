@@ -21,6 +21,7 @@ import java.io.FileNotFoundException
 import io.delta.standalone.types.StructType
 import org.apache.hadoop.fs.Path
 
+/** A holder object for Delta errors. */
 private [internal] object DeltaErrors {
 
   /** Thrown when the protocol version of a table is greater than supported by this client. */

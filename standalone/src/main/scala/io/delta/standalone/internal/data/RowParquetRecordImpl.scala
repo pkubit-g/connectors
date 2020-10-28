@@ -30,11 +30,19 @@ import io.delta.standalone.data.{RowRecord => RowParquetRecordJ}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.types._
 
+/**
+ * Scala implementation of Java interface [[RowParquetRecordJ]].
+ *
+ * @param record the internal parquet4s record
+ * @param schema the intended schema for this record
+ * @param timeZone the timeZone as which time-sensitive data will be read
+ */
 private[internal] case class RowParquetRecordImpl(
     private val record: RowParquetRecord,
     private val schema: StructType,
     private val timeZone: TimeZone) extends RowParquetRecordJ {
 
+  /** needed to decode values */
   private val codecConf = ValueCodecConfiguration(timeZone)
 
   ///////////////////////////////////////////////////////////////////////////
@@ -80,6 +88,15 @@ private[internal] case class RowParquetRecordImpl(
   // Decoding Helper Methods
   ///////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Decodes the parquet data into the desired type [[T]]
+   *
+   * @param fieldName the field name to lookup
+   * @return the data at column with name `fieldName` as type [[T]]
+   * @throws IllegalArgumentException if `fieldName` not a in the record schema
+   * @throws NullPointerException if field is not nullable and null data value read
+   * @throws RuntimeException if unable to decode the type [[T]]
+   */
   private def getAs[T](fieldName: String): T = {
     val schemaField = schema.get(fieldName)
     val parquetVal = record.get(fieldName)
@@ -91,6 +108,9 @@ private[internal] case class RowParquetRecordImpl(
     decode(schemaField.getDataType, parquetVal).asInstanceOf[T]
   }
 
+  /**
+   * Decode the parquet `parqetVal` into the corresponding Scala type for `elemType`
+   */
   private def decode(elemType: DataType, parquetVal: Value): Any = {
     val elemTypeName = elemType.getTypeName
     if (primitiveDecodeMap.contains(elemTypeName)) {
@@ -106,6 +126,9 @@ private[internal] case class RowParquetRecordImpl(
     }
   }
 
+  /**
+   * Decode the parquet `list` into a [[java.util.List]], with all elements decoded
+   */
   private def decodeList(elemType: DataType, list: ListParquetRecord): Any = {
     val elemTypeName = elemType.getTypeName
 
@@ -130,6 +153,9 @@ private[internal] case class RowParquetRecordImpl(
     }
   }
 
+  /**
+   * Decode the parquet map `parquetVal` into a [[java.util.Map]], with all entries decoded
+   */
   private def decodeMap(
       keyType: DataType,
       valueType: DataType,
