@@ -195,13 +195,21 @@ private[internal] case class RowParquetRecordImpl(
     }
 
   /**
-   * parquet4s decodes all list records into [[Array]]s. If we convert them, instead, into [[Seq]]s
-   * then we can support the Java API `<T> List<T> getList(String fieldName)`. It should only ever
-   * be used to decode, not encode.
+   * Decode parquet array into a [[Seq]].
+   *
+   * parquet4s decodes all list records into [[Array]]s, but we cannot implement the Java method
+   * `<T> T[] getArray(String field)` in Scala due to type erasure.
+   *
+   * If we convert the parquet arrays, instead, into [[Seq]]s, then we can support the Java method
+   * `<T> List<T> getList(String fieldName)`.
+   *
+   * It should only ever be used to decode, not encode.
    */
   private def customSeqCodec[T](elementCodec: ValueCodec[T])(implicit
       classTag: ClassTag[T],
-      factory: Factory[T, Seq[T]]): ValueCodec[Seq[T]] = new OptionalValueCodec[Seq[T]] {
+      factory: Factory[T, Seq[T]]
+  ): ValueCodec[Seq[T]] = new OptionalValueCodec[Seq[T]] {
+
     override def decodeNonNull(
         value: Value,
         configuration: ValueCodecConfiguration): Seq[T] = {
