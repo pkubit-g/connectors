@@ -35,7 +35,7 @@ import io.delta.standalone.types._
  *
  * @param record the internal parquet4s record
  * @param schema the intended schema for this record
- * @param timeZone the timeZone as which time-sensitive data will be read
+ * @param timeZone the timeZone as which time-based data will be read
  */
 private[internal] case class RowParquetRecordImpl(
     private val record: RowParquetRecord,

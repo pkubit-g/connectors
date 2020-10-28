@@ -50,7 +50,6 @@ private [internal] object DeltaErrors {
   def logFileNotFoundException(
       path: Path,
       version: Long): Throwable = {
-    // TODO: use DeltaConfigs.LOG_RETENTION, CHECKPOINT_RETENTION_DURATION for extra info
     new FileNotFoundException(s"$path: Unable to reconstruct state at version $version as the " +
       s"transaction log has been truncated due to manual deletion or the log retention policy ")
   }
