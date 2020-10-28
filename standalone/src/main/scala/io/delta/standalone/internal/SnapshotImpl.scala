@@ -195,31 +195,22 @@ object SnapshotImpl {
 }
 
 /**
- * An initial snapshot with only metadata specified.
+ * An initial snapshot with only metadata specified. Uses default Protocol and Metadata.
  *
  * @param hadoopConf the hadoop configuration for the table
  * @param logPath the path to transaction log
  * @param deltaLog the delta log object
- * @param metadata the metadata of the table
  */
 class InitialSnapshotImpl(
     override val hadoopConf: Configuration,
     val logPath: Path,
-    override val deltaLog: DeltaLogImpl,
-    val metadata: Metadata)
+    override val deltaLog: DeltaLogImpl)
   extends SnapshotImpl(hadoopConf, logPath, -1, LogSegment.empty(logPath), deltaLog, -1) {
-
-  def this(hadoopConf: Configuration, logPath: Path, deltaLog: DeltaLogImpl) = this(
-    hadoopConf,
-    logPath,
-    deltaLog,
-    Metadata()
-  )
 
   override lazy val state: SnapshotImpl.State = {
     SnapshotImpl.State(
       Protocol(),
-      metadata,
+      Metadata(),
       Map.empty[URI, AddFile],
       0L, 0L, 1L, 1L)
   }
