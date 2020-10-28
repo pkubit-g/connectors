@@ -51,6 +51,7 @@ private[internal] object ConversionUtils {
       convertFormat(internal.format),
       internal.schemaString,
       internal.partitionColumns.toList.asJava,
+      internal.configuration.asJava,
       java.util.Optional.ofNullable(internal.createdTime.getOrElse(null).asInstanceOf[Long]),
       internal.schema)
   }

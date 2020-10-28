@@ -2,6 +2,7 @@ package io.delta.standalone.actions;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import io.delta.standalone.types.StructType;
@@ -21,18 +22,20 @@ public final class Metadata {
     private final Format format;
     private final String schemaString;
     private final List<String> partitionColumns;
-    // TODO configuration ?
+    private final Map<String, String> configuration;
     private final Optional<Long> createdTime;
     private final StructType schema;
 
     public Metadata(String id, String name, String description, Format format, String schemaString,
-                    List<String> partitionColumns, Optional<Long> createdTime, StructType schema) {
+                    List<String> partitionColumns, Map<String, String> configuration,
+                    Optional<Long> createdTime, StructType schema) {
         this.id = id;
         this.name = name;
         this.description = description;
         this.format = format;
         this.schemaString = schemaString;
         this.partitionColumns = partitionColumns;
+        this.configuration = configuration;
         this.createdTime = createdTime;
         this.schema = schema;
     }
@@ -79,6 +82,14 @@ public final class Metadata {
      */
     public List<String> getPartitionColumns() {
         return Collections.unmodifiableList(partitionColumns);
+    }
+
+    /**
+     * @return an unmodifiable {@code java.util.Map} containing configuration
+     *         options for this metadata
+     */
+    public Map<String, String> getConfiguration() {
+        return Collections.unmodifiableMap(configuration);
     }
 
     /**
