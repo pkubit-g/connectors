@@ -18,8 +18,9 @@ package io.delta.standalone.internal.actions
 
 import java.net.URI
 
-import io.delta.standalone.internal.SnapshotImpl.canonicalizePath
 import org.apache.hadoop.conf.Configuration
+
+import io.delta.standalone.internal.SnapshotImpl.canonicalizePath
 
 /**
  * Replays a history of action, resolving them to produce the current state

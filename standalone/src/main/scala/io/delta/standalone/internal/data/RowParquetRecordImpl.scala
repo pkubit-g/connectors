@@ -21,11 +21,12 @@ import java.sql.{Date, Timestamp}
 import java.util
 import java.util.TimeZone
 
-import collection.JavaConverters._
+import scala.collection.JavaConverters._
 import scala.collection.compat.Factory
 import scala.reflect.ClassTag
 
 import com.github.mjakubowski84.parquet4s._
+
 import io.delta.standalone.data.{RowRecord => RowParquetRecordJ}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.types._

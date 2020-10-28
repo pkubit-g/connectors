@@ -19,10 +19,11 @@ package io.delta.standalone.internal
 import java.io.File
 import java.util.concurrent.locks.ReentrantLock
 
-import io.delta.standalone.DeltaLog
-import io.delta.standalone.internal.storage.HDFSReadOnlyLogStore
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
+
+import io.delta.standalone.DeltaLog
+import io.delta.standalone.internal.storage.HDFSReadOnlyLogStore
 
 /**
  * Scala implementation of Java interface [[DeltaLog]].

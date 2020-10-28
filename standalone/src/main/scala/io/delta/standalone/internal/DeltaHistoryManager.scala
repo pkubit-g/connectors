@@ -18,11 +18,12 @@ package io.delta.standalone.internal
 
 import java.sql.Timestamp
 
+import org.apache.hadoop.fs.Path
+
 import io.delta.standalone.internal.actions.CommitMarker
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.FileNames
 import io.delta.standalone.internal.storage.ReadOnlyLogStore
-import org.apache.hadoop.fs.Path
 
 /**
  * This class keeps tracks of the version of commits and their timestamps for a Delta table to

@@ -2,9 +2,10 @@ package io.delta.standalone;
 
 import java.io.File;
 
-import io.delta.standalone.internal.DeltaLogImpl;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+
+import io.delta.standalone.internal.DeltaLogImpl;
 
 /**
  * Used to query (read-only) the current state of the log.

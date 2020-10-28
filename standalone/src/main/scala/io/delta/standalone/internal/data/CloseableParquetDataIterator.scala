@@ -20,6 +20,7 @@ import java.util.TimeZone
 
 import com.github.mjakubowski84.parquet4s._
 import com.github.mjakubowski84.parquet4s.ParquetReader.Options
+
 import io.delta.standalone.data.{CloseableIterator, RowRecord => RowParquetRecordJ}
 import io.delta.standalone.types.StructType
 

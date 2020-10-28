@@ -18,8 +18,9 @@ package io.delta.standalone.internal.exception
 
 import java.io.FileNotFoundException
 
-import io.delta.standalone.types.StructType
 import org.apache.hadoop.fs.Path
+
+import io.delta.standalone.types.StructType
 
 /** A holder object for Delta errors. */
 private [internal] object DeltaErrors {

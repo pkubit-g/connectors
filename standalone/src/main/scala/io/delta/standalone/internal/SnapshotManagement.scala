@@ -19,9 +19,10 @@ package io.delta.standalone.internal
 import java.io.FileNotFoundException
 import java.sql.Timestamp
 
+import org.apache.hadoop.fs.{FileStatus, Path}
+
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.FileNames._
-import org.apache.hadoop.fs.{FileStatus, Path}
 
 /**
  * Manages the creation, computation, and access of Snapshot's for Delta tables. Responsibilities

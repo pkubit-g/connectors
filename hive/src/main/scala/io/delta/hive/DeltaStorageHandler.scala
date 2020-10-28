@@ -87,7 +87,6 @@ class DeltaStorageHandler extends DefaultStorageHandler with HiveMetaHook
     // Get the delta root path
     val deltaRootPath = jobConf.get(META_TABLE_LOCATION)
     // Get the partitionColumns of Delta
-    // TODO: jobConf or getConf ??
     val partitionColumns = DeltaHelper.getPartitionCols(jobConf, new Path(deltaRootPath))
     LOG.info("delta partitionColumns is " + partitionColumns.mkString(", "))
 

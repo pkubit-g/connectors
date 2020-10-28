@@ -18,19 +18,19 @@ package io.delta.standalone.internal
 
 import java.net.URI
 
-import collection.JavaConverters._
+import scala.collection.JavaConverters._
 
 import com.github.mjakubowski84.parquet4s.ParquetReader
-import io.delta.standalone
-import io.delta.standalone.internal.actions._
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, Path}
 import io.delta.standalone.{DeltaLog, Snapshot}
+import io.delta.standalone.actions.{AddFile => AddFileJ, Metadata => MetadataJ}
 import io.delta.standalone.data.{CloseableIterator, RowRecord => RowParquetRecordJ}
+import io.delta.standalone.internal.actions.{Action, AddFile, InMemoryLogReplay, Metadata, Protocol, SingleAction}
 import io.delta.standalone.internal.data.CloseableParquetDataIterator
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.sources.StandaloneHadoopConf
 import io.delta.standalone.internal.util.{ConversionUtils, FileNames, JsonUtils}
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, Path}
 
 /**
  * Scala implementation of Java interface [[Snapshot]].
@@ -53,13 +53,12 @@ private[internal] class SnapshotImpl(
   // Public API Methods
   ///////////////////////////////////////////////////////////////////////////
 
-  override def getAllFiles: java.util.List[standalone.actions.AddFile] =
+  override def getAllFiles: java.util.List[AddFileJ] =
     state.activeFiles.values.map(ConversionUtils.convertAddFile).toList.asJava
 
   override def getNumOfFiles: Int = state.activeFiles.size
 
-  override def getMetadata: standalone.actions.Metadata =
-    ConversionUtils.convertMetadata(state.metadata)
+  override def getMetadata: MetadataJ = ConversionUtils.convertMetadata(state.metadata)
 
   override def getPath: Path = path
   override def getVersion: Long = version

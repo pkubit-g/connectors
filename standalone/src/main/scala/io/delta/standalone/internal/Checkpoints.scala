@@ -18,12 +18,12 @@ package io.delta.standalone.internal
 
 import java.io.FileNotFoundException
 
-import collection.JavaConverters._
 import scala.util.control.NonFatal
 
-import io.delta.standalone.internal.util.JsonUtils
-import util.FileNames._
 import org.apache.hadoop.fs.Path
+
+import io.delta.standalone.internal.util.JsonUtils
+import io.delta.standalone.internal.util.FileNames._
 
 /**
  * Records information about a checkpoint.

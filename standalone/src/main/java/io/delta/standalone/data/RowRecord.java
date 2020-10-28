@@ -6,8 +6,8 @@ import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
 
-import io.delta.standalone.types.StructType;
 import io.delta.standalone.types.StructField;
+import io.delta.standalone.types.StructType;
 
 /**
  * Represents one row of data containing a non-empty collection of {@code fieldName - value} pairs.

@@ -20,8 +20,9 @@ import java.net.URI
 
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonInclude, JsonRawValue}
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
-import io.delta.standalone.internal.util.{DataTypeParser, JsonUtils}
+
 import io.delta.standalone.types.StructType
+import io.delta.standalone.internal.util.{DataTypeParser, JsonUtils}
 
 private[internal] object Action {
   /** The maximum version of the protocol that this version of Delta Standalone understands. */
