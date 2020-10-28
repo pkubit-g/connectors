@@ -169,7 +169,8 @@ object SnapshotImpl {
   }
 
   /**
-   * Metrics and metadata computed around the Delta table
+   * Metrics and metadata computed around the Delta table.
+   *
    * @param protocol The protocol version of the Delta table
    * @param metadata The metadata of the table
    * @param activeFiles The files in this table
