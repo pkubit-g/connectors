@@ -134,6 +134,12 @@ private[internal] case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
     }
   }
 
+  /**
+   * Returns the commit version and timestamps of all commits in `[start, end)`. If `end` is not
+   * specified, will return all commits that exist after `start`. Will guarantee that the commits
+   * returned will have both monotonically increasing versions as well as timestamps.
+   * Exposed for tests.
+   */
   private def getCommits(
       logStore: ReadOnlyLogStore,
       logPath: Path,
@@ -149,6 +155,10 @@ private[internal] case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
     monotonizeCommitTimestamps(commits.toArray)
   }
 
+  /**
+   * Makes sure that the commit timestamps are monotonically increasing with respect to commit
+   * versions. Requires the input commits to be sorted by the commit version.
+   */
   private def monotonizeCommitTimestamps[T <: CommitMarker](commits: Array[T]): Array[T] = {
     var i = 0
     val length = commits.length
