@@ -25,6 +25,9 @@ import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
 
+/**
+ * Default implementation of [[LogStore]] for Hadoop [[FileSystem]] implementations.
+ */
 private[internal] class HDFSReadOnlyLogStore(hadoopConf: Configuration) extends ReadOnlyLogStore {
 
   override def read(path: Path): Seq[String] = {
