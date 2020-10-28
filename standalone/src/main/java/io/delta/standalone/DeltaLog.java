@@ -57,7 +57,7 @@ public interface DeltaLog {
     Path getDataPath();
 
     /**
-     * Helper for creating a log when it stored at the root of the data.
+     * Helper for creating a log when it is stored at the root of the data.
      *
      * @param hadoopConf  Hadoop Configuration for this log
      * @param dataPath  the path to the data files for this log
@@ -68,7 +68,7 @@ public interface DeltaLog {
     }
 
     /**
-     * Helper for creating a log when it stored at the root of the data.
+     * Helper for creating a log when it is stored at the root of the data.
      *
      * @param hadoopConf  Hadoop Configuration for this log
      * @param dataPath  the path to the data files for this log
@@ -79,7 +79,7 @@ public interface DeltaLog {
     }
 
     /**
-     * Helper for creating a log when it stored at the root of the data.
+     * Helper for creating a log when it is stored at the root of the data.
      *
      * @param hadoopConf  Hadoop Configuration for this log
      * @param dataPath  the path to the data files for this log
