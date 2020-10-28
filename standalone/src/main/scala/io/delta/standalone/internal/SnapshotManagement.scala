@@ -67,7 +67,6 @@ private[internal] trait SnapshotManagement { self: DeltaLogImpl =>
       val segment = getLogSegmentForVersion(currentSnapshot.logSegment.checkpointVersion)
       if (segment != currentSnapshot.logSegment) {
         val newSnapshot = createSnapshot(segment, segment.lastCommitTimestamp)
-        // TODO: snapshot version error checking
         currentSnapshot = newSnapshot
       }
     } catch {

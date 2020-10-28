@@ -116,11 +116,11 @@ public final class StructType extends DataType {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         StructType that = (StructType) o;
-        return Arrays.equals(fields, that.fields); // TODO: AnyRef?
+        return Arrays.equals(fields, that.fields);
     }
 
     @Override
     public int hashCode() {
-        return Arrays.hashCode(fields); // TODO: AnyRef?
+        return Arrays.hashCode(fields);
     }
 }

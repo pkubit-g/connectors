@@ -82,12 +82,6 @@ private[internal] class SnapshotImpl(
   def protocolScala: Protocol = state.protocol
   def metadataScala: Metadata = state.metadata
 
-  // TODO: remove unused methods
-  def sizeInBytes: Long = state.sizeInBytes
-  def numOfFiles: Long = state.numOfFiles
-  def numOfMetadata: Long = state.numOfMetadata
-  def numOfProtocol: Long = state.numOfProtocol
-
   private def load(paths: Seq[Path]): Seq[SingleAction] = {
     paths.map(_.toString).sortWith(_ < _).par.flatMap { path =>
       if (path.endsWith("json")) {

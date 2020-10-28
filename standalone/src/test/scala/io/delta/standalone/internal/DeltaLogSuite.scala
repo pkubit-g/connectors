@@ -125,7 +125,6 @@ class DeltaLogSuite extends FunSuite {
     }
   }
 
-  // TODO check this output against Runtime
   test("SC-8078: update deleted directory") {
     withGoldenTable("update-deleted-directory") { tablePath =>
       val tempDir = Files.createTempDirectory(UUID.randomUUID().toString).toFile
