@@ -28,7 +28,7 @@ import org.apache.hadoop.fs.Path
  * This class keeps tracks of the version of commits and their timestamps for a Delta table to
  * help with operations like describing the history of a table.
  *
- * @param deltaLog  the transaction log of this table
+ * @param deltaLog the transaction log of this table
  */
 private[internal] case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
 
@@ -48,7 +48,7 @@ private[internal] case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
   /**
    * Returns the latest commit that happened at or before `time`.
    *
-   * @param timestamp  the timestamp to search for
+   * @param timestamp the timestamp to search for
    * @throws RuntimeException if the state at the given commit in not recreatable
    * @throws IllegalArgumentException if the provided timestamp is before the earliest commit or
    *                                  after the latest commit
