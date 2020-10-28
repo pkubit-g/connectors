@@ -45,6 +45,7 @@ import org.json4s.jackson.JsonMethods._
 import org.json4s.JsonAST.JValue
 
 private[internal] object DataTypeParser {
+
   private val FIXED_DECIMAL = """decimal\(\s*(\d+)\s*,\s*(\-?\d+)\s*\)""".r
 
   private val nonDecimalNameToType = {
@@ -82,6 +83,7 @@ private[internal] object DataTypeParser {
         s"Failed to convert the JSON string '${compact(render(other))}' to a data type.")
   }
 
+  /** Given the string representation of a type, return its DataType */
   private def nameToType(name: String): DataType = {
     name match {
       case "decimal" => DecimalType.USER_DEFAULT
