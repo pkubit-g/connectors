@@ -23,6 +23,7 @@ import scala.collection.JavaConverters._
 import com.github.mjakubowski84.parquet4s.ParquetReader
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
+
 import io.delta.standalone.{DeltaLog, Snapshot}
 import io.delta.standalone.actions.{AddFile => AddFileJ, Metadata => MetadataJ}
 import io.delta.standalone.data.{CloseableIterator, RowRecord => RowParquetRecordJ}
@@ -96,8 +97,6 @@ private[internal] class SnapshotImpl(
 
   /**
    * Reconstruct the state by applying deltas in order to the checkpoint.
-   * Then computes some statistics around the transaction log, therefore
-   * on the actions made on this Delta table.
    */
   protected lazy val state: State = {
     val logPathURI = path.toUri
@@ -190,7 +189,7 @@ object SnapshotImpl {
 }
 
 /**
- * An initial snapshot with only metadata specified. Uses default Protocol and Metadata.
+ * An initial snapshot. Uses default Protocol and Metadata.
  *
  * @param hadoopConf the hadoop configuration for the table
  * @param logPath the path to transaction log

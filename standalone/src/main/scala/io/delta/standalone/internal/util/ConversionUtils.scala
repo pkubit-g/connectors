@@ -22,12 +22,12 @@ import io.delta.standalone.actions.{AddFile => AddFileJ, Format => FormatJ, Meta
 import io.delta.standalone.internal.actions.{AddFile, Format, Metadata}
 
 /**
- * Provide helper methods to convert from scala to java types.
+ * Provide helper methods to convert from Scala to Java types.
  */
 private[internal] object ConversionUtils {
 
   /**
-   * Convert an [[AddFile]] (scala) to an [[AddFileJ]] (java)
+   * Convert an [[AddFile]] (Scala) to an [[AddFileJ]] (Java)
    */
   def convertAddFile(internal: AddFile): AddFileJ = {
     new AddFileJ(
@@ -41,7 +41,7 @@ private[internal] object ConversionUtils {
   }
 
   /**
-   * Convert a [[Metadata]] (scala) to a [[MetadataJ]] (java)
+   * Convert a [[Metadata]] (Scala) to a [[MetadataJ]] (Java)
    */
   def convertMetadata(internal: Metadata): MetadataJ = {
     new MetadataJ(
@@ -57,7 +57,7 @@ private[internal] object ConversionUtils {
   }
 
   /**
-   * Convert a [[Format]] (scala) to a [[FormatJ]] (java)
+   * Convert a [[Format]] (Scala) to a [[FormatJ]] (Java)
    */
   def convertFormat(internal: Format): FormatJ = {
     new FormatJ(internal.provider, internal.options.asJava)

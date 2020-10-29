@@ -38,7 +38,7 @@ private[internal] trait SnapshotManagement { self: DeltaLogImpl =>
   def snapshot: SnapshotImpl = currentSnapshot
 
   /**
-   * Update ActionLog by applying the new delta files if any.
+   * Update DeltaLog by applying the new delta files if any.
    */
   def update(): SnapshotImpl = {
     lockInterruptibly {

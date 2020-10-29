@@ -26,9 +26,10 @@ import io.delta.standalone.types.StructType
 
 /**
  * A [[CloseableIterator]] over [[RowParquetRecordJ]]s.
+ * Iterates file by file, row by row.
  *
- * @param dataFilePaths paths of files to iterate over; file by file, row by row
- * @param schema data schema, used to read and verify the parquet data
+ * @param dataFilePaths paths of files to iterate over, not null
+ * @param schema data schema, not null. Used to read and verify the parquet data
  * @param timeZoneId time zone ID for data, can be null. Used to ensure proper Date and Timestamp
  *                   decoding
  */
@@ -41,10 +42,13 @@ private[internal] case class CloseableParquetDataIterator(
   private val readTimeZone =
     if (null == timeZoneId) TimeZone.getDefault else TimeZone.getTimeZone(timeZoneId)
 
-  /** Iterator over the dataFilePaths. */
+  /** Iterator over the `dataFilePaths`. */
   private val dataFilePathsIter = dataFilePaths.iterator
 
-  /** Iterable that allows for iteration over the parquet rows. Must be closed. */
+  /**
+   * Iterable resource that allows for iteration over the parquet rows for a single file.
+   * Must be closed.
+   */
   private var parquetRows = if (dataFilePathsIter.hasNext) readNextFile else null
 
   /**
@@ -108,6 +112,7 @@ private[internal] case class CloseableParquetDataIterator(
 
   /**
    * Requires that `dataFilePathsIter.hasNext` is true.
+   *
    * @return the iterable for the next data file in `dataFilePathsIter`, not null
    */
   private def readNextFile: ParquetIterable[RowParquetRecord] = {

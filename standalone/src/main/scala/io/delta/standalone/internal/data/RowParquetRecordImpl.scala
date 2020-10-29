@@ -43,7 +43,9 @@ private[internal] case class RowParquetRecordImpl(
     private val schema: StructType,
     private val timeZone: TimeZone) extends RowParquetRecordJ {
 
-  /** needed to decode values */
+  /**
+   * Needed to decode values. Constructed with the `timeZone` to properly decode time-based data.
+   */
   private val codecConf = ValueCodecConfiguration(timeZone)
 
   ///////////////////////////////////////////////////////////////////////////
@@ -94,8 +96,9 @@ private[internal] case class RowParquetRecordImpl(
    *
    * @param fieldName the field name to lookup
    * @return the data at column with name `fieldName` as type [[T]]
-   * @throws IllegalArgumentException if `fieldName` not a in the record schema
-   * @throws NullPointerException if field is not nullable and null data value read
+   * @throws IllegalArgumentException if `fieldName` not in this schema
+   * @throws NullPointerException if field, of type [[StructField]], is not `nullable` and null data
+   *                              value read
    * @throws RuntimeException if unable to decode the type [[T]]
    */
   private def getAs[T](fieldName: String): T = {
@@ -128,40 +131,42 @@ private[internal] case class RowParquetRecordImpl(
   }
 
   /**
-   * Decode the parquet `list` into a [[java.util.List]], with all elements decoded
+   * Decode the parquet `listVal` into a [[java.util.List]], with all elements (recursive) decoded
    */
-  private def decodeList(elemType: DataType, list: ListParquetRecord): Any = {
+  private def decodeList(elemType: DataType, listVal: ListParquetRecord): Any = {
     val elemTypeName = elemType.getTypeName
 
     if (seqDecodeMap.contains(elemTypeName)) {
       // List of primitives
-      return seqDecodeMap(elemTypeName).decode(list, codecConf).asJava
+      return seqDecodeMap(elemTypeName).decode(listVal, codecConf).asJava
     }
 
     elemType match {
       case x: ArrayType =>
         // List of lists
-        list.map { case y: ListParquetRecord =>
+        listVal.map { case y: ListParquetRecord =>
           y.map(z => decode(x.getElementType, z)).asJava
         }.asJava
       case x: MapType =>
         // List of maps
-        list.map { case y: MapParquetRecord => decodeMap(x.getKeyType, x.getValueType, y) }.asJava
+        listVal.map { case y: MapParquetRecord =>
+          decodeMap(x.getKeyType, x.getValueType, y)
+        }.asJava
       case x: StructType =>
         // List of records
-        list.map { case y: RowParquetRecord => RowParquetRecordImpl(y, x, timeZone) }.asJava
+        listVal.map { case y: RowParquetRecord => RowParquetRecordImpl(y, x, timeZone) }.asJava
       case _ => throw new RuntimeException(s"Unknown non-primitive list decode type $elemTypeName")
     }
   }
 
   /**
-   * Decode the parquet map `parquetVal` into a [[java.util.Map]], with all entries decoded
+   * Decode the parquet `mapVal` into a [[java.util.Map]], with all entries (recursive) decoded
    */
   private def decodeMap(
       keyType: DataType,
       valueType: DataType,
-      parquetVal: MapParquetRecord): java.util.Map[Any, Any] = {
-    parquetVal.map { case (keyParquetVal, valParquetVal) =>
+      mapVal: MapParquetRecord): java.util.Map[Any, Any] = {
+    mapVal.map { case (keyParquetVal, valParquetVal) =>
       decode(keyType, keyParquetVal) -> decode(valueType, valParquetVal)
     }.toMap.asJava
   }
@@ -171,11 +176,15 @@ private[internal] case class RowParquetRecordImpl(
   ///////////////////////////////////////////////////////////////////////////
 
   /**
-   * parquet4s.ValueCodec.decimalCodec doesn't match on IntValue, so we create our own version that
-   * does. It should only ever be used to decode, not encode.
+   * parquet4s.ValueCodec.decimalCodec doesn't match on IntValue, but it should.
+   *
+   * So, we create our own version that does.
+   *
+   * It should only ever be used to decode, not encode.
    */
   private val customDecimalCodec: ValueCodec[java.math.BigDecimal] =
     new OptionalValueCodec[java.math.BigDecimal] {
+
       override def decodeNonNull(
           value: Value,
           configuration: ValueCodecConfiguration): java.math.BigDecimal = {
@@ -188,6 +197,7 @@ private[internal] case class RowParquetRecordImpl(
         }
       }
 
+      /** should NEVER be called */
       override def encodeNonNull(
           data: java.math.BigDecimal,
           configuration: ValueCodecConfiguration): Value = {
@@ -201,10 +211,10 @@ private[internal] case class RowParquetRecordImpl(
    * parquet4s decodes all list records into [[Array]]s, but we cannot implement the Java method
    * `<T> T[] getArray(String field)` in Scala due to type erasure.
    *
-   * If we convert the parquet arrays, instead, into [[Seq]]s, then we can support the Java method
-   * `<T> List<T> getList(String fieldName)`.
+   * If we convert the parquet arrays, instead, into [[Seq]]s, then we can implement the Java method
+   * `<T> List<T> getList(String fieldName)` in Scala.
    *
-   * It should only ever be used to decode, not encode.
+   * This should only ever be used to decode, not encode.
    */
   private def customSeqCodec[T](elementCodec: ValueCodec[T])(implicit
       classTag: ClassTag[T],
@@ -223,6 +233,7 @@ private[internal] case class RowParquetRecordImpl(
       }
     }
 
+    /** should NEVER be called */
     override def encodeNonNull(
         data: Seq[T],
         configuration: ValueCodecConfiguration): Value = {

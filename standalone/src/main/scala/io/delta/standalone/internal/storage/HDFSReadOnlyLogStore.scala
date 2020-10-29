@@ -26,7 +26,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
 
 /**
- * Default implementation of [[LogStore]] for Hadoop [[FileSystem]] implementations.
+ * Default implementation of [[ReadOnlyLogStore]] for Hadoop [[FileSystem]] implementations.
  */
 private[internal] class HDFSReadOnlyLogStore(hadoopConf: Configuration) extends ReadOnlyLogStore {
 
