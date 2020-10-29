@@ -67,7 +67,7 @@ class DeltaLogSuite extends FunSuite {
       assert(snapshot.getVersion == expectedVersion)
       assert(snapshot.getAllFiles.size() == expectedFiles.length)
       assert(
-        snapshot.getAllFiles.stream().allMatch(f => expectedFiles.exists(_.getName == f.getPath)))
+        snapshot.getAllFiles.asScala.forall(f => expectedFiles.exists(_.getName == f.getPath)))
     }
 
     // Append data0

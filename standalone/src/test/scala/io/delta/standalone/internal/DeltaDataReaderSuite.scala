@@ -159,7 +159,7 @@ class DeltaDataReaderSuite extends FunSuite {
         )
 
         val recordList = row.getList[JRowRecord]("list_of_records")
-        recordList.forEach(nestedRow => assert(nestedRow.getInt("val") == i))
+        recordList.asScala.foreach(nestedRow => assert(nestedRow.getInt("val") == i))
         count += 1
       }
 
@@ -184,7 +184,7 @@ class DeltaDataReaderSuite extends FunSuite {
 
         val mapOfRecordList = row.getMap[Int, java.util.List[JRowRecord]]("f")
         val recordList = mapOfRecordList.get(i)
-        recordList.forEach(nestedRow => assert(nestedRow.getInt("val") == i))
+        recordList.asScala.foreach(nestedRow => assert(nestedRow.getInt("val") == i))
         count += 1
       }
 
@@ -220,7 +220,7 @@ class DeltaDataReaderSuite extends FunSuite {
       if (!recordIter.hasNext) fail(s"No row record")
 
       val row = recordIter.next()
-      row.getList[String]("array_can_contain_null").forEach(elem => assert(elem == null))
+      row.getList[String]("array_can_contain_null").asScala.foreach(elem => assert(elem == null))
 
       val e = intercept[IllegalArgumentException] {
         row.getInt("foo_key_does_not_exist")

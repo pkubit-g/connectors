@@ -21,6 +21,7 @@ import java.nio.file.Files
 import java.sql.Timestamp
 import java.util.{Locale, TimeZone, UUID}
 
+import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.language.implicitConversions
 
@@ -70,7 +71,7 @@ class DeltaTimeTravelSuite extends FunSuite {
     assert(snapshot.getVersion == expectedVersion)
     assert(snapshot.getAllFiles.size() == expectedFiles.length)
     assert(
-      snapshot.getAllFiles.stream().allMatch(f => expectedFiles.exists(_.getName == f.getPath)))
+      snapshot.getAllFiles.asScala.forall(f => expectedFiles.exists(_.getName == f.getPath)))
   }
 
   var data_files_version_0: Array[File] = Array.empty
@@ -216,7 +217,7 @@ class DeltaTimeTravelSuite extends FunSuite {
       assert(snapshot.getVersion == 0)
       assert(snapshot.getAllFiles.size() == orig_partition_data_files.length)
       assert(
-        snapshot.getAllFiles.stream().allMatch(
+        snapshot.getAllFiles.asScala.forall(
           // use `contains` instead of `==` as f.getPath contains partition, but o.getName does not
           f => orig_partition_data_files.exists(o => f.getPath.contains(o.getName))))
     }
