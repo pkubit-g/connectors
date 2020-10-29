@@ -19,13 +19,16 @@ package io.delta.standalone.internal
 import java.io.File
 import java.util.concurrent.locks.ReentrantLock
 
-import io.delta.standalone.DeltaLog
-import io.delta.standalone.internal.storage.HDFSReadOnlyLogStore
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 
-// TODO: private[internal]  ??
-class DeltaLogImpl private(
+import io.delta.standalone.DeltaLog
+import io.delta.standalone.internal.storage.HDFSReadOnlyLogStore
+
+/**
+ * Scala implementation of Java interface [[DeltaLog]].
+ */
+private[internal] class DeltaLogImpl private(
     val hadoopConf: Configuration,
     val logPath: Path,
     val dataPath: Path)
@@ -37,10 +40,16 @@ class DeltaLogImpl private(
 
   override def getDataPath: Path = dataPath
 
+  /** Used to read (not write) physical log files and checkpoints. */
   lazy val store = new HDFSReadOnlyLogStore(hadoopConf)
 
+  /** Use ReentrantLock to allow us to call `lockInterruptibly`. */
   private val deltaLogLock = new ReentrantLock()
 
+  /**
+   * Run `body` inside `deltaLogLock` lock using `lockInterruptibly` so that the thread can be
+   * interrupted when waiting for the lock.
+   */
   protected def lockInterruptibly[T](body: => T): T = {
     deltaLogLock.lockInterruptibly()
     try {

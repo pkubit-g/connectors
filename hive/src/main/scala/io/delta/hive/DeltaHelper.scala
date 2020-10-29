@@ -97,9 +97,10 @@ object DeltaHelper {
 
     val loadEndMs = System.currentTimeMillis()
     logOperationDuration("fetching file list", rootPath, snapshotToUse, loadEndMs - loadStartMs)
-    LOG.info(s"Found ${files.size} files to process " +
-      s"in the Delta Lake table ${hideUserInfoInPath(rootPath)}")
-
+    if (LOG.isInfoEnabled) {
+      LOG.info(s"Found ${files.size} files to process " +
+        s"in the Delta Lake table ${hideUserInfoInPath(rootPath)}")
+    }
     (files.toArray, localFileToPartition.toMap)
   }
 
@@ -276,10 +277,10 @@ object DeltaHelper {
   }
 
   private def logOperationDuration(
-    ops: String,
-    path: Path,
-    snapshot: Snapshot,
-    durationMs: Long): Unit = {
+      ops: String,
+      path: Path,
+      snapshot: Snapshot,
+      durationMs: Long): Unit = {
     if (LOG.isInfoEnabled) {
       LOG.info(s"Delta Lake table '${hideUserInfoInPath(path)}' (" +
         s"version: ${snapshot.getVersion}, " +
@@ -300,7 +301,9 @@ object DeltaHelper {
       case NonFatal(e) =>
         // This path may have illegal format, and we can not remove its user info and reassemble the
         // uri.
-        LOG.error("Path contains illegal format: " + path, e)
+        if (LOG.isErrorEnabled) {
+          LOG.error("Path contains illegal format: " + path, e)
+        }
         path
     }
   }

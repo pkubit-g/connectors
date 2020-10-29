@@ -16,6 +16,11 @@
 
 package io.delta.standalone.internal.sources
 
+/**
+ * [[org.apache.hadoop.conf.Configuration]] entries for Delta Standalone Reader features.
+ */
 private[internal] object StandaloneHadoopConf {
+
+  /** time zone as which time-based parquet values will be decoded */
   val PARQUET_DATA_TIME_ZONE_ID = "io.delta.standalone.PARQUET_DATA_TIME_ZONE_ID"
 }

@@ -2,9 +2,10 @@ package io.delta.standalone;
 
 import java.io.File;
 
-import io.delta.standalone.internal.DeltaLogImpl;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+
+import io.delta.standalone.internal.DeltaLogImpl;
 
 /**
  * Used to query (read-only) the current state of the log.
@@ -57,7 +58,7 @@ public interface DeltaLog {
     Path getDataPath();
 
     /**
-     * Helper for creating a log when it stored at the root of the data.
+     * Helper for creating a log when it is stored at the root of the data.
      *
      * @param hadoopConf  Hadoop Configuration for this log
      * @param dataPath  the path to the data files for this log
@@ -68,7 +69,7 @@ public interface DeltaLog {
     }
 
     /**
-     * Helper for creating a log when it stored at the root of the data.
+     * Helper for creating a log when it is stored at the root of the data.
      *
      * @param hadoopConf  Hadoop Configuration for this log
      * @param dataPath  the path to the data files for this log
@@ -79,7 +80,7 @@ public interface DeltaLog {
     }
 
     /**
-     * Helper for creating a log when it stored at the root of the data.
+     * Helper for creating a log when it is stored at the root of the data.
      *
      * @param hadoopConf  Hadoop Configuration for this log
      * @param dataPath  the path to the data files for this log

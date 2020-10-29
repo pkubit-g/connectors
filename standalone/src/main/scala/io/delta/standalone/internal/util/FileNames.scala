@@ -20,21 +20,44 @@ import java.net.URI
 
 import org.apache.hadoop.fs.Path
 
+/** Helper for creating file names for specific commits / checkpoints. */
 private[internal] object FileNames {
 
   val deltaFilePattern = "\\d+\\.json".r.pattern
   val checkpointFilePattern = "\\d+\\.checkpoint(\\.\\d+\\.\\d+)?\\.parquet".r.pattern
 
+  /** Returns the path for a given delta file. */
   def deltaFile(path: Path, version: Long): Path = new Path(path, f"$version%020d.json")
 
+  /** Returns the version for the given delta path. */
   def deltaVersion(path: Path): Long = path.getName.stripSuffix(".json").toLong
 
+  /**
+   * Returns the prefix of all checkpoint files for the given version.
+   *
+   * Intended for use with listFrom to get all files from this version onwards. The returned Path
+   * will not exist as a file.
+   */
   def checkpointPrefix(path: Path, version: Long): Path =
     new Path(path, f"$version%020d.checkpoint")
 
+  /**
+   * Returns the path for a singular checkpoint up to the given version.
+   *
+   * In a future protocol version this path will stop being written.
+   */
   def checkpointFileSingular(path: Path, version: Long): Path =
     new Path(path, f"$version%020d.checkpoint.parquet")
 
+  /**
+   * Returns the paths for all parts of the checkpoint up to the given version.
+   *
+   * In a future protocol version we will write this path instead of checkpointFileSingular.
+   *
+   * Example of the format: 00000000000000004915.checkpoint.0000000020.0000000060.parquet is
+   * checkpoint part 20 out of 60 for the snapshot at version 4915. Zero padding is for
+   * lexicographic sorting.
+   */
   def checkpointFileWithParts(path: Path, version: Long, numParts: Int): Seq[Path] = {
     Range(1, numParts + 1)
       .map(i => new Path(path, f"$version%020d.checkpoint.$i%010d.$numParts%010d.parquet"))

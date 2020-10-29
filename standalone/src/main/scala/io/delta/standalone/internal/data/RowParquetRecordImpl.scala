@@ -14,26 +14,38 @@
  * limitations under the License.
  */
 
+// TODO licence for parquet4s
 package io.delta.standalone.internal.data
 
 import java.sql.{Date, Timestamp}
 import java.util
 import java.util.TimeZone
 
-import collection.JavaConverters._
+import scala.collection.JavaConverters._
 import scala.collection.compat.Factory
 import scala.reflect.ClassTag
 
 import com.github.mjakubowski84.parquet4s._
+
 import io.delta.standalone.data.{RowRecord => RowParquetRecordJ}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.types._
 
+/**
+ * Scala implementation of Java interface [[RowParquetRecordJ]].
+ *
+ * @param record the internal parquet4s record
+ * @param schema the intended schema for this record
+ * @param timeZone the timeZone as which time-based data will be read
+ */
 private[internal] case class RowParquetRecordImpl(
     private val record: RowParquetRecord,
     private val schema: StructType,
     private val timeZone: TimeZone) extends RowParquetRecordJ {
 
+  /**
+   * Needed to decode values. Constructed with the `timeZone` to properly decode time-based data.
+   */
   private val codecConf = ValueCodecConfiguration(timeZone)
 
   ///////////////////////////////////////////////////////////////////////////
@@ -79,6 +91,16 @@ private[internal] case class RowParquetRecordImpl(
   // Decoding Helper Methods
   ///////////////////////////////////////////////////////////////////////////
 
+  /**
+   * Decodes the parquet data into the desired type [[T]]
+   *
+   * @param fieldName the field name to lookup
+   * @return the data at column with name `fieldName` as type [[T]]
+   * @throws IllegalArgumentException if `fieldName` not in this schema
+   * @throws NullPointerException if field, of type [[StructField]], is not `nullable` and null data
+   *                              value read
+   * @throws RuntimeException if unable to decode the type [[T]]
+   */
   private def getAs[T](fieldName: String): T = {
     val schemaField = schema.get(fieldName)
     val parquetVal = record.get(fieldName)
@@ -90,6 +112,9 @@ private[internal] case class RowParquetRecordImpl(
     decode(schemaField.getDataType, parquetVal).asInstanceOf[T]
   }
 
+  /**
+   * Decode the parquet `parqetVal` into the corresponding Scala type for `elemType`
+   */
   private def decode(elemType: DataType, parquetVal: Value): Any = {
     val elemTypeName = elemType.getTypeName
     if (primitiveDecodeMap.contains(elemTypeName)) {
@@ -105,35 +130,43 @@ private[internal] case class RowParquetRecordImpl(
     }
   }
 
-  private def decodeList(elemType: DataType, list: ListParquetRecord): Any = {
+  /**
+   * Decode the parquet `listVal` into a [[java.util.List]], with all elements (recursive) decoded
+   */
+  private def decodeList(elemType: DataType, listVal: ListParquetRecord): Any = {
     val elemTypeName = elemType.getTypeName
 
     if (seqDecodeMap.contains(elemTypeName)) {
       // List of primitives
-      return seqDecodeMap(elemTypeName).decode(list, codecConf).asJava
+      return seqDecodeMap(elemTypeName).decode(listVal, codecConf).asJava
     }
 
     elemType match {
       case x: ArrayType =>
         // List of lists
-        list.map { case y: ListParquetRecord =>
+        listVal.map { case y: ListParquetRecord =>
           y.map(z => decode(x.getElementType, z)).asJava
         }.asJava
       case x: MapType =>
         // List of maps
-        list.map { case y: MapParquetRecord => decodeMap(x.getKeyType, x.getValueType, y) }.asJava
+        listVal.map { case y: MapParquetRecord =>
+          decodeMap(x.getKeyType, x.getValueType, y)
+        }.asJava
       case x: StructType =>
         // List of records
-        list.map { case y: RowParquetRecord => RowParquetRecordImpl(y, x, timeZone) }.asJava
+        listVal.map { case y: RowParquetRecord => RowParquetRecordImpl(y, x, timeZone) }.asJava
       case _ => throw new RuntimeException(s"Unknown non-primitive list decode type $elemTypeName")
     }
   }
 
+  /**
+   * Decode the parquet `mapVal` into a [[java.util.Map]], with all entries (recursive) decoded
+   */
   private def decodeMap(
       keyType: DataType,
       valueType: DataType,
-      parquetVal: MapParquetRecord): java.util.Map[Any, Any] = {
-    parquetVal.map { case (keyParquetVal, valParquetVal) =>
+      mapVal: MapParquetRecord): java.util.Map[Any, Any] = {
+    mapVal.map { case (keyParquetVal, valParquetVal) =>
       decode(keyType, keyParquetVal) -> decode(valueType, valParquetVal)
     }.toMap.asJava
   }
@@ -143,11 +176,15 @@ private[internal] case class RowParquetRecordImpl(
   ///////////////////////////////////////////////////////////////////////////
 
   /**
-   * parquet4s.ValueCodec.decimalCodec doesn't match on IntValue, so we create our own version that
-   * does. It should only ever be used to decode, not encode.
+   * parquet4s.ValueCodec.decimalCodec doesn't match on IntValue, but it should.
+   *
+   * So, we create our own version that does.
+   *
+   * It should only ever be used to decode, not encode.
    */
   private val customDecimalCodec: ValueCodec[java.math.BigDecimal] =
     new OptionalValueCodec[java.math.BigDecimal] {
+
       override def decodeNonNull(
           value: Value,
           configuration: ValueCodecConfiguration): java.math.BigDecimal = {
@@ -160,6 +197,7 @@ private[internal] case class RowParquetRecordImpl(
         }
       }
 
+      /** should NEVER be called */
       override def encodeNonNull(
           data: java.math.BigDecimal,
           configuration: ValueCodecConfiguration): Value = {
@@ -168,13 +206,21 @@ private[internal] case class RowParquetRecordImpl(
     }
 
   /**
-   * parquet4s decodes all list records into [[Array]]s. If we convert them, instead, into [[Seq]]s
-   * then we can support the Java API `<T> List<T> getList(String fieldName)`. It should only ever
-   * be used to decode, not encode.
+   * Decode parquet array into a [[Seq]].
+   *
+   * parquet4s decodes all list records into [[Array]]s, but we cannot implement the Java method
+   * `<T> T[] getArray(String field)` in Scala due to type erasure.
+   *
+   * If we convert the parquet arrays, instead, into [[Seq]]s, then we can implement the Java method
+   * `<T> List<T> getList(String fieldName)` in Scala.
+   *
+   * This should only ever be used to decode, not encode.
    */
   private def customSeqCodec[T](elementCodec: ValueCodec[T])(implicit
       classTag: ClassTag[T],
-      factory: Factory[T, Seq[T]]): ValueCodec[Seq[T]] = new OptionalValueCodec[Seq[T]] {
+      factory: Factory[T, Seq[T]]
+  ): ValueCodec[Seq[T]] = new OptionalValueCodec[Seq[T]] {
+
     override def decodeNonNull(
         value: Value,
         configuration: ValueCodecConfiguration): Seq[T] = {
@@ -187,6 +233,7 @@ private[internal] case class RowParquetRecordImpl(
       }
     }
 
+    /** should NEVER be called */
     override def encodeNonNull(
         data: Seq[T],
         configuration: ValueCodecConfiguration): Value = {

@@ -18,22 +18,38 @@ package io.delta.standalone.internal
 
 import java.io.FileNotFoundException
 
-import collection.JavaConverters._
 import scala.util.control.NonFatal
 
-import io.delta.standalone.internal.util.JsonUtils
-import util.FileNames._
 import org.apache.hadoop.fs.Path
 
+import io.delta.standalone.internal.util.JsonUtils
+import io.delta.standalone.internal.util.FileNames._
+
+/**
+ * Records information about a checkpoint.
+ *
+ * @param version the version of this checkpoint
+ * @param size the number of actions in the checkpoint
+ * @param parts the number of parts when the checkpoint has multiple parts. None if this is a
+ *              singular checkpoint
+ */
 case class CheckpointMetaData(
     version: Long,
     size: Long,
     parts: Option[Int])
 
+/**
+ * A class to help with comparing checkpoints with each other, where we may have had concurrent
+ * writers that checkpoint with different number of parts.
+ */
 case class CheckpointInstance(
     version: Long,
     numParts: Option[Int]) extends Ordered[CheckpointInstance] {
 
+  /**
+   * Due to lexicographic sorting, a version with more parts will appear after a version with
+   * less parts during file listing. We use that logic here as well.
+   */
   def isEarlierThan(other: CheckpointInstance): Boolean = {
     if (other == CheckpointInstance.MaxValue) return true
     version < other.version ||
@@ -81,6 +97,7 @@ private[internal] trait Checkpoints {
   /** The path to the file that holds metadata about the most recent checkpoint. */
   val LAST_CHECKPOINT = new Path(logPath, "_last_checkpoint")
 
+  /** Returns information about the most recent checkpoint. */
   def lastCheckpoint: Option[CheckpointMetaData] = {
     loadMetadataFromFile(0)
   }
@@ -115,10 +132,16 @@ private[internal] trait Checkpoints {
     }
   }
 
+  /** Loads the given checkpoint manually to come up with the CheckpointMetaData */
   private def manuallyLoadCheckpoint(cv: CheckpointInstance): CheckpointMetaData = {
     CheckpointMetaData(cv.version, -1L, cv.numParts)
   }
 
+  /**
+   * Finds the first verified, complete checkpoint before the given version.
+   *
+   * @param cv The CheckpointVersion to compare against
+   */
   protected def findLastCompleteCheckpoint(cv: CheckpointInstance): Option[CheckpointInstance] = {
     var cur = math.max(cv.version, 0L)
     while (cur >= 0) {
@@ -138,7 +161,11 @@ private[internal] trait Checkpoints {
     None
   }
 
-  def getLatestCompleteCheckpointFromList(
+  /**
+   * Given a list of checkpoint files, pick the latest complete checkpoint instance which is not
+   * later than `notLaterThan`.
+   */
+  protected def getLatestCompleteCheckpointFromList(
       instances: Array[CheckpointInstance],
       notLaterThan: CheckpointInstance): Option[CheckpointInstance] = {
     val complete = instances.filter(_.isNotLaterThan(notLaterThan)).groupBy(identity).filter {

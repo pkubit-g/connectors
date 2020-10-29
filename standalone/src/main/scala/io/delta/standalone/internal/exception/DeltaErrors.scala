@@ -18,9 +18,11 @@ package io.delta.standalone.internal.exception
 
 import java.io.FileNotFoundException
 
-import io.delta.standalone.types.StructType
 import org.apache.hadoop.fs.Path
 
+import io.delta.standalone.types.StructType
+
+/** A holder object for Delta errors. */
 private [internal] object DeltaErrors {
 
   /** Thrown when the protocol version of a table is greater than supported by this client. */
@@ -49,7 +51,6 @@ private [internal] object DeltaErrors {
   def logFileNotFoundException(
       path: Path,
       version: Long): Throwable = {
-    // TODO: use DeltaConfigs.LOG_RETENTION, CHECKPOINT_RETENTION_DURATION for extra info
     new FileNotFoundException(s"$path: Unable to reconstruct state at version $version as the " +
       s"transaction log has been truncated due to manual deletion or the log retention policy ")
   }

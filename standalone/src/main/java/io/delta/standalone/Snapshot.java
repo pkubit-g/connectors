@@ -6,6 +6,7 @@ import io.delta.standalone.actions.AddFile;
 import io.delta.standalone.actions.Metadata;
 import io.delta.standalone.data.CloseableIterator;
 import io.delta.standalone.data.RowRecord;
+
 import org.apache.hadoop.fs.Path;
 
 /**

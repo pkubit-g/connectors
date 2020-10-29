@@ -18,17 +18,18 @@ package io.delta.standalone.internal
 
 import java.sql.Timestamp
 
+import org.apache.hadoop.fs.Path
+
 import io.delta.standalone.internal.actions.CommitMarker
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.FileNames
 import io.delta.standalone.internal.storage.ReadOnlyLogStore
-import org.apache.hadoop.fs.Path
 
 /**
  * This class keeps tracks of the version of commits and their timestamps for a Delta table to
  * help with operations like describing the history of a table.
  *
- * @param deltaLog  the transaction log of this table
+ * @param deltaLog the transaction log of this table
  */
 private[internal] case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
 
@@ -48,7 +49,7 @@ private[internal] case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
   /**
    * Returns the latest commit that happened at or before `time`.
    *
-   * @param timestamp  the timestamp to search for
+   * @param timestamp the timestamp to search for
    * @throws RuntimeException if the state at the given commit in not recreatable
    * @throws IllegalArgumentException if the provided timestamp is before the earliest commit or
    *                                  after the latest commit
@@ -134,6 +135,12 @@ private[internal] case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
     }
   }
 
+  /**
+   * Returns the commit version and timestamps of all commits in `[start, end)`. If `end` is not
+   * specified, will return all commits that exist after `start`. Will guarantee that the commits
+   * returned will have both monotonically increasing versions as well as timestamps.
+   * Exposed for tests.
+   */
   private def getCommits(
       logStore: ReadOnlyLogStore,
       logPath: Path,
@@ -149,6 +156,10 @@ private[internal] case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
     monotonizeCommitTimestamps(commits.toArray)
   }
 
+  /**
+   * Makes sure that the commit timestamps are monotonically increasing with respect to commit
+   * versions. Requires the input commits to be sorted by the commit version.
+   */
   private def monotonizeCommitTimestamps[T <: CommitMarker](commits: Array[T]): Array[T] = {
     var i = 0
     val length = commits.length

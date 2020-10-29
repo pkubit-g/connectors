@@ -273,10 +273,4 @@ class DeltaDataReaderSuite extends FunSuite {
       assert(row.getSchema == expectedSchema)
     }
   }
-
-  // TODO: read partitioned data test, update javadoc
-
-  // TODO: read when there is 0 data? update javadoc
-
-  // TODO: read null value for nested object (inside array, or map, or record)? update javadoc
 }

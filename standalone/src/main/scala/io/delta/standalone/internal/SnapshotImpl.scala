@@ -18,20 +18,28 @@ package io.delta.standalone.internal
 
 import java.net.URI
 
-import collection.JavaConverters._
+import scala.collection.JavaConverters._
 
 import com.github.mjakubowski84.parquet4s.ParquetReader
-import io.delta.standalone
-import io.delta.standalone.internal.actions._
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, Path}
+
 import io.delta.standalone.{DeltaLog, Snapshot}
+import io.delta.standalone.actions.{AddFile => AddFileJ, Metadata => MetadataJ}
 import io.delta.standalone.data.{CloseableIterator, RowRecord => RowParquetRecordJ}
+import io.delta.standalone.internal.actions.{Action, AddFile, InMemoryLogReplay, Metadata, Protocol, SingleAction}
 import io.delta.standalone.internal.data.CloseableParquetDataIterator
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.sources.StandaloneHadoopConf
 import io.delta.standalone.internal.util.{ConversionUtils, FileNames, JsonUtils}
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, Path}
 
+/**
+ * Scala implementation of Java interface [[Snapshot]].
+ *
+ * @param timestamp The timestamp of the latest commit in milliseconds. Can also be set to -1 if the
+ *                  timestamp of the commit is unknown or the table has not been initialized, i.e.
+ *                  `version = -1`.
+ */
 private[internal] class SnapshotImpl(
     val hadoopConf: Configuration,
     val path: Path,
@@ -46,13 +54,12 @@ private[internal] class SnapshotImpl(
   // Public API Methods
   ///////////////////////////////////////////////////////////////////////////
 
-  override def getAllFiles: java.util.List[standalone.actions.AddFile] =
+  override def getAllFiles: java.util.List[AddFileJ] =
     state.activeFiles.values.map(ConversionUtils.convertAddFile).toList.asJava
 
   override def getNumOfFiles: Int = state.activeFiles.size
 
-  override def getMetadata: standalone.actions.Metadata =
-    ConversionUtils.convertMetadata(state.metadata)
+  override def getMetadata: MetadataJ = ConversionUtils.convertMetadata(state.metadata)
 
   override def getPath: Path = path
   override def getVersion: Long = version
@@ -65,6 +72,7 @@ private[internal] class SnapshotImpl(
         .map(_.path)
         .map(FileNames.absolutePath(deltaLog.dataPath, _).toString),
       getMetadata.getSchema,
+      // the time zone ID if it exists, else null
       hadoopConf.get(StandaloneHadoopConf.PARQUET_DATA_TIME_ZONE_ID))
 
   ///////////////////////////////////////////////////////////////////////////
@@ -74,12 +82,6 @@ private[internal] class SnapshotImpl(
   def allFilesScala: Seq[AddFile] = state.activeFiles.values.toSeq
   def protocolScala: Protocol = state.protocol
   def metadataScala: Metadata = state.metadata
-
-  // TODO: remove unused methods
-  def sizeInBytes: Long = state.sizeInBytes
-  def numOfFiles: Long = state.numOfFiles
-  def numOfMetadata: Long = state.numOfMetadata
-  def numOfProtocol: Long = state.numOfProtocol
 
   private def load(paths: Seq[Path]): Seq[SingleAction] = {
     paths.map(_.toString).sortWith(_ < _).par.flatMap { path =>
@@ -94,20 +96,19 @@ private[internal] class SnapshotImpl(
   }
 
   /**
-   * Computes some statistics around the transaction log, therefore on the actions made on this
-   * Delta table.
+   * Reconstruct the state by applying deltas in order to the checkpoint.
    */
   protected lazy val state: State = {
     val logPathURI = path.toUri
     val replay = new InMemoryLogReplay(hadoopConf)
     val files = (logSegment.deltas ++ logSegment.checkpoints).map(_.getPath)
 
-    // assert log belongs to table
+    // assert that the log belongs to table
     files.foreach { f =>
       if (f.toString.isEmpty || f.getParent != new Path(logPathURI)) {
         // scalastyle:off throwerror
-        throw new AssertionError(s"File (${f.toString}) doesn't belong in the " +
-          s"transaction log at $logPathURI. Please contact Databricks Support.")
+        throw new AssertionError(
+          s"File (${f.toString}) doesn't belong in the transaction log at $logPathURI.")
         // scalastyle:on throwerror
       }
     }
@@ -166,6 +167,17 @@ object SnapshotImpl {
     }
   }
 
+  /**
+   * Metrics and metadata computed around the Delta table.
+   *
+   * @param protocol The protocol version of the Delta table
+   * @param metadata The metadata of the table
+   * @param activeFiles The files in this table
+   * @param sizeInBytes The total size of the table (of active files, not including tombstones)
+   * @param numOfFiles The number of files in this table
+   * @param numOfMetadata The number of metadata actions in the state. Should be 1
+   * @param numOfProtocol The number of protocol actions in the state. Should be 1
+   */
   case class State(
       protocol: Protocol,
       metadata: Metadata,
@@ -176,24 +188,23 @@ object SnapshotImpl {
       numOfProtocol: Long)
 }
 
+/**
+ * An initial snapshot. Uses default Protocol and Metadata.
+ *
+ * @param hadoopConf the hadoop configuration for the table
+ * @param logPath the path to transaction log
+ * @param deltaLog the delta log object
+ */
 class InitialSnapshotImpl(
     override val hadoopConf: Configuration,
     val logPath: Path,
-    override val deltaLog: DeltaLogImpl,
-    val metadata: Metadata)
+    override val deltaLog: DeltaLogImpl)
   extends SnapshotImpl(hadoopConf, logPath, -1, LogSegment.empty(logPath), deltaLog, -1) {
-
-  def this(hadoopConf: Configuration, logPath: Path, deltaLog: DeltaLogImpl) = this(
-    hadoopConf,
-    logPath,
-    deltaLog,
-    Metadata() // TODO: SparkSession.active.sessionState.conf ?
-  )
 
   override lazy val state: SnapshotImpl.State = {
     SnapshotImpl.State(
       Protocol(),
-      metadata,
+      Metadata(),
       Map.empty[URI, AddFile],
       0L, 0L, 1L, 1L)
   }

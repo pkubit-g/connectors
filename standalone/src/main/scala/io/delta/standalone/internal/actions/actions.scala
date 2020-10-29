@@ -20,8 +20,9 @@ import java.net.URI
 
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonInclude, JsonRawValue}
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize
-import io.delta.standalone.internal.util.{DataTypeParser, JsonUtils}
+
 import io.delta.standalone.types.StructType
+import io.delta.standalone.internal.util.{DataTypeParser, JsonUtils}
 
 private[internal] object Action {
   /** The maximum version of the protocol that this version of Delta Standalone understands. */
@@ -34,12 +35,27 @@ private[internal] object Action {
   }
 }
 
+/**
+ * Represents a single change to the state of a Delta table. An order sequence
+ * of actions can be replayed using [[InMemoryLogReplay]] to derive the state
+ * of the table at a given point in time.
+ */
 private[internal] sealed trait Action {
   def wrap: SingleAction
 
   def json: String = JsonUtils.toJson(wrap)
 }
 
+/**
+ * Used to block older clients from reading or writing the log when backwards
+ * incompatible changes are made to the protocol. Readers and writers are
+ * responsible for checking that they meet the minimum versions before performing
+ * any other operations.
+ *
+ * Since this action allows us to explicitly block older clients in the case of a
+ * breaking change to the protocol, clients should be tolerant of messages and
+ * fields that they do not understand.
+ */
 private[internal] case class Protocol(
     minReaderVersion: Int = Action.readerVersion,
     minWriterVersion: Int = Action.writerVersion) extends Action {
@@ -49,6 +65,7 @@ private[internal] case class Protocol(
   def simpleString: String = s"($minReaderVersion,$minWriterVersion)"
 }
 
+/** Actions pertaining to the addition and removal of files. */
 private[internal] sealed trait FileAction extends Action {
   val path: String
   val dataChange: Boolean
@@ -56,6 +73,11 @@ private[internal] sealed trait FileAction extends Action {
   lazy val pathAsUri: URI = new URI(path)
 }
 
+/**
+ * Adds a new file to the table. When multiple [[AddFile]] file actions
+ * are seen with the same `path` only the metadata from the last one is
+ * kept.
+ */
 private[internal] case class AddFile(
     path: String,
     @JsonInclude(JsonInclude.Include.ALWAYS)
@@ -81,6 +103,10 @@ private[internal] case class AddFile(
   }
 }
 
+/**
+ * Logical removal of a given file from the reservoir. Acts as a tombstone before a file is
+ * deleted permanently.
+ */
 private[internal] case class RemoveFile(
     path: String,
     @JsonDeserialize(contentAs = classOf[java.lang.Long])
@@ -96,6 +122,11 @@ private[internal] case class Format(
     provider: String = "parquet",
     options: Map[String, String] = Map.empty)
 
+/**
+ * Updates the metadata of the table. Only the last update to the [[Metadata]]
+ * of a table is kept. It is the responsibility of the writer to ensure that
+ * any data already present in the table is still valid after any change.
+ */
 private[internal] case class Metadata(
     id: String = java.util.UUID.randomUUID().toString,
     name: String = null,
@@ -117,6 +148,11 @@ private[internal] case class Metadata(
   override def wrap: SingleAction = SingleAction(metaData = this)
 }
 
+/**
+ * Interface for objects that represents the information for a commit. Commits can be referred to
+ * using a version and timestamp. The timestamp of a commit comes from the remote storage
+ * `lastModifiedTime`, and can be adjusted for clock skew. Hence we have the method `withTimestamp`.
+ */
 private[internal] trait CommitMarker {
   /** Get the timestamp of the commit as millis after the epoch. */
   def getTimestamp: Long
@@ -126,6 +162,7 @@ private[internal] trait CommitMarker {
   def getVersion: Long
 }
 
+/** A serialization helper to create a common action envelope. */
 private[internal] case class SingleAction(
     add: AddFile = null,
     remove: RemoveFile = null,

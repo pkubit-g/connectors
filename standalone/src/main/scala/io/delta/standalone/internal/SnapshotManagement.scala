@@ -19,16 +19,27 @@ package io.delta.standalone.internal
 import java.io.FileNotFoundException
 import java.sql.Timestamp
 
-import io.delta.standalone.internal.exception.DeltaErrors
-import io.delta.standalone.internal.util.FileNames._
 import org.apache.hadoop.fs.{FileStatus, Path}
 
+import io.delta.standalone.internal.exception.DeltaErrors
+import io.delta.standalone.internal.util.FileNames._
+
+/**
+ * Manages the creation, computation, and access of Snapshot's for Delta tables. Responsibilities
+ * include:
+ *  - Figuring out the set of files that are required to compute a specific version of a table
+ *  - Updating and exposing the latest snapshot of the Delta table in a thread-safe manner
+ */
 private[internal] trait SnapshotManagement { self: DeltaLogImpl =>
 
   @volatile protected var currentSnapshot: SnapshotImpl = getSnapshotAtInit
 
+  /** Returns the current snapshot. Note this does not automatically `update()`. */
   def snapshot: SnapshotImpl = currentSnapshot
 
+  /**
+   * Update DeltaLog by applying the new delta files if any.
+   */
   def update(): SnapshotImpl = {
     lockInterruptibly {
       updateInternal()
@@ -47,16 +58,20 @@ private[internal] trait SnapshotManagement { self: DeltaLogImpl =>
     getSnapshotAt(latestCommit.version)
   }
 
+  /**
+   * Queries the store for new delta files and applies them to the current state.
+   * Note: the caller should hold `deltaLogLock` before calling this method.
+   */
   private def updateInternal(): SnapshotImpl = {
     try {
       val segment = getLogSegmentForVersion(currentSnapshot.logSegment.checkpointVersion)
       if (segment != currentSnapshot.logSegment) {
         val newSnapshot = createSnapshot(segment, segment.lastCommitTimestamp)
-        // TODO: snapshot version error checking
         currentSnapshot = newSnapshot
       }
     } catch {
       case e: FileNotFoundException =>
+        // DeltaErrors.logFileNotFoundException
         if (Option(e.getMessage).exists(_.contains("reconstruct state at version"))) {
           throw e
         }
@@ -178,6 +193,11 @@ private[internal] trait SnapshotManagement { self: DeltaLogImpl =>
     }
   }
 
+  /**
+   * Load the Snapshot for this Delta table at initialization. This method uses the `lastCheckpoint`
+   * file as a hint on where to start listing the transaction log directory. If the _delta_log
+   * directory doesn't exist, this method will return an `InitialSnapshot`.
+   */
   private def getSnapshotAtInit: SnapshotImpl = {
     try {
       val logSegment = getLogSegmentForVersion(lastCheckpoint.map(_.version))
@@ -189,6 +209,7 @@ private[internal] trait SnapshotManagement { self: DeltaLogImpl =>
     }
   }
 
+  /** Get the snapshot at `version`. */
   private def getSnapshotAt(version: Long): SnapshotImpl = {
     if (snapshot.version == version) return snapshot
 
@@ -220,6 +241,19 @@ private[internal] trait SnapshotManagement { self: DeltaLogImpl =>
   }
 }
 
+/**
+ * Provides information around which files in the transaction log need to be read to create
+ * the given version of the log.
+ *
+ * @param logPath The path to the _delta_log directory
+ * @param version The Snapshot version to generate
+ * @param deltas The delta files to read
+ * @param checkpoints The checkpoint files to read
+ * @param checkpointVersion The checkpoint version used to start replay
+ * @param lastCommitTimestamp The "unadjusted" timestamp of the last commit within this segment. By
+ *                            unadjusted, we mean that the commit timestamps may not necessarily be
+ *                            monotonically increasing for the commits within this segment.
+ */
 case class LogSegment(
     logPath: Path,
     version: Long,
@@ -229,6 +263,7 @@ case class LogSegment(
     lastCommitTimestamp: Long)
 
 object LogSegment {
+
   /** The LogSegment for an empty transaction log directory. */
   def empty(path: Path): LogSegment = LogSegment(path, -1L, Nil, Nil, None, -1L)
 }

@@ -87,10 +87,10 @@ class DeltaStorageHandler extends DefaultStorageHandler with HiveMetaHook
     // Get the delta root path
     val deltaRootPath = jobConf.get(META_TABLE_LOCATION)
     // Get the partitionColumns of Delta
-    // TODO: jobConf or getConf ??
     val partitionColumns = DeltaHelper.getPartitionCols(jobConf, new Path(deltaRootPath))
-    LOG.info("delta partitionColumns is " + partitionColumns.mkString(", "))
-
+    if (LOG.isInfoEnabled) {
+      LOG.info("delta partitionColumns is " + partitionColumns.mkString(", "))
+    }
     val analyzer = newIndexPredicateAnalyzer(partitionColumns)
 
     val conditions = new java.util.ArrayList[IndexSearchCondition]()
@@ -105,10 +105,11 @@ class DeltaStorageHandler extends DefaultStorageHandler with HiveMetaHook
         extractStorageHandlerCondition(analyzer, searchConditions, pushedPredicate)
     }
 
-    LOG.info("pushedPredicate:" +
-      (if (pushedPredicate == null) "null" else pushedPredicate.getExprString()) +
-      ",residualPredicate" + residualPredicate)
-
+    if (LOG.isInfoEnabled) {
+      LOG.info("pushedPredicate:" +
+        (if (pushedPredicate == null) "null" else pushedPredicate.getExprString()) +
+        ",residualPredicate" + residualPredicate)
+    }
     val decomposedPredicate = new DecomposedPredicate()
     decomposedPredicate.pushedPredicate = pushedPredicate
     decomposedPredicate.residualPredicate = residualPredicate

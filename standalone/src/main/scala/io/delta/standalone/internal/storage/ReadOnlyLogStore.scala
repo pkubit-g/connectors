@@ -18,6 +18,12 @@ package io.delta.standalone.internal.storage
 
 import org.apache.hadoop.fs.{FileStatus, Path}
 
+/**
+ * General interface for all critical file system operations required to read the
+ * [[io.delta.standalone.DeltaLog]].
+ *
+ * Provides read functionality only. No writing.
+ */
 private[internal] trait ReadOnlyLogStore {
 
   /** Read the given `path` */
