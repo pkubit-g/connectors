@@ -31,6 +31,8 @@ lazy val commonSettings = Seq(
   organization := "io.delta",
   scalaVersion := "2.12.8",
   fork := true,
+  javacOptions ++= Seq("-source", "1.8", "-target", "1.8"),
+  scalacOptions += "-target:jvm-1.8",
   // Configurations to speed up tests and reduce memory footprint
   javaOptions in Test ++= Seq(
     "-Dspark.ui.enabled=false",
