@@ -104,7 +104,6 @@ lazy val hive = (project in file("hive")) dependsOn(standalone) settings (
   )
 )
 
-
 lazy val hiveMR = (project in file("hive-mr")) dependsOn(hive % "test->test") settings (
   name := "hive-mr",
   commonSettings,
