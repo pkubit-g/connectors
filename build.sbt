@@ -66,7 +66,7 @@ lazy val hive = (project in file("hive")) dependsOn(standalone) settings (
     "org.apache.hive" % "hive-cli" % hiveVersion % "test" excludeAll(
       ExclusionRule(organization = "org.apache.spark"),
       ExclusionRule(organization = "org.apache.parquet"),
-      ExclusionRule("ch.qos.logback", "logback-classic"),
+      ExclusionRule("ch.qos.logback", "logback-class ic"),
       ExclusionRule("org.pentaho", "pentaho-aggdesigner-algorithm"),
       ExclusionRule(organization = "com.google.protobuf")
     ),
@@ -76,8 +76,34 @@ lazy val hive = (project in file("hive")) dependsOn(standalone) settings (
     "org.apache.spark" %% "spark-catalyst" % sparkVersion % "test" classifier "tests",
     "org.apache.spark" %% "spark-core" % sparkVersion % "test" classifier "tests",
     "org.apache.spark" %% "spark-sql" % sparkVersion % "test" classifier "tests"
+  ),
+
+  Seq(
+    logLevel in assembly := Level.Info,
+    test in assembly := {},
+    assemblyJarName in assembly := s"${name.value}-assembly_${scalaBinaryVersion.value}-${version.value}.jar",
+
+    // default merge strategy
+
+    assemblyShadeRules in assembly :=
+      (if (scalaBinaryVersion.value == "2.11") Seq(
+        // json4s cannot be shaded when using Scala 2.11
+        ShadeRule.rename("org.json4s.**" -> "@0").inAll
+      ) else Nil) ++ Seq(
+
+        // Packages to exclude from shading because they are not happy when shaded
+        ShadeRule.rename("com.fasterxml.**" -> "@0").inAll, // Scala reflect trigger via catalyst fails when package changed
+        ShadeRule.rename("org.apache.hadoop.**" -> "@0").inAll, // Do not change any references to hadoop classes as they will be provided
+        ShadeRule.rename("org.xerial.snappy.**" -> "@0").inAll, // Snappy fails to resolve native code when package changed
+
+        // Shade everything else
+        ShadeRule.rename("com.**" -> "shadedelta.@0").inAll,
+        ShadeRule.rename("org.**" -> "shadedelta.@0").inAll,
+        ShadeRule.rename("io.**" -> "shadedelta.@0").inAll
+      )
   )
 )
+
 
 lazy val hiveMR = (project in file("hive-mr")) dependsOn(hive % "test->test") settings (
   name := "hive-mr",
