@@ -146,26 +146,43 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") 
   )
 )
 
-lazy val standalone = (project in file("standalone")) settings (
-  name := "standalone",
-  commonSettings,
-  unmanagedResourceDirectories in Test += file("golden-tables/src/test/resources"),
-  libraryDependencies ++= Seq(
-    "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
-    "org.apache.parquet" % "parquet-hadoop" % "1.10.1" excludeAll(
-      ExclusionRule("org.apache.hadoop", "hadoop-client")
+lazy val standalone = (project in file("standalone"))
+  .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin, PublishJavadocPlugin)
+  .settings(
+    name := "standalone",
+    commonSettings,
+    unmanagedResourceDirectories in Test += file("golden-tables/src/test/resources"),
+    libraryDependencies ++= Seq(
+      "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
+      "org.apache.parquet" % "parquet-hadoop" % "1.10.1" excludeAll(
+        ExclusionRule("org.apache.hadoop", "hadoop-client")
+        ),
+      "com.github.mjakubowski84" %% "parquet4s-core" % "1.2.1" excludeAll(
+        ExclusionRule("org.apache.parquet", "parquet-hadoop")
+        ),
+      "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.6.7.1",
+      "org.json4s" %% "json4s-jackson" % "3.5.3" excludeAll (
+        ExclusionRule("com.fasterxml.jackson.core"),
+        ExclusionRule("com.fasterxml.jackson.module")
       ),
-    "com.github.mjakubowski84" %% "parquet4s-core" % "1.2.1" excludeAll(
-      ExclusionRule("org.apache.parquet", "parquet-hadoop")
-      ),
-    "com.fasterxml.jackson.module" %% "jackson-module-scala" % "2.6.7.1",
-    "org.json4s" %% "json4s-jackson" % "3.5.3" excludeAll (
-      ExclusionRule("com.fasterxml.jackson.core"),
-      ExclusionRule("com.fasterxml.jackson.module")
+      "org.scalatest" %% "scalatest" % "3.0.8" % "test"
     ),
-    "org.scalatest" %% "scalatest" % "3.0.8" % "test"
+    javacOptions in (JavaUnidoc, unidoc) := Seq(
+      "-public",
+      "-windowtitle", "Delta Standalone Reader " + version.value.replaceAll("-SNAPSHOT", "") + " JavaDoc",
+      "-noqualifier", "java.lang",
+      "-tag", "return:X",
+      // `doclint` is disabled on Circle CI. Need to enable it manually to test our javadoc.
+      "-Xdoclint:all"
+    ),
+    unidocAllSources in(JavaUnidoc, unidoc) := {
+      (unidocAllSources in(JavaUnidoc, unidoc)).value
+        .map(_.filterNot(_.getCanonicalPath.contains("/internal/")))
+        .map(_.filterNot(_.getCanonicalPath.contains("/hive/")))
+    },
+    // Ensure unidoc is run with tests
+    (test in Test) := ((test in Test) dependsOn unidoc.in(Compile)).value
   )
-)
 
 lazy val goldenTables = (project in file("golden-tables")) settings (
   name := "golden-tables",
