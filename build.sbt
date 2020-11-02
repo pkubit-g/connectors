@@ -186,7 +186,7 @@ lazy val standalone = (project in file("standalone"))
    * Unidoc settings
    * Generate javadoc with `unidoc` command
    *****************************************/
-  .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin, PublishJavadocPlugin)
+  .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin)
   .settings(
     javacOptions in (JavaUnidoc, unidoc) := Seq(
       "-public",
@@ -199,6 +199,7 @@ lazy val standalone = (project in file("standalone"))
     unidocAllSources in(JavaUnidoc, unidoc) := {
       (unidocAllSources in(JavaUnidoc, unidoc)).value
         // ignore any internal Scala code
+        .map(_.filterNot(_.getName.contains("$")))
         .map(_.filterNot(_.getCanonicalPath.contains("/internal/")))
         // ignore project `hive` which depends on this project
         .map(_.filterNot(_.getCanonicalPath.contains("/hive/")))
