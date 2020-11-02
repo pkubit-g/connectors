@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import ReleaseTransformations._
+
 parallelExecution in ThisBuild := false
 scalastyleConfig in ThisBuild := baseDirectory.value / "scalastyle-config.xml"
 
@@ -146,11 +148,7 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") 
   )
 )
 
-/**
- * Generate javadoc with `unidoc` command.
- */
 lazy val standalone = (project in file("standalone"))
-  .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin, PublishJavadocPlugin)
   .settings(
     name := "standalone",
     commonSettings,
@@ -169,7 +167,14 @@ lazy val standalone = (project in file("standalone"))
         ExclusionRule("com.fasterxml.jackson.module")
       ),
       "org.scalatest" %% "scalatest" % "3.0.8" % "test"
-    ),
+    ))
+
+  /*****************************************
+   * Unidoc settings
+   * Generate javadoc with `unidoc` command
+   *****************************************/
+  .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin, PublishJavadocPlugin)
+  .settings(
     javacOptions in (JavaUnidoc, unidoc) := Seq(
       "-public",
       "-windowtitle", "Delta Standalone Reader " + version.value.replaceAll("-SNAPSHOT", "") + " JavaDoc",
@@ -186,7 +191,26 @@ lazy val standalone = (project in file("standalone"))
         .map(_.filterNot(_.getCanonicalPath.contains("/hive/")))
     },
     // Ensure unidoc is run with tests. Must be cleaned before test for unidoc to be generated.
-    (test in Test) := ((test in Test) dependsOn unidoc.in(Compile)).value
+    (test in Test) := ((test in Test) dependsOn unidoc.in(Compile)).value)
+
+  /*******************
+   * Release settings
+   *******************/
+  .settings(
+    bintrayOrganization := Some("delta-io"),
+    bintrayRepository := "standalone",
+    licenses += ("Apache-2.0", url("http://www.apache.org/licenses/LICENSE-2.0")),
+    releaseProcess := Seq[ReleaseStep](
+      checkSnapshotDependencies,
+      inquireVersions,
+      runTest,
+      setReleaseVersion,
+      commitReleaseVersion,
+      tagRelease,
+      publishArtifacts,
+      setNextVersion,
+      commitNextVersion
+    )
   )
 
 lazy val goldenTables = (project in file("golden-tables")) settings (
