@@ -146,6 +146,9 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") 
   )
 )
 
+/**
+ * Generate javadoc with `unidoc` command.
+ */
 lazy val standalone = (project in file("standalone"))
   .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin, PublishJavadocPlugin)
   .settings(
@@ -177,10 +180,12 @@ lazy val standalone = (project in file("standalone"))
     ),
     unidocAllSources in(JavaUnidoc, unidoc) := {
       (unidocAllSources in(JavaUnidoc, unidoc)).value
+        // ignore any internal Scala code
         .map(_.filterNot(_.getCanonicalPath.contains("/internal/")))
+        // ignore project `hive` which depends on this project
         .map(_.filterNot(_.getCanonicalPath.contains("/hive/")))
     },
-    // Ensure unidoc is run with tests
+    // Ensure unidoc is run with tests. Must be cleaned before test for unidoc to be generated.
     (test in Test) := ((test in Test) dependsOn unidoc.in(Compile)).value
   )
 
