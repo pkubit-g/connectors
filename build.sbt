@@ -204,8 +204,8 @@ lazy val standalone = (project in file("standalone"))
         .map(_.filterNot(_.getCanonicalPath.contains("/hive/")))
     },
     // Ensure unidoc is run with tests. Must be cleaned before test for unidoc to be generated.
-    (test in Test) := ((test in Test) dependsOn unidoc.in(Compile)).value)
-
+    (test in Test) := ((test in Test) dependsOn unidoc.in(Compile)).value
+  )
   /*******************
    * Release settings
    *******************/
@@ -239,8 +239,4 @@ lazy val goldenTables = (project in file("golden-tables")) settings (
     "org.apache.spark" %% "spark-core" % sparkVersion % "test" classifier "tests",
     "org.apache.spark" %% "spark-sql" % sparkVersion % "test" classifier "tests"
   )
-<<<<<<< HEAD
 )
-=======
-)
->>>>>>> master
