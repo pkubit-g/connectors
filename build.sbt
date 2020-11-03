@@ -92,11 +92,10 @@ lazy val hive = (project in file("hive")) dependsOn(standalone) settings (
   test in assembly := {},
   assemblyJarName in assembly := s"${name.value}-assembly_${scalaBinaryVersion.value}-${version.value}.jar",
   // default merge strategy
-  assemblyShadeRules in assembly :=
-    (if (scalaBinaryVersion.value == "2.12") Seq(
+  assemblyShadeRules in assembly := Seq(
       // shade to solve this issue: https://issues.apache.org/jira/browse/SPARK-22128
       ShadeRule.rename("com.thoughtworks.paranamer.**" -> "shadedelta.@0").inAll
-    ) else Nil)
+    )
 )
 
 lazy val hiveMR = (project in file("hive-mr")) dependsOn(hive % "test->test") settings (
