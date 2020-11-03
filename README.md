@@ -13,7 +13,12 @@ This is the repository for Delta Lake Connectors. It includes a library for quer
 The project is compiled using [SBT](https://www.scala-sbt.org/1.x/docs/Command-Line-Reference.html). It has the following subprojects.
 
 ## Delta Standalone Reader
-TODO
+This project generates a single uber JAR containing the Delta Standalone Reader and all of its transitive dependencies (except for Hadoop and Parquet and their dependencies).
+- Hadoop and its dependencies are not included in the JAR because they are expected to be present in the deployment environment
+- Same for Parquet
+- To compile the project, run `build/sbt standalone/compile`
+- To test the project, run `build/sbt standalone/test`
+- To generate the uber JAR, run `build/sbt standalone/package`
 
 ## Hive connector
 This project contains all the codes needed to make Hive read Delta Lake tables. The connector has one JAR `hive-delta-assembly_<scala_version>-0.2.0.jar`. You can use either Scala 2.11 or 2.12. The released JARs are available in the [releases](https://github.com/delta-io/connectors/releases) page. Please download the JARs for the corresponding Scala version you would like to use.
@@ -26,7 +31,7 @@ Please skip this section if you have downloaded the connector JARs.
 
 - To compile the project, run `build/sbt hive/compile`
 - To test the project, run `build/sbt hive/test`
-- To generate the connector jar run `build/sbt hive/package`
+- To generate the connector JAR run `build/sbt hive/package`
 
 The above commands will generate the following JAR:
 

@@ -189,10 +189,10 @@ lazy val standalone = (project in file("standalone"))
       "org.scalatest" %% "scalatest" % "3.0.5" % "test"
     ))
 
-  /************************************************************************************
+  /**
    * Unidoc settings
    * Generate javadoc with `unidoc` command, outputs to `standalone/target/javaunidoc`
-   ************************************************************************************/
+   */
   .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin)
   .settings(
     javacOptions in (JavaUnidoc, unidoc) := Seq(
@@ -214,9 +214,10 @@ lazy val standalone = (project in file("standalone"))
     // Ensure unidoc is run with tests. Must be cleaned before test for unidoc to be generated.
     (test in Test) := ((test in Test) dependsOn unidoc.in(Compile)).value
   )
-  /*******************
+
+  /**
    * Release settings
-   *******************/
+   */
   .settings(
     bintrayOrganization := Some("delta-io"),
     bintrayRepository := "standalone",
