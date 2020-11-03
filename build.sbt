@@ -182,10 +182,10 @@ lazy val standalone = (project in file("standalone"))
       "org.scalatest" %% "scalatest" % "3.0.5" % "test"
     ))
 
-  /*****************************************
+  /************************************************************************************
    * Unidoc settings
-   * Generate javadoc with `unidoc` command
-   *****************************************/
+   * Generate javadoc with `unidoc` command, outputs to `standalone/target/javaunidoc`
+   ************************************************************************************/
   .enablePlugins(GenJavadocPlugin, JavaUnidocPlugin)
   .settings(
     javacOptions in (JavaUnidoc, unidoc) := Seq(
