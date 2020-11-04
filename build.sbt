@@ -228,9 +228,52 @@ lazy val standalone = (project in file("standalone"))
   .settings(
     publishMavenStyle := true,
     releaseCrossBuild := true,
+    licenses += ("Apache-2.0", url("http://www.apache.org/licenses/LICENSE-2.0")),
+    pomExtra :=
+      <url>https://github.com/delta-io/connectors</url>
+        <scm>
+          <url>git@github.com:delta-io/connectors.git</url>
+          <connection>scm:git:git@github.com:delta-io/connectors.git</connection>
+        </scm>
+        <developers>
+          <developer>
+            <id>marmbrus</id>
+            <name>Michael Armbrust</name>
+            <url>https://github.com/marmbrus</url>
+          </developer>
+          <developer>
+            <id>brkyvz</id>
+            <name>Burak Yavuz</name>
+            <url>https://github.com/brkyvz</url>
+          </developer>
+          <developer>
+            <id>jose-torres</id>
+            <name>Jose Torres</name>
+            <url>https://github.com/jose-torres</url>
+          </developer>
+          <developer>
+            <id>liwensun</id>
+            <name>Liwen Sun</name>
+            <url>https://github.com/liwensun</url>
+          </developer>
+          <developer>
+            <id>mukulmurthy</id>
+            <name>Mukul Murthy</name>
+            <url>https://github.com/mukulmurthy</url>
+          </developer>
+          <developer>
+            <id>tdas</id>
+            <name>Tathagata Das</name>
+            <url>https://github.com/tdas</url>
+          </developer>
+          <developer>
+            <id>zsxwing</id>
+            <name>Shixiong Zhu</name>
+            <url>https://github.com/zsxwing</url>
+          </developer>
+        </developers>,
     bintrayOrganization := Some("delta-io"),
     bintrayRepository := "standalone",
-    licenses += ("Apache-2.0", url("http://www.apache.org/licenses/LICENSE-2.0")),
     releaseProcess := Seq[ReleaseStep](
       checkSnapshotDependencies,
       inquireVersions,
