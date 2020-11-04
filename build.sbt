@@ -93,8 +93,12 @@ lazy val hive = (project in file("hive")) dependsOn(standalone) settings (
   assemblyJarName in assembly := s"${name.value}-assembly_${scalaBinaryVersion.value}-${version.value}.jar",
   // default merge strategy
   assemblyShadeRules in assembly := Seq(
-      // shade to solve this issue: https://issues.apache.org/jira/browse/SPARK-22128
-      ShadeRule.rename("com.thoughtworks.paranamer.**" -> "shadedelta.@0").inAll
+    /**
+     * Hive 2.3.7 uses an old paranamer version that doesn't support Scala 2.12
+     * (https://issues.apache.org/jira/browse/SPARK-22128), so we need to shade our own paranamer
+     * version to avoid conflicts.
+     */
+    ShadeRule.rename("com.thoughtworks.paranamer.**" -> "shadedelta.@0").inAll
     )
 )
 
@@ -222,6 +226,8 @@ lazy val standalone = (project in file("standalone"))
    * Release settings
    */
   .settings(
+    publishMavenStyle := true,
+    releaseCrossBuild := true,
     bintrayOrganization := Some("delta-io"),
     bintrayRepository := "standalone",
     licenses += ("Apache-2.0", url("http://www.apache.org/licenses/LICENSE-2.0")),
