@@ -237,34 +237,19 @@ lazy val standalone = (project in file("standalone"))
         </scm>
         <developers>
           <developer>
-            <id>marmbrus</id>
-            <name>Michael Armbrust</name>
-            <url>https://github.com/marmbrus</url>
-          </developer>
-          <developer>
-            <id>brkyvz</id>
-            <name>Burak Yavuz</name>
-            <url>https://github.com/brkyvz</url>
-          </developer>
-          <developer>
-            <id>jose-torres</id>
-            <name>Jose Torres</name>
-            <url>https://github.com/jose-torres</url>
-          </developer>
-          <developer>
-            <id>liwensun</id>
-            <name>Liwen Sun</name>
-            <url>https://github.com/liwensun</url>
-          </developer>
-          <developer>
-            <id>mukulmurthy</id>
-            <name>Mukul Murthy</name>
-            <url>https://github.com/mukulmurthy</url>
-          </developer>
-          <developer>
             <id>tdas</id>
             <name>Tathagata Das</name>
             <url>https://github.com/tdas</url>
+          </developer>
+          <developer>
+            <id>scottsand-db</id>
+            <name>Scott Sandre/name>
+            <url>https://github.com/scottsand-db</url>
+          </developer>
+          <developer>
+            <id>windpiger</id>
+            <name>Jun Song</name>
+            <url>https://github.com/windpiger</url>
           </developer>
           <developer>
             <id>zsxwing</id>
@@ -273,7 +258,7 @@ lazy val standalone = (project in file("standalone"))
           </developer>
         </developers>,
     bintrayOrganization := Some("delta-io"),
-    bintrayRepository := "standalone",
+    bintrayRepository := "delta",
     releaseProcess := Seq[ReleaseStep](
       checkSnapshotDependencies,
       inquireVersions,
