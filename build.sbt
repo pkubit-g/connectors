@@ -243,7 +243,7 @@ lazy val standalone = (project in file("standalone"))
           </developer>
           <developer>
             <id>scottsand-db</id>
-            <name>Scott Sandre/name>
+            <name>Scott Sandre</name>
             <url>https://github.com/scottsand-db</url>
           </developer>
           <developer>
