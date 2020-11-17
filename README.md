@@ -42,7 +42,7 @@ Scala 2.11:
 
 #### SBT
 ```
-libraryDependencies += "io.delta" %% "delta-standalone" % "0.2.0-SNAPSHOT"
+libraryDependencies += "io.delta" %% "delta-standalone" % "0.2.0"
 ```
 
 ## Hive connector
@@ -103,8 +103,8 @@ SET hive.tez.input.format=io.delta.hive.HiveInputFormat;
 The second step is to upload the above uber JAR to the machine that runs Hive. Next, make the JAR accessible to Hive. There are several ways to do this, listed below. To verify that the JAR was properly added, run `LIST JARS;` in the Hive CLI.
 
 - in the Hive CLI, run `ADD JAR <path-to-jar>;`
-- move the uber JAR to the folder already pointed to by the `HIVE_AUX_JARS_PATH` environmental variable. (Its location is `/usr/lib/hive-hcatalog/share/hcatalog` in an EMR cluster)
-- modify the same `/etc/hive/conf/hive-site.xml` file as above, and add the following. (Note that this has to be done before you start the Hive CLI)
+- add the uber JAR to a folder already pointed to by the `HIVE_AUX_JARS_PATH` environmental variable
+- modify the same `hive-site.xml` file as above, and add the following. (Note that this has to be done before you start the Hive CLI)
 ```xml
 <property>
   <name>hive.aux.jars.path</name>
@@ -160,7 +160,7 @@ Unfortunately, the table schema is a core concept of Hive and Hive needs it befo
 If the schema in the underlying Delta metadata is not consistent with the schema specified by `CREATE TABLE` statement, the connector will report an error when loading the table and ask you to fix the schema. You must drop the table and recreate it using the new schema. Hive 3.x exposes a new API to allow a data source to hook ALTER TABLE. You will be able to use ALTER TABLE to update a table schema when the connector supports Hive 3.x.
 
 #### Hive has three execution engines, MapReduce, Tez and Spark. Which one does this connector support?
-The connector supports Tez (default) and MapReduce. It doesn't support Spark execution engine in Hive.
+The connector supports MapReduce and Tez. It doesn't support Spark execution engine in Hive.
 
 # Reporting issues
 
