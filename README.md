@@ -42,7 +42,7 @@ Scala 2.11:
 
 #### SBT
 ```
-libraryDependencies += "io.delta" %% "delta-standalone" % "0.2.0"
+libraryDependencies += "io.delta" %% "delta-standalone" % "0.2.0-SNAPSHOT"
 ```
 
 ## Hive connector
