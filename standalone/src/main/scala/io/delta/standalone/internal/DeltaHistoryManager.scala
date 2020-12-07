@@ -16,11 +16,11 @@
 
 package io.delta.standalone.internal
 
+import java.io.FileNotFoundException
 import java.sql.Timestamp
 
 import org.apache.hadoop.fs.Path
-
-import io.delta.standalone.internal.actions.CommitMarker
+import io.delta.standalone.internal.actions.{Action, CommitInfo, CommitMarker}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.FileNames
 import io.delta.standalone.internal.storage.ReadOnlyLogStore
@@ -32,6 +32,31 @@ import io.delta.standalone.internal.storage.ReadOnlyLogStore
  * @param deltaLog the transaction log of this table
  */
 private[internal] case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
+
+  /**
+   * Get the commit information of the Delta table from commit `[start, end)`. If `end` is `None`,
+   * we return all commits from start to now.
+   */
+  def getCommitInfoHistory(start: Long, end: Option[Long]): Seq[CommitInfo] = {
+    val logPath = deltaLog.logPath.toString
+    // We assume that commits are contiguous, therefore we try to load all of them in order
+    val info = (start to end.getOrElse(deltaLog.update().version)).map { commitVersion =>
+      val basePath = new Path(logPath)
+      val fs = basePath.getFileSystem(deltaLog.hadoopConf)
+      try {
+        val ci = DeltaHistoryManager.getCommitInfo(deltaLog.store, basePath, commitVersion)
+        val metadata = fs.getFileStatus(FileNames.deltaFile(basePath, commitVersion))
+        Some(ci.withTimestamp(metadata.getModificationTime))
+      } catch {
+        case _: FileNotFoundException =>
+          // We have a race-condition where files can be deleted while reading. It's fine to
+          // skip those files
+          None
+      }
+    }
+
+    monotonizeCommitTimestamps(info.flatten.toArray).reverse
+  }
 
   /**
    * Check whether the given version can be recreated by replaying the DeltaLog.
@@ -187,5 +212,25 @@ private[internal] case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
     override def getTimestamp: Long = timestamp
 
     override def getVersion: Long = version
+  }
+}
+
+/** Contains utility methods */
+private[internal] object DeltaHistoryManager {
+
+  /** Get the persisted commit info for the given delta file. */
+  private def getCommitInfo(
+      logStore: ReadOnlyLogStore,
+      basePath: Path,
+      version: Long): CommitInfo = {
+    val info = logStore.read(FileNames.deltaFile(basePath, version))
+      .iterator
+      .map(Action.fromJson)
+      .collectFirst { case c: CommitInfo => c }
+    if (info.isEmpty) {
+      CommitInfo.empty(Some(version))
+    } else {
+      info.head.copy(version = Some(version))
+    }
   }
 }

@@ -16,15 +16,21 @@
 
 package io.delta.standalone.internal.util
 
+import java.util.{Optional => OptionalJ}
+
 import collection.JavaConverters._
 
-import io.delta.standalone.actions.{AddFile => AddFileJ, Format => FormatJ, Metadata => MetadataJ}
-import io.delta.standalone.internal.actions.{AddFile, Format, Metadata}
+import io.delta.standalone.actions.{AddFile => AddFileJ, CommitInfo => CommitInfoJ, Format => FormatJ, JobInfo => JobInfoJ, Metadata => MetadataJ}
+import io.delta.standalone.internal.actions.{AddFile, CommitInfo, Format, JobInfo, Metadata}
 
 /**
  * Provide helper methods to convert from Scala to Java types.
  */
 private[internal] object ConversionUtils {
+
+  private implicit def convertOption[ScalaT, JavaT](opt: Option[ScalaT]): OptionalJ[JavaT] = {
+    OptionalJ.ofNullable(opt.getOrElse(null).asInstanceOf[JavaT])
+  }
 
   /**
    * Convert an [[AddFile]] (Scala) to an [[AddFileJ]] (Java)
@@ -52,7 +58,7 @@ private[internal] object ConversionUtils {
       internal.schemaString,
       internal.partitionColumns.toList.asJava,
       internal.configuration.asJava,
-      java.util.Optional.ofNullable(internal.createdTime.getOrElse(null).asInstanceOf[Long]),
+      internal.createdTime,
       internal.schema)
   }
 
@@ -61,5 +67,46 @@ private[internal] object ConversionUtils {
    */
   def convertFormat(internal: Format): FormatJ = {
     new FormatJ(internal.provider, internal.options.asJava)
+  }
+
+  /**
+   * Convert a [[CommitInfo]] (Scala) to a [[CommitInfoJ]] (Java)
+   */
+  def convertCommitInfo(internal: CommitInfo): CommitInfoJ = {
+    val notebookIdOpt: OptionalJ[String] = if (internal.notebook.isDefined) {
+      OptionalJ.of(internal.notebook.get.notebookId) }
+    else {
+      OptionalJ.empty()
+    }
+
+    new CommitInfoJ(
+      internal.version,
+      internal.timestamp,
+      internal.userId,
+      internal.userName,
+      internal.operation,
+      internal.operationParameters.asJava,
+      internal.job,
+      notebookIdOpt,
+      internal.clusterId,
+      internal.readVersion,
+      internal.isolationLevel,
+      internal.isBlindAppend,
+      internal.operationMetrics,
+      internal.userMetadata
+    )
+
+  }
+
+  /**
+   * Convert a [[JobInfo]] (Scala) to a [[JobInfoJ]] (Java)
+   */
+  def convertJobInfo(internal: JobInfo): JobInfoJ = {
+    new JobInfoJ(
+      internal.jobId,
+      internal.jobName,
+      internal.runId,
+      internal.jobOwnerId,
+      internal.triggerType)
   }
 }
