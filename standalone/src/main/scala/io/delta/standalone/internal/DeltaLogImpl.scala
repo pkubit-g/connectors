@@ -51,8 +51,10 @@ private[internal] class DeltaLogImpl private(
 
   override def getDataPath: Path = dataPath
 
-  override def getCommitInfoAt(version: Long): CommitInfoJ =
+  override def getCommitInfoAt(version: Long): CommitInfoJ = {
+    history.checkVersionExists(version)
     ConversionUtils.convertCommitInfo(history.getCommitInfo(version))
+  }
 
   /**
    * Run `body` inside `deltaLogLock` lock using `lockInterruptibly` so that the thread can be

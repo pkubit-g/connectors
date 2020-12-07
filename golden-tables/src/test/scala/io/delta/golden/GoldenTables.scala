@@ -32,7 +32,7 @@ import org.apache.spark.network.util.JavaUtils
 import org.apache.spark.sql.delta.{DeltaLog, OptimisticTransaction}
 import org.apache.spark.sql.{QueryTest, Row}
 import org.apache.spark.sql.delta.DeltaOperations.ManualUpdate
-import org.apache.spark.sql.delta.actions.{Action, AddFile, Metadata, Protocol, RemoveFile, SingleAction}
+import org.apache.spark.sql.delta.actions.{Action, AddFile, CommitInfo, JobInfo, Metadata, NotebookInfo, Protocol, RemoveFile, SingleAction}
 import org.apache.spark.sql.delta.sources.DeltaSQLConf
 import org.apache.spark.sql.delta.util.{FileNames, JsonUtils}
 import org.apache.spark.sql.test.SharedSparkSession
@@ -335,6 +335,32 @@ class GoldenTables extends QueryTest with SharedSparkSession {
       // Protocol reader version explicitly set too high
       // Also include a Metadata
       Iterator(Protocol(99), Metadata(), file).map(a => JsonUtils.toJson(a.wrap)))
+  }
+
+  /** TEST: DeltaLogSuiote > get commit info */
+  generateGoldenTable("deltalog-commit-info") { tablePath =>
+    val log = DeltaLog.forTable(spark, new Path(tablePath))
+    assert(new File(log.logPath.toUri).mkdirs())
+
+    val commitInfoFile = CommitInfo(
+      Some(0),
+      new Timestamp(1540415658000L),
+      Some("user_0"),
+      Some("username_0"),
+      "WRITE",
+      Map("test" -> "\"test\""),
+      Some(JobInfo("job_id_0", "job_name_0", "run_id_0", "job_owner_0", "trigger_type_0")),
+      Some(NotebookInfo("notebook_id_0")),
+      Some("cluster_id_0"),
+      Some(-1),
+      Some("default"),
+      Some(true)
+    )
+
+    val addFile = AddFile("abc", Map.empty, 1, 1, true)
+    log.store.write(
+      FileNames.deltaFile(log.logPath, 0L),
+      Iterator(Metadata(), Protocol(), commitInfoFile, addFile).map(a => JsonUtils.toJson(a.wrap)))
   }
 
   ///////////////////////////////////////////////////////////////////////////

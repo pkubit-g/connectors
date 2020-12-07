@@ -3,6 +3,7 @@ package io.delta.standalone.actions;
 import java.sql.Timestamp;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 public class CommitInfo {
@@ -12,7 +13,7 @@ public class CommitInfo {
     private final Optional<String> userName;
     private final String operation;
     private final Map<String, String> operationParameters;
-    private final Optional<JobInfo> job;
+    private final Optional<JobInfo> jobInfo;
     private final Optional<String> notebookId;
     private final Optional<String> clusterId;
     private final Optional<Long> readVersion;
@@ -23,7 +24,7 @@ public class CommitInfo {
 
     public CommitInfo(Optional<Long> version, Timestamp timestamp, Optional<String> userId,
                       Optional<String> userName, String operation,
-                      Map<String, String> operationParameters, Optional<JobInfo> job,
+                      Map<String, String> operationParameters, Optional<JobInfo> jobInfo,
                       Optional<String> notebookId, Optional<String> clusterId,
                       Optional<Long> readVersion, Optional<String> isolationLevel,
                       Optional<Boolean> isBlindAppend,
@@ -35,7 +36,7 @@ public class CommitInfo {
         this.userName = userName;
         this.operation = operation;
         this.operationParameters = operationParameters;
-        this.job = job;
+        this.jobInfo = jobInfo;
         this.notebookId = notebookId;
         this.clusterId = clusterId;
         this.readVersion = readVersion;
@@ -69,8 +70,8 @@ public class CommitInfo {
         return Collections.unmodifiableMap(operationParameters);
     }
 
-    public Optional<JobInfo> getJob() {
-        return job;
+    public Optional<JobInfo> getJobInfo() {
+        return jobInfo;
     }
 
     public Optional<String> getNotebookId() {
@@ -102,5 +103,33 @@ public class CommitInfo {
 
     public Optional<String> getUserMetadata() {
         return userMetadata;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        CommitInfo that = (CommitInfo) o;
+        return Objects.equals(version, that.version) &&
+                Objects.equals(timestamp, that.timestamp) &&
+                Objects.equals(userId, that.userId) &&
+                Objects.equals(userName, that.userName) &&
+                Objects.equals(operation, that.operation) &&
+                Objects.equals(operationParameters, that.operationParameters) &&
+                Objects.equals(jobInfo, that.jobInfo) &&
+                Objects.equals(notebookId, that.notebookId) &&
+                Objects.equals(clusterId, that.clusterId) &&
+                Objects.equals(readVersion, that.readVersion) &&
+                Objects.equals(isolationLevel, that.isolationLevel) &&
+                Objects.equals(isBlindAppend, that.isBlindAppend) &&
+                Objects.equals(operationMetrics, that.operationMetrics) &&
+                Objects.equals(userMetadata, that.userMetadata);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(version, timestamp, userId, userName, operation, operationParameters,
+                jobInfo, notebookId, clusterId, readVersion, isolationLevel, isBlindAppend,
+                operationMetrics, userMetadata);
     }
 }

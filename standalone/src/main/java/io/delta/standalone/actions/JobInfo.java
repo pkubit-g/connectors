@@ -1,5 +1,7 @@
 package io.delta.standalone.actions;
 
+import java.util.Objects;
+
 public class JobInfo {
     private final String jobId;
     private final String jobName;
@@ -33,5 +35,22 @@ public class JobInfo {
 
     public String getTriggerType() {
         return triggerType;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        JobInfo jobInfo = (JobInfo) o;
+        return Objects.equals(jobId, jobInfo.jobId) &&
+                Objects.equals(jobName, jobInfo.jobName) &&
+                Objects.equals(runId, jobInfo.runId) &&
+                Objects.equals(jobOwnerId, jobInfo.jobOwnerId) &&
+                Objects.equals(triggerType, jobInfo.triggerType);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(jobId, jobName, runId, jobOwnerId, triggerType);
     }
 }

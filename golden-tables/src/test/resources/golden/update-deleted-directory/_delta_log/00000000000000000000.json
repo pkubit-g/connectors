@@ -1,6 +1,6 @@
-{"commitInfo":{"timestamp":1603723978664,"operation":"Manual Update","operationParameters":{},"isBlindAppend":true}}
+{"commitInfo":{"timestamp":1607367272751,"operation":"Manual Update","operationParameters":{},"isBlindAppend":true}}
 {"protocol":{"minReaderVersion":1,"minWriterVersion":2}}
-{"metaData":{"id":"94c8d2b0-fbad-439b-a31f-17e17d93c2c7","format":{"provider":"parquet","options":{}},"partitionColumns":[],"configuration":{},"createdTime":1603723978664}}
+{"metaData":{"id":"4cb47142-f54e-4edf-9e64-3a4af926ba43","format":{"provider":"parquet","options":{}},"partitionColumns":[],"configuration":{},"createdTime":1607367272751}}
 {"add":{"path":"1","partitionValues":{},"size":1,"modificationTime":1,"dataChange":true}}
 {"add":{"path":"2","partitionValues":{},"size":1,"modificationTime":1,"dataChange":true}}
 {"add":{"path":"3","partitionValues":{},"size":1,"modificationTime":1,"dataChange":true}}
