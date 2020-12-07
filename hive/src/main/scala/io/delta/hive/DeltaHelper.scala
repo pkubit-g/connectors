@@ -18,7 +18,7 @@ package io.delta.hive
 
 import java.net.URI
 import java.util.Locale
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{Callable, TimeUnit}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -111,11 +111,13 @@ object DeltaHelper {
 
   def loadDeltaLatestSnapshot(hadoopConf: Configuration, rootPath: Path): Snapshot = {
     val loadStartMs = System.currentTimeMillis()
-    val deltaLog = deltaLogCache.get(rootPath, () => {
-      if (LOG.isInfoEnabled) {
-        LOG.info(s"DeltaLog for table ${rootPath.getName} was not cached. Loading log now.")
+    val deltaLog = deltaLogCache.get(rootPath, new Callable[DeltaLog] {
+      override def call(): DeltaLog = {
+        if (LOG.isInfoEnabled) {
+          LOG.info(s"DeltaLog for table ${rootPath.getName} was not cached. Loading log now.")
+        }
+        DeltaLog.forTable(hadoopConf, rootPath)
       }
-      DeltaLog.forTable(hadoopConf, rootPath)
     })
     val snapshot = deltaLog.update()
     val loadEndMs = System.currentTimeMillis()
