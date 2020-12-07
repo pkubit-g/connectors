@@ -73,6 +73,7 @@ private[internal] object ConversionUtils {
    * Convert a [[CommitInfo]] (Scala) to a [[CommitInfoJ]] (Java)
    */
   def convertCommitInfo(internal: CommitInfo): CommitInfoJ = {
+    // we expose notebookId: String instead of case class NotebookInfo(notebookId: String)
     val notebookIdOpt: OptionalJ[String] = if (internal.notebook.isDefined) {
       OptionalJ.of(internal.notebook.get.notebookId) }
     else {
@@ -95,7 +96,6 @@ private[internal] object ConversionUtils {
       internal.operationMetrics,
       internal.userMetadata
     )
-
   }
 
   /**

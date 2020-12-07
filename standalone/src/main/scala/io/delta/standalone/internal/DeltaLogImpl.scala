@@ -17,16 +17,13 @@
 package io.delta.standalone.internal
 
 import java.io.File
-import java.{lang, util}
 import java.util.concurrent.locks.ReentrantLock
 import java.util.Optional
-
-import scala.collection.JavaConverters._
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import io.delta.standalone.DeltaLog
-import io.delta.standalone.actions.CommitInfo
+import io.delta.standalone.actions.{CommitInfo => CommitInfoJ}
 import io.delta.standalone.internal.storage.HDFSReadOnlyLogStore
 import io.delta.standalone.internal.util.ConversionUtils
 
@@ -54,18 +51,8 @@ private[internal] class DeltaLogImpl private(
 
   override def getDataPath: Path = dataPath
 
-  override def getCommitInfoFrom(startVersion: Long): java.util.List[CommitInfo] =
-    getCommitInfoFrom(startVersion, Optional.empty())
-
-  override def getCommitInfoFrom(
-      startVersion: Long,
-      endVersion: Optional[lang.Long]): java.util.List[CommitInfo] = {
-    val endVersionScala: Option[Long] = if (endVersion.isPresent) Some(endVersion.get()) else None
-    history.getCommitInfoHistory(startVersion, endVersionScala)
-      .map(ci => ConversionUtils.convertCommitInfo(ci))
-      .toList
-      .asJava
-  }
+  override def getCommitInfoAt(version: Long): CommitInfoJ =
+    ConversionUtils.convertCommitInfo(history.getCommitInfo(version))
 
   /**
    * Run `body` inside `deltaLogLock` lock using `lockInterruptibly` so that the thread can be

@@ -50,9 +50,12 @@ public interface DeltaLog {
      */
     Snapshot getSnapshotForTimestampAsOf(long timestamp);
 
-    List<CommitInfo> getCommitInfoFrom(long startVersion);
-
-    List<CommitInfo> getCommitInfoFrom(long startVersion, Optional<Long> endVersion);
+    /**
+     *
+     * @param version
+     * @return
+     */
+    CommitInfo getCommitInfoAt(long version);
 
     /**
      * @return the path to the {@code _delta_log} files for this log
