@@ -51,9 +51,10 @@ public interface DeltaLog {
     Snapshot getSnapshotForTimestampAsOf(long timestamp);
 
     /**
+     * Retrieve a CommitInfo at a desired log version.
      *
-     * @param version
-     * @return
+     * @param version  the CommitInfo version to retrieve
+     * @return the CommitInfo at the provided {@code version}
      */
     CommitInfo getCommitInfoAt(long version);
 

@@ -6,6 +6,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * Holds provenance information about changes to the table. This CommitInfo
+ * is not stored in the checkpoint and has reduced compatibility guarantees.
+ * Information stored in it is best effort (i.e. can be falsified by a writer).
+ */
 public class CommitInfo {
     private final Optional<Long> version;
     private final Timestamp timestamp;
@@ -46,54 +51,93 @@ public class CommitInfo {
         this.userMetadata = userMetadata;
     }
 
+    /**
+     * @return the log version for this commit
+     */
     public Optional<Long> getVersion() {
         return version;
     }
 
+    /**
+     * @return the time the files in this commit were committed
+     */
     public Timestamp getTimestamp() {
         return timestamp;
     }
 
+    /**
+     * @return the userId of the user who committed this file
+     */
     public Optional<String> getUserId() {
         return userId;
     }
 
+    /**
+     * @return the userName of the user who committed this file
+     */
     public Optional<String> getUserName() {
         return userName;
     }
 
+    /**
+     * @return the type of operation for this commit. e.g. "WRITE"
+     */
     public String getOperation() {
         return operation;
     }
 
+    /**
+     * @return any relevant operation parameters. e.g. "mode", "partitionBy"
+     */
     public Map<String, String> getOperationParameters() {
         return Collections.unmodifiableMap(operationParameters);
     }
 
+    /**
+     * @return the JobInfo for this commit
+     */
     public Optional<JobInfo> getJobInfo() {
         return jobInfo;
     }
 
+    /**
+     * @return the ID of the notebook used to generate this commit
+     */
     public Optional<String> getNotebookId() {
         return notebookId;
     }
 
+    /**
+     * @return the ID of the cluster used to generate this commit
+     */
     public Optional<String> getClusterId() {
         return clusterId;
     }
 
+    /**
+     * @return the version that the transaction used to generate this commit is reading from
+     */
     public Optional<Long> getReadVersion() {
         return readVersion;
     }
 
+    /**
+     * @return the isolation level at which this commit was generated
+     */
     public Optional<String> getIsolationLevel() {
         return isolationLevel;
     }
 
+    /**
+     * @return whether this commit has blindly appended without caring about existing files
+     */
     public Optional<Boolean> getIsBlindAppend() {
         return isBlindAppend;
     }
 
+    /**
+     * @return any operation metrics calculcated
+     */
     public Optional<Map<String, String>> getOperationMetrics() {
         if (operationMetrics.isPresent()) {
             return Optional.of(Collections.unmodifiableMap(operationMetrics.get()));
@@ -101,6 +145,9 @@ public class CommitInfo {
         return operationMetrics;
     }
 
+    /**
+     * @return any aditional user metadata
+     */
     public Optional<String> getUserMetadata() {
         return userMetadata;
     }
