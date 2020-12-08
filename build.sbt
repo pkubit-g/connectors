@@ -307,8 +307,8 @@ lazy val goldenTables = (project in file("golden-tables")) settings (
     "org.apache.spark" %% "spark-sql" % "3.0.0" % "test",
     "io.delta" %% "delta-core" % "0.7.0" % "test",
     "commons-io" % "commons-io" % "2.8.0" % "test",
-    "org.apache.spark" %% "spark-catalyst" % sparkVersion % "test" classifier "tests",
-    "org.apache.spark" %% "spark-core" % sparkVersion % "test" classifier "tests",
-    "org.apache.spark" %% "spark-sql" % sparkVersion % "test" classifier "tests"
+    "org.apache.spark" %% "spark-catalyst" % "3.0.0" % "test" classifier "tests",
+    "org.apache.spark" %% "spark-core" % "3.0.0" % "test" classifier "tests",
+    "org.apache.spark" %% "spark-sql" % "3.0.0" % "test" classifier "tests"
   )
 )
