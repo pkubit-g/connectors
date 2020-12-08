@@ -169,7 +169,7 @@ private[internal] trait CommitMarker {
  * is not stored in the checkpoint and has reduced compatibility guarantees.
  * Information stored in it is best effort (i.e. can be falsified by the writer).
  */
-case class CommitInfo(
+private[internal] case class CommitInfo(
     // The commit version should be left unfilled during commit(). When reading a delta file, we can
     // infer the commit version from the file name and fill in this field then.
     @JsonDeserialize(contentAs = classOf[java.lang.Long])
@@ -201,21 +201,21 @@ case class CommitInfo(
   override def getVersion: Long = version.get
 }
 
-object CommitInfo {
+private[internal] object CommitInfo {
   def empty(version: Option[Long] = None): CommitInfo = {
     CommitInfo(version, null, None, None, null, null, None, None,
       None, None, None, None, None, None)
   }
 }
 
-case class JobInfo(
+private[internal] case class JobInfo(
     jobId: String,
     jobName: String,
     runId: String,
     jobOwnerId: String,
     triggerType: String)
 
-case class NotebookInfo(notebookId: String)
+private[internal] case class NotebookInfo(notebookId: String)
 
 /** A serialization helper to create a common action envelope. */
 private[internal] case class SingleAction(

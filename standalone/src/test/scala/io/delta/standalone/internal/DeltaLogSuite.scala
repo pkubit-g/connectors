@@ -24,7 +24,7 @@ import java.util.UUID
 import scala.collection.JavaConverters._
 
 import io.delta.standalone.{DeltaLog, Snapshot}
-import io.delta.standalone.actions.{JobInfo => JobInfoJ}
+import io.delta.standalone.actions.{JobInfo => JobInfoJ, NotebookInfo => NotebookInfoJ}
 import io.delta.standalone.internal.actions.Action
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.GoldenTableUtils._
@@ -248,14 +248,16 @@ class DeltaLogSuite extends FunSuite {
       assert(ci.getUserId.get() == "user_0")
       assert(ci.getUserName.get() == "username_0")
       assert(ci.getOperation == "WRITE")
-      assert(ci.getOperationParameters.asScala == Map("test" -> "test"))
+      assert(ci.getOperationParameters == Map("test" -> "test").asJava)
       assert(ci.getJobInfo.get() ==
         new JobInfoJ("job_id_0", "job_name_0", "run_id_0", "job_owner_0", "trigger_type_0"))
-      assert(ci.getNotebookId.get() == "notebook_id_0")
+      assert(ci.getNotebookInfo.get() == new NotebookInfoJ("notebook_id_0"))
       assert(ci.getClusterId.get() == "cluster_id_0")
       assert(ci.getReadVersion.get() == -1)
       assert(ci.getIsolationLevel.get() == "default")
       assert(ci.getIsBlindAppend.get() == true)
+      assert(ci.getOperationMetrics.get() == Map("test" -> "test").asJava)
+      assert(ci.getUserMetadata.get() == "foo")
     }
 
     // use an actual spark transaction example

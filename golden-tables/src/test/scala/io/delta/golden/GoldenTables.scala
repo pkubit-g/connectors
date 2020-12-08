@@ -342,7 +342,7 @@ class GoldenTables extends QueryTest with SharedSparkSession {
       Iterator(Protocol(99), Metadata(), file).map(a => JsonUtils.toJson(a.wrap)))
   }
 
-  /** TEST: DeltaLogSuiote > get commit info */
+  /** TEST: DeltaLogSuite > get commit info */
   generateGoldenTable("deltalog-commit-info") { tablePath =>
     val log = DeltaLog.forTable(spark, new Path(tablePath))
     assert(new File(log.logPath.toUri).mkdirs())
@@ -361,6 +361,15 @@ class GoldenTables extends QueryTest with SharedSparkSession {
       Some("default"),
       Some(true)
     )
+
+    /**
+     * NOTE:
+     * Due to versioning conflicts between DeltaOSS and the Delta version used here, this
+     * CommitInfo is missing two fields. If you re-build this table and get test errors, append to
+     * the end of the commitInfo object in file
+     * src/test/resources/golden/deltalog-commit-info/_delta_log/00000000000000000000.json this:
+     * "operationMetrics":{"test":"test"},"userMetadata":"foo"
+     */
 
     val addFile = AddFile("abc", Map.empty, 1, 1, true)
     log.store.write(

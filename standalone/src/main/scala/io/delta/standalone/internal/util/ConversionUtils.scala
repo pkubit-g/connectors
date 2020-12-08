@@ -16,20 +16,39 @@
 
 package io.delta.standalone.internal.util
 
+import java.lang.{String => StringJ}
 import java.util.{Optional => OptionalJ}
 
 import collection.JavaConverters._
 
-import io.delta.standalone.actions.{AddFile => AddFileJ, CommitInfo => CommitInfoJ, Format => FormatJ, JobInfo => JobInfoJ, Metadata => MetadataJ}
-import io.delta.standalone.internal.actions.{AddFile, CommitInfo, Format, JobInfo, Metadata}
+import io.delta.standalone.actions.{AddFile => AddFileJ, CommitInfo => CommitInfoJ, Format => FormatJ, JobInfo => JobInfoJ, Metadata => MetadataJ, NotebookInfo => NotebookInfoJ}
+import io.delta.standalone.internal.actions.{AddFile, CommitInfo, Format, JobInfo, Metadata, NotebookInfo}
 
 /**
  * Provide helper methods to convert from Scala to Java types.
  */
 private[internal] object ConversionUtils {
 
-  private implicit def convertOption[ScalaT, JavaT](opt: Option[ScalaT]): OptionalJ[JavaT] = {
-    OptionalJ.ofNullable(opt.getOrElse(null).asInstanceOf[JavaT])
+  private def toJavaLongOptional(opt: Option[Long]): OptionalJ[java.lang.Long] = opt match {
+    case Some(v) => OptionalJ.ofNullable(v)
+    case None => OptionalJ.empty()
+  }
+
+  private def toJavaBooleanOptional(
+      opt: Option[Boolean]): OptionalJ[java.lang.Boolean] = opt match {
+    case Some(v) => OptionalJ.ofNullable(v)
+    case None => OptionalJ.empty()
+  }
+
+  private def toJavaStringOptional(opt: Option[String]): OptionalJ[StringJ] = opt match {
+    case Some(v) => OptionalJ.ofNullable(v)
+    case None => OptionalJ.empty()
+  }
+
+  private def toJavaMapOptional(
+      opt: Option[Map[String, String]]): OptionalJ[java.util.Map[StringJ, StringJ]] = opt match {
+    case Some(v) => OptionalJ.ofNullable(v.asJava)
+    case None => OptionalJ.empty()
   }
 
   /**
@@ -58,7 +77,7 @@ private[internal] object ConversionUtils {
       internal.schemaString,
       internal.partitionColumns.toList.asJava,
       internal.configuration.asJava,
-      internal.createdTime,
+      toJavaLongOptional(internal.createdTime),
       internal.schema)
   }
 
@@ -73,9 +92,9 @@ private[internal] object ConversionUtils {
    * Convert a [[CommitInfo]] (Scala) to a [[CommitInfoJ]] (Java)
    */
   def convertCommitInfo(internal: CommitInfo): CommitInfoJ = {
-    val notebookIdOpt: OptionalJ[String] = if (internal.notebook.isDefined) {
-      OptionalJ.of(internal.notebook.get.notebookId) }
-    else {
+    val notebookInfoOpt: OptionalJ[NotebookInfoJ] = if (internal.notebook.isDefined) {
+      OptionalJ.of(convertNotebookInfo(internal.notebook.get))
+    } else {
       OptionalJ.empty()
     }
 
@@ -86,20 +105,20 @@ private[internal] object ConversionUtils {
     }
 
     new CommitInfoJ(
-      internal.version,
+      toJavaLongOptional(internal.version),
       internal.timestamp,
-      internal.userId,
-      internal.userName,
+      toJavaStringOptional(internal.userId),
+      toJavaStringOptional(internal.userName),
       internal.operation,
       internal.operationParameters.asJava,
       jobInfoOpt,
-      notebookIdOpt,
-      internal.clusterId,
-      internal.readVersion,
-      internal.isolationLevel,
-      internal.isBlindAppend,
-      internal.operationMetrics,
-      internal.userMetadata
+      notebookInfoOpt,
+      toJavaStringOptional(internal.clusterId),
+      toJavaLongOptional(internal.readVersion),
+      toJavaStringOptional(internal.isolationLevel),
+      toJavaBooleanOptional(internal.isBlindAppend),
+      toJavaMapOptional(internal.operationMetrics),
+      toJavaStringOptional(internal.userMetadata)
     )
   }
 
@@ -113,5 +132,12 @@ private[internal] object ConversionUtils {
       internal.runId,
       internal.jobOwnerId,
       internal.triggerType)
+  }
+
+  /**
+   * Convert a [[NotebookInfo]] (Scala) to a [[NotebookInfoJ]] (Java)
+   */
+  def convertNotebookInfo(internal: NotebookInfo): NotebookInfoJ = {
+    new NotebookInfoJ(internal.notebookId)
   }
 }

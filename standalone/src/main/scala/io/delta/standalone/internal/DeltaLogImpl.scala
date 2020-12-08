@@ -18,7 +18,6 @@ package io.delta.standalone.internal
 
 import java.io.File
 import java.util.concurrent.locks.ReentrantLock
-import java.util.Optional
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path

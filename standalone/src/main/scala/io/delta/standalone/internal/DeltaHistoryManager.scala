@@ -16,7 +16,6 @@
 
 package io.delta.standalone.internal
 
-import java.io.FileNotFoundException
 import java.sql.Timestamp
 
 import org.apache.hadoop.fs.Path
@@ -35,9 +34,7 @@ private[internal] case class DeltaHistoryManager(deltaLog: DeltaLogImpl) {
 
   /** Get the persisted commit info for the given delta file. */
   def getCommitInfo(version: Long): CommitInfo = {
-    val logPath = deltaLog.logPath.toString
-    val basePath = new Path(logPath)
-    val info = deltaLog.store.read(FileNames.deltaFile(basePath, version))
+    val info = deltaLog.store.read(FileNames.deltaFile(deltaLog.logPath, version))
       .iterator
       .map(Action.fromJson)
       .collectFirst { case c: CommitInfo => c }

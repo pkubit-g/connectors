@@ -19,7 +19,7 @@ public class CommitInfo {
     private final String operation;
     private final Map<String, String> operationParameters;
     private final Optional<JobInfo> jobInfo;
-    private final Optional<String> notebookId;
+    private final Optional<NotebookInfo> notebookInfo;
     private final Optional<String> clusterId;
     private final Optional<Long> readVersion;
     private final Optional<String> isolationLevel;
@@ -30,7 +30,7 @@ public class CommitInfo {
     public CommitInfo(Optional<Long> version, Timestamp timestamp, Optional<String> userId,
                       Optional<String> userName, String operation,
                       Map<String, String> operationParameters, Optional<JobInfo> jobInfo,
-                      Optional<String> notebookId, Optional<String> clusterId,
+                      Optional<NotebookInfo> notebookInfo, Optional<String> clusterId,
                       Optional<Long> readVersion, Optional<String> isolationLevel,
                       Optional<Boolean> isBlindAppend,
                       Optional<Map<String, String>> operationMetrics,
@@ -42,7 +42,7 @@ public class CommitInfo {
         this.operation = operation;
         this.operationParameters = operationParameters;
         this.jobInfo = jobInfo;
-        this.notebookId = notebookId;
+        this.notebookInfo = notebookInfo;
         this.clusterId = clusterId;
         this.readVersion = readVersion;
         this.isolationLevel = isolationLevel;
@@ -101,10 +101,10 @@ public class CommitInfo {
     }
 
     /**
-     * @return the ID of the notebook used to generate this commit
+     * @return the NotebookInfo for this commit
      */
-    public Optional<String> getNotebookId() {
-        return notebookId;
+    public Optional<NotebookInfo> getNotebookInfo() {
+        return notebookInfo;
     }
 
     /**
@@ -164,7 +164,7 @@ public class CommitInfo {
                 Objects.equals(operation, that.operation) &&
                 Objects.equals(operationParameters, that.operationParameters) &&
                 Objects.equals(jobInfo, that.jobInfo) &&
-                Objects.equals(notebookId, that.notebookId) &&
+                Objects.equals(notebookInfo, that.notebookInfo) &&
                 Objects.equals(clusterId, that.clusterId) &&
                 Objects.equals(readVersion, that.readVersion) &&
                 Objects.equals(isolationLevel, that.isolationLevel) &&
@@ -176,7 +176,7 @@ public class CommitInfo {
     @Override
     public int hashCode() {
         return Objects.hash(version, timestamp, userId, userName, operation, operationParameters,
-                jobInfo, notebookId, clusterId, readVersion, isolationLevel, isBlindAppend,
+                jobInfo, notebookInfo, clusterId, readVersion, isolationLevel, isBlindAppend,
                 operationMetrics, userMetadata);
     }
 }
