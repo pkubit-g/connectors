@@ -37,6 +37,7 @@ import org.apache.spark.sql.delta.sources.DeltaSQLConf
 import org.apache.spark.sql.delta.util.{FileNames, JsonUtils}
 import org.apache.spark.sql.test.SharedSparkSession
 import org.apache.spark.sql.types._
+import org.apache.spark.SparkConf
 
 /**
  * This is a special class to generate golden tables for other projects. Run the following commands
@@ -54,8 +55,11 @@ import org.apache.spark.sql.types._
  * test resources won't be available when running tests with IntelliJ.
  */
 class GoldenTables extends QueryTest with SharedSparkSession {
-
   import testImplicits._
+
+  override def sparkConf: SparkConf = super.sparkConf
+    .set("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+    .set("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
 
   // Timezone is fixed to America/Los_Angeles for timezone-sensitive tests
   TimeZone.setDefault(TimeZone.getTimeZone("America/Los_Angeles"))
