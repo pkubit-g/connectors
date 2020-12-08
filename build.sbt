@@ -303,7 +303,7 @@ lazy val goldenTables = (project in file("golden-tables")) settings (
   skipReleaseSettings,
   libraryDependencies ++= Seq(
     // Test Dependencies
-    "org.scalatest" % "scalatest" % "3.0.5" % "test",
+    "org.scalatest" %% "scalatest" % "3.0.5" % "test",
     "org.apache.spark" % "spark-sql_2.12" % "3.0.0" % "test",
     "io.delta" % "delta-core_2.12" % "0.7.0" % "test",
     "commons-io" % "commons-io" % "2.8.0" % "test",
