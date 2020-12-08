@@ -45,7 +45,12 @@ import org.apache.spark.sql.types._
  * GENERATE_GOLDEN_TABLES=1 build/sbt 'goldenTables/test'
  * ```
  *
- * After generating golden tables, ensure to package or test project `standalone`, otherwise the
+ * To generate a single table (that is specified below) run:
+ * ```
+ * GENERATE_GOLDEN_TABLES=1 build/sbt 'goldenTables/test-only *GoldenTables -- -z tbl_name'
+ * ```
+ *
+ * After generating golden tables, ensure to package or test project standalone`, otherwise the
  * test resources won't be available when running tests with IntelliJ.
  */
 class GoldenTables extends QueryTest with SharedSparkSession {

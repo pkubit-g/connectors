@@ -1,2 +1,2 @@
-{"metaData":{"id":"6ea3c060-57d1-41b8-943c-2341b9d06909","format":{"provider":"parquet","options":{}},"partitionColumns":[],"configuration":{},"createdTime":1607367290392}}
+{"metaData":{"id":"1e83e8f7-a90f-4477-b565-6c42cbeed3fc","format":{"provider":"parquet","options":{}},"partitionColumns":[],"configuration":{},"createdTime":1603723996984}}
 {"add":{"path":"abc","partitionValues":{},"size":1,"modificationTime":1,"dataChange":true}}
