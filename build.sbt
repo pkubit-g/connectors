@@ -132,7 +132,6 @@ lazy val hive = (project in file("hive")) dependsOn(standalone) settings (
   libraryDependencies ++= Seq(
     "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
     "org.apache.parquet" % "parquet-hadoop" % "1.10.1" % "provided",
-    "com.google.guava" % "guava" % "14.0.1",
     "org.apache.hive" % "hive-exec" % hiveVersion % "provided" classifier "core" excludeAll(
       ExclusionRule(organization = "org.apache.spark"),
       ExclusionRule(organization = "org.apache.parquet"),
