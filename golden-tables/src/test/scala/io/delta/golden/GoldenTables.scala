@@ -359,17 +359,10 @@ class GoldenTables extends QueryTest with SharedSparkSession {
       Some("cluster_id_0"),
       Some(-1),
       Some("default"),
-      Some(true)
+      Some(true),
+      Some(Map("test" -> "test")),
+      Some("foo")
     )
-
-    /**
-     * NOTE:
-     * Due to versioning conflicts between DeltaOSS and the Delta version used here, this
-     * CommitInfo is missing two fields. If you re-build this table and get test errors, append to
-     * the end of the commitInfo object in file
-     * src/test/resources/golden/deltalog-commit-info/_delta_log/00000000000000000000.json this:
-     * "operationMetrics":{"test":"test"},"userMetadata":"foo"
-     */
 
     val addFile = AddFile("abc", Map.empty, 1, 1, true)
     log.store.write(
