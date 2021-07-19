@@ -25,7 +25,7 @@ import com.github.mjakubowski84.parquet4s.ParquetReader
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
-import io.delta.standalone.{DeltaLog, Snapshot}
+import io.delta.standalone.Snapshot
 import io.delta.standalone.actions.{AddFile => AddFileJ, Metadata => MetadataJ}
 import io.delta.standalone.data.{CloseableIterator, RowRecord => RowParquetRecordJ}
 import io.delta.standalone.internal.actions.{Action, AddFile, InMemoryLogReplay, Metadata, Protocol, SingleAction}

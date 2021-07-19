@@ -21,6 +21,8 @@ import org.apache.hadoop.fs.Path;
 
 import io.delta.standalone.internal.DeltaLogImpl;
 
+import java.util.Iterator;
+
 /**
  * {@link DeltaLog} is the representation of the transaction logs of a Delta table. It provides APIs
  * to access the states of a Delta table.
@@ -74,6 +76,8 @@ public interface DeltaLog {
 
     /** @return the path of the Delta table. */
     Path getPath();
+
+    Iterator<VersionDelta> getChanges(long startVersion, boolean failOnDataLoss);
 
     /**
      * Create a {@link DeltaLog} instance representing the table located at the provided {@code path}.

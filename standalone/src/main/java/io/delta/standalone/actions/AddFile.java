@@ -15,8 +15,6 @@
  */
 package io.delta.standalone.actions;
 
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
@@ -30,7 +28,7 @@ import java.util.Objects;
  *
  * @see  <a href="https://github.com/delta-io/delta/blob/master/PROTOCOL.md">Delta Transaction Log Protocol</a>
  */
-public final class AddFile {
+public final class AddFile extends Action {
     private final String path;
     private final Map<String, String> partitionValues;
     private final long size;

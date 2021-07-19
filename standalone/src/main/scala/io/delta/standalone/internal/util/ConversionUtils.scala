@@ -21,8 +21,8 @@ import java.util.{Optional => OptionalJ}
 
 import collection.JavaConverters._
 
-import io.delta.standalone.actions.{AddFile => AddFileJ, CommitInfo => CommitInfoJ, Format => FormatJ, JobInfo => JobInfoJ, Metadata => MetadataJ, NotebookInfo => NotebookInfoJ}
-import io.delta.standalone.internal.actions.{AddFile, CommitInfo, Format, JobInfo, Metadata, NotebookInfo}
+import io.delta.standalone.actions.{SetTransaction, Action => ActionJ, AddFile => AddFileJ, CommitInfo => CommitInfoJ, Format => FormatJ, JobInfo => JobInfoJ, Metadata => MetadataJ, NotebookInfo => NotebookInfoJ}
+import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, Format, JobInfo, Metadata, NotebookInfo}
 
 /**
  * Provide helper methods to convert from Scala to Java types.
@@ -150,5 +150,16 @@ private[internal] object ConversionUtils {
    */
   def convertNotebookInfo(internal: NotebookInfo): NotebookInfoJ = {
     new NotebookInfoJ(internal.notebookId)
+  }
+
+  def convertAction(internal: Action): ActionJ = internal match {
+    case x: AddFile => convertAddFile(x)
+//    case a: AddCDCFile => convertAddCDCFile(a)
+    case x: CommitInfo => convertCommitInfo(x)
+    case x: Format => convertFormat(x)
+    case x: JobInfo => convertJobInfo(x)
+    case x: Metadata => convertMetadata(x)
+    case x: NotebookInfo => convertNotebookInfo(x)
+//    case x: SetTransaction => convertSetTransaction(x)
   }
 }

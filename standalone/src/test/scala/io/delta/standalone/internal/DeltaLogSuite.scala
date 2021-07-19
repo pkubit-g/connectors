@@ -279,4 +279,19 @@ class DeltaLogSuite extends FunSuite {
     }
   }
 
+  test("get changes (all files) since a given table version") {
+    // scalastyle:off println
+    println("asdf")
+    // scalastyle:on println
+    withLogForGoldenTable("snapshot-data0") { log =>
+      log.getChanges(0, false)
+      var y = 5
+    }
+
+    withLogForGoldenTable("snapshot-data1") { log =>
+      var x = 5
+      var y = 5
+    }
+  }
+
 }
