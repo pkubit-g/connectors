@@ -56,11 +56,6 @@ private[internal] class DeltaLogImpl private(
     ConversionUtils.convertCommitInfo(history.getCommitInfo(version))
   }
 
-  /**
-   * Get all actions starting from "startVersion" (inclusive).
-   * If `startVersion` is negative, throw IllegalArgumentException.
-   * If `startVersion` doesn't exist, return an empty Iterator.
-   */
   override def getChanges(
       startVersion: Long,
       failOnDataLoss: Boolean): java.util.Iterator[VersionDelta] = {

@@ -46,9 +46,6 @@ private[internal] sealed trait Action {
   def wrap: SingleAction
 
   def json: String = JsonUtils.toJson(wrap)
-
-  // TODO:
-//  def toJava
 }
 
 /**
