@@ -32,7 +32,7 @@ import org.apache.spark.network.util.JavaUtils
 import org.apache.spark.sql.delta.{DeltaLog, OptimisticTransaction}
 import org.apache.spark.sql.{QueryTest, Row}
 import org.apache.spark.sql.delta.DeltaOperations.ManualUpdate
-import org.apache.spark.sql.delta.actions.{Action, AddFile, CommitInfo, JobInfo, Metadata, NotebookInfo, Protocol, RemoveFile, SetTransaction, SingleAction}
+import org.apache.spark.sql.delta.actions.{Action, AddCDCFile, AddFile, CommitInfo, JobInfo, Metadata, NotebookInfo, Protocol, RemoveFile, SetTransaction, SingleAction}
 import org.apache.spark.sql.delta.sources.DeltaSQLConf
 import org.apache.spark.sql.delta.util.{FileNames, JsonUtils}
 import org.apache.spark.sql.test.SharedSparkSession
@@ -382,10 +382,11 @@ class GoldenTables extends QueryTest with SharedSparkSession {
     val txn1 = log.startTransaction()
     txn1.commitManually(Metadata() :: add1 :: Nil: _*)
 
-    val add2 = AddFile("fake/path/2", Map.empty, 1, 1, dataChange = true)
+    val addCDC2 = AddCDCFile("fake/path/2", Map("partition_foo" -> "partition_bar"), 1,
+      Map("tag_foo" -> "tag_bar"))
     val remove2 = RemoveFile("fake/path/1", Some(100), dataChange = true)
     val txn2 = log.startTransaction()
-    txn2.commitManually(add2 :: remove2 :: Nil: _*)
+    txn2.commitManually(addCDC2 :: remove2 :: Nil: _*)
 
     val setTransaction3 = SetTransaction("fakeAppId", 3L, Some(200))
     val txn3 = log.startTransaction()

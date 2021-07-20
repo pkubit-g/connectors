@@ -283,7 +283,7 @@ class DeltaLogSuite extends FunSuite {
     withLogForGoldenTable("deltalog-getChanges") { log =>
       val versionToActionsMap = Map(
         0L -> Seq("CommitInfo", "Protocol", "Metadata", "AddFile"),
-        1L -> Seq("CommitInfo", "AddFile", "RemoveFile"),
+        1L -> Seq("CommitInfo", "AddCDCFile", "RemoveFile"),
         2L -> Seq("CommitInfo", "Protocol", "SetTransaction")
       )
 
