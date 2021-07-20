@@ -57,12 +57,15 @@ private[internal] class DeltaLogImpl private(
   }
 
   /**
-   * Get all actions starting from "startVersion" (inclusive). If `startVersion` doesn't exist,
-   * return an empty Iterator.
+   * Get all actions starting from "startVersion" (inclusive).
+   * If `startVersion` is negative, throw IllegalArgumentException.
+   * If `startVersion` doesn't exist, return an empty Iterator.
    */
   override def getChanges(
       startVersion: Long,
       failOnDataLoss: Boolean): java.util.Iterator[VersionDelta] = {
+    if (startVersion < 0) throw new IllegalArgumentException(s"Invalid startVersion: $startVersion")
+
     val deltaPaths = store.listFrom(FileNames.deltaFile(logPath, startVersion))
       .filter(f => FileNames.isDeltaFile(f.getPath))
 

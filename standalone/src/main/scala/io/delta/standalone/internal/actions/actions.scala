@@ -46,6 +46,9 @@ private[internal] sealed trait Action {
   def wrap: SingleAction
 
   def json: String = JsonUtils.toJson(wrap)
+
+  // TODO:
+//  def toJava
 }
 
 /**
@@ -65,6 +68,18 @@ private[internal] case class Protocol(
 
   @JsonIgnore
   def simpleString: String = s"($minReaderVersion,$minWriterVersion)"
+}
+
+/**
+* Sets the committed version for a given application. Used to make operations
+* like streaming append idempotent.
+*/
+case class SetTransaction(
+    appId: String,
+    version: Long,
+    @JsonDeserialize(contentAs = classOf[java.lang.Long])
+    lastUpdated: Option[Long]) extends Action {
+  override def wrap: SingleAction = SingleAction(txn = this)
 }
 
 /** Actions pertaining to the addition and removal of files. */
@@ -118,6 +133,21 @@ private[internal] case class RemoveFile(
 
   @JsonIgnore
   val delTimestamp: Long = deletionTimestamp.getOrElse(0L)
+}
+
+/**
+ * A change file containing CDC data for the Delta version it's within. Non-CDC readers should
+ * ignore this, CDC readers should scan all ChangeFiles in a version rather than computing
+ * changes from AddFile and RemoveFile actions.
+ */
+case class AddCDCFile(
+    path: String,
+    partitionValues: Map[String, String],
+    size: Long,
+    tags: Map[String, String] = null) extends FileAction {
+  override val dataChange = false
+
+  override def wrap: SingleAction = SingleAction(cdc = this)
 }
 
 private[internal] case class Format(
@@ -219,10 +249,12 @@ private[internal] case class NotebookInfo(notebookId: String)
 
 /** A serialization helper to create a common action envelope. */
 private[internal] case class SingleAction(
+    txn: SetTransaction = null,
     add: AddFile = null,
     remove: RemoveFile = null,
     metaData: Metadata = null,
     protocol: Protocol = null,
+    cdc: AddCDCFile = null,
     commitInfo: CommitInfo = null) {
 
   def unwrap: Action = {
@@ -232,8 +264,12 @@ private[internal] case class SingleAction(
       remove
     } else if (metaData != null) {
       metaData
+    } else if (txn != null) {
+      txn
     } else if (protocol != null) {
       protocol
+    } else if (cdc != null) {
+      cdc
     } else if (commitInfo != null) {
       commitInfo
     } else {

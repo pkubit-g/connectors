@@ -21,8 +21,8 @@ import java.util.{Optional => OptionalJ}
 
 import collection.JavaConverters._
 
-import io.delta.standalone.actions.{SetTransaction, Action => ActionJ, AddFile => AddFileJ, CommitInfo => CommitInfoJ, Format => FormatJ, JobInfo => JobInfoJ, Metadata => MetadataJ, NotebookInfo => NotebookInfoJ}
-import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, Format, JobInfo, Metadata, NotebookInfo}
+import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, CommitInfo => CommitInfoJ, Format => FormatJ, JobInfo => JobInfoJ, Metadata => MetadataJ, NotebookInfo => NotebookInfoJ, RemoveFile => RemoveFileJ, SetTransaction => SetTransactionJ, Protocol => ProtocolJ}
+import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, Format, JobInfo, Metadata, NotebookInfo, Protocol, RemoveFile, SetTransaction}
 
 /**
  * Provide helper methods to convert from Scala to Java types.
@@ -75,6 +75,13 @@ private[internal] object ConversionUtils {
       internal.dataChange,
       internal.stats,
       mapAsJava(internal.tags))
+  }
+
+  def convertRemoveFile(internal: RemoveFile): RemoveFileJ = {
+    new RemoveFileJ(
+      internal.path,
+      toJavaLongOptional(internal.deletionTimestamp),
+      internal.dataChange)
   }
 
   /**
@@ -152,14 +159,25 @@ private[internal] object ConversionUtils {
     new NotebookInfoJ(internal.notebookId)
   }
 
+  def convertSetTransaction(internal: SetTransaction): SetTransactionJ = {
+    new SetTransactionJ(internal.appId, internal.version, toJavaLongOptional(internal.lastUpdated))
+  }
+
+  def convertProtocol(internal: Protocol): ProtocolJ = {
+    new ProtocolJ(internal.minReaderVersion, internal.minWriterVersion)
+  }
+
   def convertAction(internal: Action): ActionJ = internal match {
     case x: AddFile => convertAddFile(x)
 //    case a: AddCDCFile => convertAddCDCFile(a)
+    case x: RemoveFile => convertRemoveFile(x)
     case x: CommitInfo => convertCommitInfo(x)
     case x: Format => convertFormat(x)
     case x: JobInfo => convertJobInfo(x)
     case x: Metadata => convertMetadata(x)
     case x: NotebookInfo => convertNotebookInfo(x)
-//    case x: SetTransaction => convertSetTransaction(x)
+    case x: SetTransaction => convertSetTransaction(x)
+    case x: Protocol => convertProtocol(x)
+    case _ => null
   }
 }

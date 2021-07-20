@@ -32,7 +32,7 @@ import org.apache.spark.network.util.JavaUtils
 import org.apache.spark.sql.delta.{DeltaLog, OptimisticTransaction}
 import org.apache.spark.sql.{QueryTest, Row}
 import org.apache.spark.sql.delta.DeltaOperations.ManualUpdate
-import org.apache.spark.sql.delta.actions.{Action, AddFile, CommitInfo, JobInfo, Metadata, NotebookInfo, Protocol, RemoveFile, SingleAction}
+import org.apache.spark.sql.delta.actions.{Action, AddFile, CommitInfo, JobInfo, Metadata, NotebookInfo, Protocol, RemoveFile, SetTransaction, SingleAction}
 import org.apache.spark.sql.delta.sources.DeltaSQLConf
 import org.apache.spark.sql.delta.util.{FileNames, JsonUtils}
 import org.apache.spark.sql.test.SharedSparkSession
@@ -374,21 +374,22 @@ class GoldenTables extends QueryTest with SharedSparkSession {
       Iterator(Metadata(), Protocol(), commitInfoFile, addFile).map(a => JsonUtils.toJson(a.wrap)))
   }
 
+  /** TEST: DeltaLogSuite > getChanges - no data loss */
   generateGoldenTable("deltalog-getChanges") { tablePath =>
     val log = DeltaLog.forTable(spark, new Path(tablePath))
 
     val add1 = AddFile("fake/path/1", Map.empty, 1, 1, dataChange = true)
     val txn1 = log.startTransaction()
-    txn1.commit(Metadata() :: add1 :: Nil, ManualUpdate)
+    txn1.commitManually(Metadata() :: add1 :: Nil: _*)
 
     val add2 = AddFile("fake/path/2", Map.empty, 1, 1, dataChange = true)
-    val remove1 = RemoveFile("fake/path/1", Some(100), dataChange = true)
+    val remove2 = RemoveFile("fake/path/1", Some(100), dataChange = true)
     val txn2 = log.startTransaction()
-    txn2.commit(add2 :: remove1 :: Nil, ManualUpdate)
+    txn2.commitManually(add2 :: remove2 :: Nil: _*)
 
-    // 0 -> AddFile, Metadata
-    // 1 -> AddFile, Metadata, AddFile, RemoveFile
-    // TODO
+    val setTransaction3 = SetTransaction("fakeAppId", 3L, Some(200))
+    val txn3 = log.startTransaction()
+    txn3.commitManually(Protocol() :: setTransaction3 :: Nil: _*)
   }
 
   ///////////////////////////////////////////////////////////////////////////

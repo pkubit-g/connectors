@@ -28,7 +28,7 @@ object GoldenTableUtils {
    * Load the golden table as a class resource so that it works in IntelliJ and SBT tests.
    *
    * If this is causing a `java.lang.NullPointerException` while debugging in IntelliJ, you
-   * probably just need to run `build/sbt goldenTables/test`.
+   * probably just need to SBT test that specific test first.
    */
   val goldenTable = new File(getClass.getResource("/golden").toURI)
 
