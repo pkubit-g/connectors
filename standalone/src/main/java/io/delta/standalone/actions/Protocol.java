@@ -1,6 +1,6 @@
 package io.delta.standalone.actions;
 
-public class Protocol extends Action {
+public class Protocol implements Action {
     private final int minReaderVersion;
     private final int minWriterVersion;
 

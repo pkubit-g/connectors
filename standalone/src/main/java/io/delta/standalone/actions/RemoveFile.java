@@ -2,7 +2,7 @@ package io.delta.standalone.actions;
 
 import java.util.Optional;
 
-public class RemoveFile extends Action {
+public class RemoveFile implements FileAction {
     private final String path;
     private final Optional<Long> deletionTimestamp;
     private final boolean dataChange;
@@ -13,6 +13,7 @@ public class RemoveFile extends Action {
         this.dataChange = dataChange;
     }
 
+    @Override
     public String getPath() {
         return path;
     }
@@ -21,6 +22,7 @@ public class RemoveFile extends Action {
         return deletionTimestamp;
     }
 
+    @Override
     public boolean isDataChange() {
         return dataChange;
     }

@@ -21,8 +21,8 @@ import java.util.{Optional => OptionalJ}
 
 import collection.JavaConverters._
 
-import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, CommitInfo => CommitInfoJ, Format => FormatJ, JobInfo => JobInfoJ, Metadata => MetadataJ, NotebookInfo => NotebookInfoJ, RemoveFile => RemoveFileJ, SetTransaction => SetTransactionJ, Protocol => ProtocolJ}
-import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, Format, JobInfo, Metadata, NotebookInfo, Protocol, RemoveFile, SetTransaction}
+import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, AddCDCFile => AddCDCFileJ, CommitInfo => CommitInfoJ, Format => FormatJ, JobInfo => JobInfoJ, Metadata => MetadataJ, NotebookInfo => NotebookInfoJ, Protocol => ProtocolJ, RemoveFile => RemoveFileJ, SetTransaction => SetTransactionJ}
+import io.delta.standalone.internal.actions.{Action, AddCDCFile, AddFile, CommitInfo, Format, JobInfo, Metadata, NotebookInfo, Protocol, RemoveFile, SetTransaction}
 
 /**
  * Provide helper methods to convert from Scala to Java types.
@@ -74,6 +74,14 @@ private[internal] object ConversionUtils {
       internal.modificationTime,
       internal.dataChange,
       internal.stats,
+      mapAsJava(internal.tags))
+  }
+
+  def convertAddCDCFile(internal: AddCDCFile): AddCDCFileJ = {
+    new AddCDCFileJ(
+      internal.path,
+      internal.partitionValues.asJava,
+      internal.size,
       mapAsJava(internal.tags))
   }
 
@@ -169,7 +177,7 @@ private[internal] object ConversionUtils {
 
   def convertAction(internal: Action): ActionJ = internal match {
     case x: AddFile => convertAddFile(x)
-//    case a: AddCDCFile => convertAddCDCFile(a)
+    case a: AddCDCFile => convertAddCDCFile(a)
     case x: RemoveFile => convertRemoveFile(x)
     case x: CommitInfo => convertCommitInfo(x)
     case x: Format => convertFormat(x)
@@ -178,6 +186,5 @@ private[internal] object ConversionUtils {
     case x: NotebookInfo => convertNotebookInfo(x)
     case x: SetTransaction => convertSetTransaction(x)
     case x: Protocol => convertProtocol(x)
-    case _ => null
   }
 }

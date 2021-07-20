@@ -26,7 +26,7 @@ lazy val testScalastyle = taskKey[Unit]("testScalastyle")
 val sparkVersion = "2.4.3"
 val hadoopVersion = "2.7.2"
 val hiveVersion = "2.3.7"
-val deltaVersion = "0.5.0"
+val hiveDeltaVersion = "0.5.0"
 
 lazy val commonSettings = Seq(
   organization := "io.delta",
@@ -152,7 +152,7 @@ lazy val hive = (project in file("hive")) dependsOn(standalone) settings (
       ExclusionRule(organization = "com.google.protobuf")
     ),
     "org.scalatest" %% "scalatest" % "3.0.5" % "test",
-    "io.delta" %% "delta-core" % deltaVersion % "test",
+    "io.delta" %% "delta-core" % hiveDeltaVersion % "test",
     "org.apache.spark" %% "spark-sql" % sparkVersion % "test",
     "org.apache.spark" %% "spark-catalyst" % sparkVersion % "test" classifier "tests",
     "org.apache.spark" %% "spark-core" % sparkVersion % "test" classifier "tests",
@@ -198,7 +198,7 @@ lazy val hiveMR = (project in file("hive-mr")) dependsOn(hive % "test->test") se
     // TODO Figure out how this fixes some bad dependency
     "org.apache.spark" %% "spark-core" % sparkVersion % "test" classifier "tests",
     "org.scalatest" %% "scalatest" % "3.0.5" % "test",
-    "io.delta" %% "delta-core" % deltaVersion % "test" excludeAll ExclusionRule("org.apache.hadoop")
+    "io.delta" %% "delta-core" % hiveDeltaVersion % "test" excludeAll ExclusionRule("org.apache.hadoop")
   )
 )
 
@@ -246,7 +246,7 @@ lazy val hiveTez = (project in file("hive-tez")) dependsOn(hive % "test->test") 
     // TODO Figure out how this fixes some bad dependency
     "org.apache.spark" %% "spark-core" % sparkVersion % "test" classifier "tests",
     "org.scalatest" %% "scalatest" % "3.0.5" % "test",
-    "io.delta" %% "delta-core" % deltaVersion % "test" excludeAll ExclusionRule("org.apache.hadoop")
+    "io.delta" %% "delta-core" % hiveDeltaVersion % "test" excludeAll ExclusionRule("org.apache.hadoop")
   )
 )
 
@@ -321,7 +321,7 @@ lazy val sqlDeltaImport = (project in file("sql-delta-import"))
     publishArtifact in Test := false,
     libraryDependencies ++= Seq(
       "org.apache.spark" %% "spark-sql" % sparkVersion % "provided",
-      "io.delta" % "delta-core_2.12" % "0.7.0" % "provided",
+      "io.delta" % "delta-core_2.12" % "1.0.0" % "provided",
       "org.rogach" %% "scallop" % "3.5.1",
       "org.scalatest" %% "scalatest" % "3.1.1" % "test",
       "com.h2database" % "h2" % "1.4.200" % "test",

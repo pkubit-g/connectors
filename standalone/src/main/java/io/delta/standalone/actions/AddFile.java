@@ -28,7 +28,7 @@ import java.util.Objects;
  *
  * @see  <a href="https://github.com/delta-io/delta/blob/master/PROTOCOL.md">Delta Transaction Log Protocol</a>
  */
-public final class AddFile extends Action {
+public final class AddFile implements FileAction {
     private final String path;
     private final Map<String, String> partitionValues;
     private final long size;
@@ -54,6 +54,7 @@ public final class AddFile extends Action {
      *         relative path, it's relative to the root of the table. Note: the path is encoded and
      *         should be decoded by {@code new java.net.URI(path)} when using it.
      */
+    @Override
     public String getPath() {
         return path;
     }
@@ -88,6 +89,7 @@ public final class AddFile extends Action {
      *         {@code false} the file must already be present in the table or the records in the
      *         added file must be contained in one or more remove actions in the same version
      */
+    @Override
     public boolean isDataChange() {
         return dataChange;
     }

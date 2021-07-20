@@ -2,7 +2,7 @@ package io.delta.standalone.actions;
 
 import java.util.Optional;
 
-public class SetTransaction extends Action {
+public class SetTransaction implements Action {
     private final String appId;
     private final long verion;
     private final Optional<Long> lastUpdated;
