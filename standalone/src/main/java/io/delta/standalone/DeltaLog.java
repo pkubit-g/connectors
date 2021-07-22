@@ -81,10 +81,10 @@ public interface DeltaLog {
      * Get all actions starting from "startVersion" (inclusive).
      * If `startVersion` doesn't exist, return an empty {@code Iterator}.
      *
-     * @param startVersion the table version to begin retrieving actions from
+     * @param startVersion the table version to begin retrieving actions from (inclusive)
      * @param failOnDataLoss whether to throw when data loss detected
      * @return an {@code Iterator} of {@link VersionDelta}s
-     * @throws IllegalArgumentException if {@code startVersion} is negative.
+     * @throws IllegalArgumentException if {@code startVersion} is negative
      * @throws IllegalStateException if data loss detected and {@code failOnDataLoss} is true
      */
     Iterator<VersionDelta> getChanges(long startVersion, boolean failOnDataLoss);
