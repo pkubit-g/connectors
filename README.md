@@ -190,4 +190,4 @@ There are two mediums of communication within the Delta Lake community.
 - Public [Mailing list](https://groups.google.com/forum/#!forum/delta-users)
 
 # Local Development & Testing
-- before local debugging of `standalone` tests in IntelliJ, run all `standalone` tests using SBT. This helps IntelliJ recognize the golden tables as class resources.
+- Before local debugging of `standalone` tests in IntelliJ, run all `standalone` tests using SBT. This helps IntelliJ recognize the golden tables as class resources.
