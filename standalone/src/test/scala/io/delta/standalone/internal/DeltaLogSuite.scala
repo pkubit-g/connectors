@@ -288,14 +288,14 @@ class DeltaLogSuite extends FunSuite {
       )
 
       def verifyChanges(startVersion: Int): Unit = {
-        val versionDeltas = log.getChanges(startVersion, false).asScala.toSeq
+        val versionLogs = log.getChanges(startVersion, false).asScala.toSeq
 
-        assert(versionDeltas.length == 3 - startVersion,
+        assert(versionLogs.length == 3 - startVersion,
           s"getChanges($startVersion) skipped some versions")
 
-        for (versionDelta <- versionDeltas) {
-          val version = versionDelta.getVersion
-          val actions = versionDelta.getActions.asScala.map(_.getClass.getSimpleName)
+        for (versionLog <- versionLogs) {
+          val version = versionLog.getVersion
+          val actions = versionLog.getActions.asScala.map(_.getClass.getSimpleName)
           val expectedActions = versionToActionsMap(version)
           assert(expectedActions == actions,
             s"getChanges($startVersion) had incorrect actions at version $version.")
@@ -308,8 +308,8 @@ class DeltaLogSuite extends FunSuite {
       verifyChanges(2)
 
       // non-existant start version
-      val versionDeltasIter = log.getChanges(3, false)
-      assert(!versionDeltasIter.hasNext,
+      val versionLogsIter = log.getChanges(3, false)
+      assert(!versionLogsIter.hasNext,
         "getChanges with a non-existant start version did not return an empty iterator")
 
       // negative start version
@@ -331,13 +331,13 @@ class DeltaLogSuite extends FunSuite {
         new File(new Path(logPath, "00000000000000000000.json").toUri).delete()
         new File(new Path(logPath, "00000000000000000001.json").toUri).delete()
 
-        val versionDeltas = log.getChanges(0, false).asScala.toSeq
-        assert(versionDeltas.length == 1)
+        val versionLogs = log.getChanges(0, false).asScala.toSeq
+        assert(versionLogs.length == 1)
 
         assertThrows[IllegalStateException] {
-          val versionDeltasIter = log.getChanges(0, true)
-          while (versionDeltasIter.hasNext) {
-            versionDeltasIter.next()
+          val versionLogsIter = log.getChanges(0, true)
+          while (versionLogsIter.hasNext) {
+            versionLogsIter.next()
           }
         }
       } finally {

@@ -125,7 +125,11 @@ private[internal] case class RemoveFile(
     path: String,
     @JsonDeserialize(contentAs = classOf[java.lang.Long])
     deletionTimestamp: Option[Long],
-    dataChange: Boolean = true) extends FileAction {
+    dataChange: Boolean = true,
+    extendedFileMetadata: Boolean = false,
+    partitionValues: Map[String, String] = null,
+    size: Long = 0,
+    tags: Map[String, String] = null) extends FileAction {
   override def wrap: SingleAction = SingleAction(remove = this)
 
   @JsonIgnore
@@ -293,4 +297,78 @@ private[internal] class JsonMapSerializer extends JsonSerializer[Map[String, Str
     }
     jgen.writeEndObject()
   }
+}
+
+/**
+ * Parquet4s Wrapper Classes
+ *
+ * With the inclusion of RemoveFile as an exposed Java API, and since it was upgraded to match the
+ * latest Delta OSS release, we now had a case class inside of [[SingleAction]] that had "primitive"
+ * default paramaters. They are primitive in the sense that Parquet4s would try to decode them using
+ * the [[PrimitiveValueCodecs]] trait. But since these parameters have default values, there is no
+ * guarantee that they will exist in the underlying parquet checkpoint files. Thus (without these
+ * classes), parquet4s would throw errors like this:
+ *
+ * Cause: java.lang.IllegalArgumentException: NullValue cannot be decoded to required type
+ *   at com.github.mjakubowski84.parquet4s.RequiredValueCodec.decode(ValueCodec.scala:61)
+ *   at com.github.mjakubowski84.parquet4s.RequiredValueCodec.decode$(ValueCodec.scala:58)
+ *   at com.github.mjakubowski84.parquet4s.PrimitiveValueCodecs$$anon$5.decode(ValueCodec.scala:137)
+ *
+ * Note this only happens with "primitive" parameters with default arguments, and not with "complex"
+ * or optional constructor parameters.
+ *
+ * We solve this issue by creating wrapper classes that wrap these primitive constructor parameters
+ * in [[Option]]s, and then un-wrapping them as needed, performing the appropriate Option[T] => T
+ * parameter conversions.
+ */
+
+private[internal] trait Parquet4sWrapper[T] {
+  def unwrap: T
+}
+
+private[internal] case class Parquet4sRemoveFileWrapper(
+    path: String,
+    @JsonDeserialize(contentAs = classOf[java.lang.Long])
+    deletionTimestamp: Option[Long],
+    dataChangeOpt: Option[Boolean] = Some(true),
+    extendedFileMetadataOpt: Option[Boolean] = Some(false),
+    partitionValues: Map[String, String] = null,
+    size: Option[Long] = Some(0),
+    tags: Map[String, String] = null) extends Parquet4sWrapper[RemoveFile] {
+
+  override def unwrap: RemoveFile = RemoveFile(
+    path,
+    deletionTimestamp,
+    dataChangeOpt.contains(true),
+    extendedFileMetadataOpt.contains(true),
+    partitionValues,
+    size match {
+      case Some(x) => x;
+      case _ => 0
+    },
+    tags
+  )
+}
+
+private[internal] case class Parquet4sSingleActionWrapper(
+    txn: SetTransaction = null,
+    add: AddFile = null,
+    remove: Parquet4sRemoveFileWrapper = null,
+    metaData: Metadata = null,
+    protocol: Protocol = null,
+    cdc: AddCDCFile = null,
+    commitInfo: CommitInfo = null) extends Parquet4sWrapper[SingleAction] {
+
+  override def unwrap: SingleAction = SingleAction(
+    txn,
+    add,
+    remove match {
+      case x: Parquet4sRemoveFileWrapper if x != null => x.unwrap
+      case _ => null
+    },
+    metaData,
+    protocol,
+    cdc,
+    commitInfo
+  )
 }

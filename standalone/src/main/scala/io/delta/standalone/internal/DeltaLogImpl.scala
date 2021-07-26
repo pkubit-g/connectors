@@ -22,7 +22,7 @@ import scala.collection.JavaConverters._
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
-import io.delta.standalone.{DeltaLog, VersionDelta}
+import io.delta.standalone.{DeltaLog, VersionLog}
 import io.delta.standalone.actions.{CommitInfo => CommitInfoJ}
 import io.delta.standalone.internal.actions.Action
 import io.delta.standalone.internal.exception.DeltaErrors
@@ -58,7 +58,7 @@ private[internal] class DeltaLogImpl private(
 
   override def getChanges(
       startVersion: Long,
-      failOnDataLoss: Boolean): java.util.Iterator[VersionDelta] = {
+      failOnDataLoss: Boolean): java.util.Iterator[VersionLog] = {
     if (startVersion < 0) throw new IllegalArgumentException(s"Invalid startVersion: $startVersion")
 
     val deltaPaths = store.listFrom(FileNames.deltaFile(logPath, startVersion))
@@ -74,7 +74,7 @@ private[internal] class DeltaLogImpl private(
       }
       lastSeenVersion = version
 
-      new VersionDelta(version,
+      new VersionLog(version,
         store.read(p).map(x => ConversionUtils.convertAction(Action.fromJson(x))).toList.asJava)
     }.asJava
   }

@@ -6,14 +6,14 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * {@link VersionDelta} is the representation of all actions (changes) to the Delta Table
+ * {@link VersionLog} is the representation of all actions (changes) to the Delta Table
  * at a specific table version.
  */
-public class VersionDelta {
+public class VersionLog {
     private final long version;
     private final List<Action> actions;
 
-    public VersionDelta(long version, List<Action> actions) {
+    public VersionLog(long version, List<Action> actions) {
         this.version = version;
         this.actions = actions;
     }

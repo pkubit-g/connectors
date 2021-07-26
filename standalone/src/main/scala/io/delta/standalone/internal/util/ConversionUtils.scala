@@ -33,7 +33,7 @@ private[internal] object ConversionUtils {
    * This is a workaround for a known issue in Scala 2.11: `asJava` doesn't handle `null`.
    * See https://github.com/scala/scala/pull/4343
    */
-  private def mapAsJava[K, V](map: Map[K, V]): java.util.Map[K, V] = {
+  private def nullableMapAsJava[K, V](map: Map[K, V]): java.util.Map[K, V] = {
     if (map == null) {
       null
     } else {
@@ -74,7 +74,7 @@ private[internal] object ConversionUtils {
       internal.modificationTime,
       internal.dataChange,
       internal.stats,
-      mapAsJava(internal.tags))
+      nullableMapAsJava(internal.tags))
   }
 
   def convertAddCDCFile(internal: AddCDCFile): AddCDCFileJ = {
@@ -82,14 +82,18 @@ private[internal] object ConversionUtils {
       internal.path,
       internal.partitionValues.asJava,
       internal.size,
-      mapAsJava(internal.tags))
+      nullableMapAsJava(internal.tags))
   }
 
   def convertRemoveFile(internal: RemoveFile): RemoveFileJ = {
     new RemoveFileJ(
       internal.path,
       toJavaLongOptional(internal.deletionTimestamp),
-      internal.dataChange)
+      internal.dataChange,
+      internal.extendedFileMetadata,
+      nullableMapAsJava(internal.partitionValues),
+      internal.size,
+      nullableMapAsJava(internal.tags))
   }
 
   /**

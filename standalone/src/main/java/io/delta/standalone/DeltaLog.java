@@ -83,11 +83,11 @@ public interface DeltaLog {
      *
      * @param startVersion the table version to begin retrieving actions from (inclusive)
      * @param failOnDataLoss whether to throw when data loss detected
-     * @return an {@code Iterator} of {@link VersionDelta}s
+     * @return an {@code Iterator} of {@link VersionLog}s
      * @throws IllegalArgumentException if {@code startVersion} is negative
      * @throws IllegalStateException if data loss detected and {@code failOnDataLoss} is true
      */
-    Iterator<VersionDelta> getChanges(long startVersion, boolean failOnDataLoss);
+    Iterator<VersionLog> getChanges(long startVersion, boolean failOnDataLoss);
 
     /**
      * Create a {@link DeltaLog} instance representing the table located at the provided {@code path}.
