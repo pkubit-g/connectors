@@ -52,7 +52,7 @@ lazy val commonSettings = Seq(
 
 lazy val releaseSettings = Seq(
   publishMavenStyle := true,
-//  releaseCrossBuild := true,
+  releaseCrossBuild := true,
   publishTo := {
     val nexus = "https://oss.sonatype.org/"
     if (isSnapshot.value) {
@@ -91,8 +91,6 @@ lazy val releaseSettings = Seq(
           <url>https://github.com/zsxwing</url>
         </developer>
       </developers>,
-//  bintrayOrganization := Some("delta-io"),
-//  bintrayRepository := "delta",
   releaseProcess := Seq[ReleaseStep](
     checkSnapshotDependencies,
     inquireVersions,
@@ -100,7 +98,6 @@ lazy val releaseSettings = Seq(
     setReleaseVersion,
     commitReleaseVersion,
     tagRelease,
-//    publishArtifacts,
     releaseStepCommandAndRemaining("+publishLocalSigned"),
     setNextVersion,
     commitNextVersion
@@ -111,26 +108,6 @@ lazy val skipReleaseSettings = Seq(
   publishArtifact := false,
   publish := ()
 )
-
-// // Don't release the root project
-//publishArtifact := false
-
-//publish := ()
-
-// Looks some of release settings should be set for the root project as well.
-//releaseCrossBuild := true
-
-//releaseProcess := Seq[ReleaseStep](
-//  checkSnapshotDependencies,
-//  inquireVersions,
-//  runTest,
-//  setReleaseVersion,
-//  commitReleaseVersion,
-//  tagRelease,
-//  publishArtifacts,
-//  setNextVersion,
-//  commitNextVersion
-//)
 
 publishArtifact := false  // Don't release the root project
 publish := {}
