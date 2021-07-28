@@ -109,6 +109,7 @@ lazy val skipReleaseSettings = Seq(
   publish := ()
 )
 
+// Looks some of release settings should be set for the root project as well.
 publishArtifact := false  // Don't release the root project
 publish := {}
 publishTo := Some("snapshots" at "https://oss.sonatype.org/content/repositories/snapshots")
