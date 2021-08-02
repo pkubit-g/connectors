@@ -19,15 +19,19 @@ package io.delta.standalone.internal.util
 import java.lang.{String => StringJ}
 import java.util.{Optional => OptionalJ}
 
-import collection.JavaConverters._
+import scala.collection.JavaConverters._
 
 import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, AddCDCFile => AddCDCFileJ, CommitInfo => CommitInfoJ, Format => FormatJ, JobInfo => JobInfoJ, Metadata => MetadataJ, NotebookInfo => NotebookInfoJ, Protocol => ProtocolJ, RemoveFile => RemoveFileJ, SetTransaction => SetTransactionJ}
 import io.delta.standalone.internal.actions.{Action, AddCDCFile, AddFile, CommitInfo, Format, JobInfo, Metadata, NotebookInfo, Protocol, RemoveFile, SetTransaction}
 
 /**
- * Provide helper methods to convert from Scala to Java types.
+ * Provide helper methods to convert from Scala to Java types and vice versa.
  */
 private[internal] object ConversionUtils {
+
+  ///////////////////////////////////////////////////////////////////////////
+  // Scala to Java conversions
+  ///////////////////////////////////////////////////////////////////////////
 
   /**
    * This is a workaround for a known issue in Scala 2.11: `asJava` doesn't handle `null`.
@@ -181,7 +185,7 @@ private[internal] object ConversionUtils {
 
   def convertAction(internal: Action): ActionJ = internal match {
     case x: AddFile => convertAddFile(x)
-    case a: AddCDCFile => convertAddCDCFile(a)
+    case x: AddCDCFile => convertAddCDCFile(x)
     case x: RemoveFile => convertRemoveFile(x)
     case x: CommitInfo => convertCommitInfo(x)
     case x: Format => convertFormat(x)
@@ -190,5 +194,14 @@ private[internal] object ConversionUtils {
     case x: NotebookInfo => convertNotebookInfo(x)
     case x: SetTransaction => convertSetTransaction(x)
     case x: Protocol => convertProtocol(x)
+  }
+
+  ///////////////////////////////////////////////////////////////////////////
+  // Java to Scala conversions
+  ///////////////////////////////////////////////////////////////////////////
+
+  def convertActionJ(external: ActionJ): Action = external match {
+    case x: AddFileJ => null
+    // TODO
   }
 }
