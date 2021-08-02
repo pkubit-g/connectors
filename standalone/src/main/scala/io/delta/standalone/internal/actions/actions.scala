@@ -67,11 +67,31 @@ private[internal] case class Protocol(
   def simpleString: String = s"($minReaderVersion,$minWriterVersion)"
 }
 
+private[internal] object Protocol {
+  val MIN_READER_VERSION_PROP = "delta.minReaderVersion"
+  val MIN_WRITER_VERSION_PROP = "delta.minWriterVersion"
+
+  /**
+   * Verify that the protocol version of the table satisfies the version requirements of all the
+   * configurations to be set for the table. Returns the minimum required protocol if not.
+   */
+  def checkProtocolRequirements(metadata: Metadata, protocol: Protocol): Option[Protocol] = {
+    assert(!metadata.configuration.contains(MIN_READER_VERSION_PROP), s"Should not have the " +
+      s"protocol version ($MIN_READER_VERSION_PROP) as part of table properties")
+    assert(!metadata.configuration.contains(MIN_WRITER_VERSION_PROP), s"Should not have the " +
+      s"protocol version ($MIN_WRITER_VERSION_PROP) as part of table properties")
+
+    // TODO: requiredMinimumProtocol(...)
+
+    Some(protocol)
+  }
+}
+
 /**
 * Sets the committed version for a given application. Used to make operations
 * like streaming append idempotent.
 */
-case class SetTransaction(
+private[internal] case class SetTransaction(
     appId: String,
     version: Long,
     @JsonDeserialize(contentAs = classOf[java.lang.Long])
@@ -141,7 +161,7 @@ private[internal] case class RemoveFile(
  * ignore this, CDC readers should scan all ChangeFiles in a version rather than computing
  * changes from AddFile and RemoveFile actions.
  */
-case class AddCDCFile(
+private[internal] case class AddCDCFile(
     path: String,
     partitionValues: Map[String, String],
     size: Long,
@@ -177,6 +197,13 @@ private[internal] case class Metadata(
     Option(schemaString).map { s =>
       DataTypeParser.fromJson(s).asInstanceOf[StructType]
     }.getOrElse(new StructType(Array.empty))
+
+  /** Columns written out to files. */
+  @JsonIgnore
+  lazy val dataSchema: StructType = {
+    val partitions = partitionColumns.toSet
+    new StructType(schema.getFields.filterNot(f => partitions.contains(f.getName)))
+  }
 
   override def wrap: SingleAction = SingleAction(metaData = this)
 }
