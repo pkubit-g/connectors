@@ -77,6 +77,8 @@ public interface DeltaLog {
     /** @return the path of the Delta table. */
     Path getPath();
 
+    OptimisticTransaction startTransaction();
+
     /**
      * Get all actions starting from "startVersion" (inclusive).
      * If `startVersion` doesn't exist, return an empty {@code Iterator}.
