@@ -26,4 +26,6 @@ private[internal] object StandaloneHadoopConf {
 
   /** Whether to log commit information into the Delta log */
   val DELTA_COMMIT_INFO_ENABLED = "io.delta.standalone.DELTA_COMMIT_INFO_ENABLED"
+
+  val DELTA_COMMIT_VALIDATION_ENABLED = "io.delta.standalone.DELTA_COMMIT_VALIDATION_ENABLED"
 }
