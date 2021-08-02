@@ -236,4 +236,19 @@ private[internal] class OptimisticTransactionImpl(
       body
     }
   }
+
+  /**
+   * Perform post-commit operations
+   */
+  private def postCommit(commitVersion: Long): Unit = {
+    // TODO
+  }
+
+  ///////////////////////////////////////////////////////////////////////////
+  // Helper Methods
+  ///////////////////////////////////////////////////////////////////////////
+
+  private def verifyNewMetadata(metadata: Metadata): Unit = {
+    // TODO
+  }
 }
