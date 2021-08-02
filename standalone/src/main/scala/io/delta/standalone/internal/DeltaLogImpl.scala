@@ -22,7 +22,7 @@ import scala.collection.JavaConverters._
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
-import io.delta.standalone.{DeltaLog, VersionLog}
+import io.delta.standalone.{DeltaLog, VersionLog, OptimisticTransaction}
 import io.delta.standalone.actions.{CommitInfo => CommitInfoJ}
 import io.delta.standalone.expressions.{And, Expression, Literal}
 import io.delta.standalone.internal.actions.{Action, AddFile}
@@ -80,6 +80,11 @@ private[internal] class DeltaLogImpl private(
       new VersionLog(version,
         store.read(p).map(x => ConversionUtils.convertAction(Action.fromJson(x))).toList.asJava)
     }.asJava
+  }
+
+  override def startTransaction(): OptimisticTransaction = {
+    update()
+    new OptimisticTransactionImpl(this, snapshot)
   }
 
   /**
