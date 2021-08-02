@@ -66,6 +66,7 @@ private[internal] object DeltaErrors {
   }
 
   def noReproducibleHistoryFound(logPath: Path): Throwable = {
+    // TODO: AnalysisException ?
     new RuntimeException(s"No reproducible commits found at $logPath")
   }
 
@@ -88,6 +89,7 @@ private[internal] object DeltaErrors {
   }
 
   def noHistoryFound(logPath: Path): Throwable = {
+    // TODO: AnalysisException ?
     new RuntimeException(s"No commits found at $logPath")
   }
 
@@ -127,6 +129,7 @@ private[internal] object DeltaErrors {
   }
 
   def protocolDowngradeException(oldProtocol: Protocol, newProtocol: Protocol): Throwable = {
+    // TODO: class ProtocolDowngradeException ?
     new RuntimeException("Protocol version cannot be downgraded from " +
       s"${oldProtocol.simpleString} to ${newProtocol.simpleString}")
   }
@@ -149,6 +152,25 @@ private[internal] object DeltaErrors {
       "This table is configured to only allow appends. If you would like to permit " +
         s"updates or deletes, use 'ALTER TABLE <table_name> SET TBLPROPERTIES " +
         s"(appendOnly=false)'.")
+  }
+
+  def invalidColumnName(name: String): Throwable = {
+    // TODO: AnalysisException ??
+    new RuntimeException(
+      s"""Attribute name "$name" contains invalid character(s) among " ,;{}()\\n\\t=".
+         |Please use alias to rename it.
+       """.stripMargin.split("\n").mkString(" ").trim)
+  }
+
+  // TODO: AnalysisException ??
+  def invalidPartitionColumn(e: RuntimeException): Throwable = {
+    // TODO: AnalysisException ??
+    new RuntimeException(
+      """Found partition columns having invalid character(s) among " ,;{}()\n\t=". Please """ +
+        "change the name to your partition columns. This check can be turned off by setting " +
+        """spark.conf.set("spark.databricks.delta.partitionColumnValidity.enabled", false) """ +
+        "however this is not recommended as other features of Delta may not work properly.",
+      e)
   }
 
 

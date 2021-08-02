@@ -25,7 +25,7 @@ import io.delta.standalone.operations.{Operation => OperationJ}
 import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, Metadata, Protocol, RemoveFile}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.sources.StandaloneHadoopConf
-import io.delta.standalone.internal.util.ConversionUtils
+import io.delta.standalone.internal.util.{ConversionUtils, SchemaMergingUtils, SchemaUtils}
 
 private[internal] class OptimisticTransactionImpl(
     deltaLog: DeltaLogImpl,
@@ -39,15 +39,14 @@ private[internal] class OptimisticTransactionImpl(
   private val newMetadata: Option[Metadata] = None // TODO: remove?
 
   /** Stores the updated protocol (if any) that will result from this txn. */
-//  private var newProtocol: Option[Protocol] = None
-  private val newProtocol: Option[Protocol] = None // TODO: remove?
+  private var newProtocol: Option[Protocol] = None
 
   // Whether this transaction is creating a new table.
 //  private var isCreatingNewTable: Boolean = false
   private val isCreatingNewTable: Boolean = false // TODO: remove?
 
   /** The protocol of the snapshot that this transaction is reading at. */
-  def protocol: Protocol = newProtocol.getOrElse(snapshot.protocolScala) // TODO: only snapshot.___?
+  def protocol: Protocol = newProtocol.getOrElse(snapshot.protocolScala)
 
   /**
    * Returns the metadata for this transaction. The metadata refers to the metadata of the snapshot
@@ -81,13 +80,15 @@ private[internal] class OptimisticTransactionImpl(
       var finalActions = prepareCommit(actions)
 
       if (deltaLog.hadoopConf.getBoolean(StandaloneHadoopConf.DELTA_COMMIT_INFO_ENABLED, true)) {
-        val commitInfo = CommitInfo.empty() // TODO
+        val commitInfo = CommitInfo.empty() // TODO CommitInfo(...
         finalActions = commitInfo +: finalActions // prepend commitInfo
       }
 
       val commitVersion = doCommitRetryIteratively(
         snapshot.version + 1,
         finalActions)
+
+      postCommit(commitVersion)
 
       commitVersion
     } catch {
@@ -191,6 +192,25 @@ private[internal] class OptimisticTransactionImpl(
   ///////////////////////////////////////////////////////////////////////////
 
   private def verifyNewMetadata(metadata: Metadata): Unit = {
-    // TODO
+    // TODO assert(!CharVarcharUtils.hasCharVarchar...) ?
+    SchemaMergingUtils.checkColumnNameDuplication(metadata.schema, "in the metadata update")
+    SchemaUtils.checkFieldNames(SchemaMergingUtils.explodeNestedFieldNames(metadata.dataSchema))
+    val partitionColCheckIsFatal = deltaLog.hadoopConf.getBoolean(
+      StandaloneHadoopConf.DELTA_PARTITION_COLUMN_CHECK_ENABLED, true)
+
+    try {
+      SchemaUtils.checkFieldNames(metadata.partitionColumns)
+    } catch {
+      // TODO: case e: AnalysisException ?
+      case e: RuntimeException if (partitionColCheckIsFatal) =>
+        throw DeltaErrors.invalidPartitionColumn(e)
+    }
+
+    // TODO: this function is still incomplete
+    val needsProtocolUpdate = Protocol.checkProtocolRequirements(metadata, protocol)
+
+    if (needsProtocolUpdate.isDefined) {
+      newProtocol = needsProtocolUpdate
+    }
   }
 }
