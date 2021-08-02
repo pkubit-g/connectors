@@ -18,19 +18,24 @@ package io.delta.standalone.internal.exception
 
 import java.io.FileNotFoundException
 
+import io.delta.standalone.internal.actions.Protocol
+import io.delta.standalone.internal.sources.StandaloneHadoopConf
 import org.apache.hadoop.fs.Path
-
 import io.delta.standalone.types.StructType
 
 /** A holder object for Delta errors. */
 private[internal] object DeltaErrors {
 
-  /** Thrown when the protocol version of a table is greater than supported by this client. */
-  case class InvalidProtocolVersionException(
-      clientProtocolVersion: Int,
-      tableProtocolVersion: Int) extends RuntimeException(
-    s"Delta protocol version $tableProtocolVersion is too new for this version of Delta " +
-      s"Standalone Reader $clientProtocolVersion. Please upgrade to a newer release.")
+  /**
+   * Thrown when the protocol version of a table is greater than the one supported by this client
+   */
+  class InvalidProtocolVersionException(
+      clientProtocol: Protocol,
+      tableProtocol: Protocol) extends RuntimeException(
+    s"""
+       |Delta protocol version ${tableProtocol.simpleString} is too new for this version of Delta
+       |Standalone Reader/Writer ${clientProtocol.simpleString}. Please upgrade to a newer release.
+       |""".stripMargin)
 
   def deltaVersionsNotContiguousException(deltaVersions: Seq[Long]): Throwable = {
     new IllegalStateException(s"Versions ($deltaVersions) are not contiguous.")
@@ -112,4 +117,47 @@ private[internal] object DeltaErrors {
        """.stripMargin
     )
   }
+
+  def metadataAbsentException(): Throwable = {
+    new IllegalStateException(
+      s"""
+         |Couldn't find Metadata while committing the first version of the Delta table. To disable
+         |this check set ${StandaloneHadoopConf.DELTA_COMMIT_VALIDATION_ENABLED} to "false"
+       """.stripMargin)
+  }
+
+  def protocolDowngradeException(oldProtocol: Protocol, newProtocol: Protocol): Throwable = {
+    new RuntimeException("Protocol version cannot be downgraded from " +
+      s"${oldProtocol.simpleString} to ${newProtocol.simpleString}")
+  }
+
+  def addFilePartitioningMismatchException(
+      addFilePartitions: Seq[String],
+      metadataPartitions: Seq[String]): Throwable = {
+    new IllegalStateException(
+      s"""
+         |The AddFile contains partitioning schema different from the table's partitioning schema
+         |expected: ${DeltaErrors.formatColumnList(metadataPartitions)}
+         |actual: ${DeltaErrors.formatColumnList(addFilePartitions)}
+         |To disable this check set ${StandaloneHadoopConf.DELTA_COMMIT_VALIDATION_ENABLED} to
+         |"false"
+      """.stripMargin)
+  }
+
+  def modifyAppendOnlyTableException: Throwable = {
+    new UnsupportedOperationException(
+      "This table is configured to only allow appends. If you would like to permit " +
+        s"updates or deletes, use 'ALTER TABLE <table_name> SET TBLPROPERTIES " +
+        s"(appendOnly=false)'.")
+  }
+
+
+  ///////////////////////////////////////////////////////////////////////////
+  // Helper Methods
+  ///////////////////////////////////////////////////////////////////////////
+
+  private def formatColumn(colName: String): String = s"`$colName`"
+
+  private def formatColumnList(colNames: Seq[String]): String =
+    colNames.map(formatColumn).mkString("[", ", ", "]")
 }

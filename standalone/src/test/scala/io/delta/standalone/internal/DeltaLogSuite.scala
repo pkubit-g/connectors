@@ -25,7 +25,7 @@ import scala.collection.JavaConverters._
 
 import io.delta.standalone.{DeltaLog, Snapshot}
 import io.delta.standalone.actions.{JobInfo => JobInfoJ, NotebookInfo => NotebookInfoJ}
-import io.delta.standalone.internal.actions.Action
+import io.delta.standalone.internal.actions.{Action, Protocol}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.GoldenTableUtils._
 import org.apache.commons.io.FileUtils
@@ -235,8 +235,8 @@ class DeltaLogSuite extends FunSuite {
       withLogForGoldenTable("deltalog-invalid-protocol-version") { _ => }
     }
 
-    assert(e.getMessage ===
-      DeltaErrors.InvalidProtocolVersionException(Action.readerVersion, 99).getMessage)
+    assert(e.getMessage ===new DeltaErrors.InvalidProtocolVersionException(Action.protocolVersion,
+      Protocol(99)).getMessage)
   }
 
   test("get commit info") {
