@@ -217,7 +217,8 @@ private[internal] object ConversionUtils {
     case x: CommitInfoJ => convertCommitInfoJ(x)
     case x: MetadataJ => convertMetadataJ(x)
     case x: ProtocolJ => convertProtocolJ(x)
-    // TODO
+    // TODO others
+    case _ => throw new UnsupportedOperationException("cannot convert this Java Action")
   }
 
   def convertAddFileJ(external: AddFileJ): AddFile = {
@@ -228,7 +229,7 @@ private[internal] object ConversionUtils {
       external.getModificationTime,
       external.isDataChange,
       external.getStats,
-      external.getTags.asScala.toMap
+      if (external.getTags != null) external.getTags.asScala.toMap else null
     )
   }
 
@@ -238,9 +239,13 @@ private[internal] object ConversionUtils {
       external.getDeletionTimestamp, // implicit check this!
       external.isDataChange,
       external.isExtendedFileMetadata,
-      if (external.isExtendedFileMetadata) external.getPartitionValues.asScala.toMap else null,
+      if (external.isExtendedFileMetadata && external.getPartitionValues != null) {
+        external.getPartitionValues.asScala.toMap
+      } else null,
       if (external.isExtendedFileMetadata) external.getSize else 0,
-      if (external.isExtendedFileMetadata) external.getTags.asScala.toMap else null
+      if (external.isExtendedFileMetadata && external.getTags != null) {
+        external.getTags.asScala.toMap
+      } else null
     )
   }
 

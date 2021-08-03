@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 package io.delta.standalone.internal
 
 import java.util.ConcurrentModificationException
@@ -64,8 +63,8 @@ private[internal] class OptimisticTransactionImpl(
     commit(actionsJ, Option.empty[DeltaOperations.Operation])
 
   override def commit(actionsJ: java.util.List[ActionJ], opJ: OperationJ): Long = {
-    val op: DeltaOperations.Operation = null // convert opJ to scala
-    commit(actionsJ, Some(op))
+    val op: DeltaOperations.Operation = null // TODO convert opJ to scala
+    commit(actionsJ, None)
   }
 
   ///////////////////////////////////////////////////////////////////////////
@@ -81,9 +80,9 @@ private[internal] class OptimisticTransactionImpl(
     var finalActions = prepareCommit(actions)
 
     if (deltaLog.hadoopConf.getBoolean(StandaloneHadoopConf.DELTA_COMMIT_INFO_ENABLED, true)) {
-      val isBlindAppend = false // TODO
-      val commitInfo = CommitInfo.empty() // TODO CommitInfo(...
-      finalActions = commitInfo +: finalActions // prepend commitInfo
+//      val isBlindAppend = false // TODO
+//      val commitInfo = CommitInfo.empty() // TODO CommitInfo(...
+//      finalActions = commitInfo +: finalActions // prepend commitInfo
     }
 
     val commitVersion = doCommit(snapshot.version + 1, finalActions)
@@ -142,6 +141,7 @@ private[internal] class OptimisticTransactionImpl(
       case a: AddFile if commitValidationEnabled && partitionColumns != a.partitionValues.keySet =>
         throw DeltaErrors.addFilePartitioningMismatchException(
           a.partitionValues.keySet.toSeq, partitionColumns.toSeq)
+      case _ => // nothing
     }
 
     deltaLog.assertProtocolWrite(snapshot.protocolScala)
@@ -169,6 +169,8 @@ private[internal] class OptimisticTransactionImpl(
         FileNames.deltaFile(deltaLog.logPath, attemptVersion),
         actions.map(_.json).toIterator
       )
+
+      val actionsJsonStr = actions.map(_.json).toIterator // TODO remove
 
       val postCommitSnapshot = deltaLog.update()
       if (postCommitSnapshot.version < attemptVersion) {
