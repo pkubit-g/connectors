@@ -16,7 +16,7 @@
 
 package io.delta.standalone.internal.exception
 
-import java.io.FileNotFoundException
+import java.io.{FileNotFoundException, IOException}
 import java.util.ConcurrentModificationException
 
 import io.delta.standalone.internal.actions.Protocol
@@ -175,6 +175,16 @@ private[internal] object DeltaErrors {
         """spark.conf.set("spark.databricks.delta.partitionColumnValidity.enabled", false) """ +
         "however this is not recommended as other features of Delta may not work properly.",
       e)
+  }
+
+  def incorrectLogStoreImplementationException(cause: Throwable): Throwable = {
+    new IOException(s"""
+     |The error typically occurs when the default LogStore implementation, that
+     |is, HDFSLogStore, is used to write into a Delta table on a non-HDFS storage system.
+     |In order to get the transactional ACID guarantees on table updates, you have to use the
+     |correct implementation of LogStore that is appropriate for your storage system.
+     |See https://docs.delta.io/latest/delta-storage.html for details.
+      """.stripMargin, cause)
   }
 
   ///////////////////////////////////////////////////////////////////////////
