@@ -91,6 +91,8 @@ public interface DeltaLog {
      */
     Iterator<VersionLog> getChanges(long startVersion, boolean failOnDataLoss);
 
+    Iterator<VersionLog> getChanges(long startVersion);
+
     /**
      * Create a {@link DeltaLog} instance representing the table located at the provided {@code path}.
      *
