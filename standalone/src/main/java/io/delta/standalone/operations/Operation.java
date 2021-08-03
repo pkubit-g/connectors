@@ -7,6 +7,8 @@ public abstract class Operation {
     private final String name;
     private final Map<String, String> jsonEncodedValues;
 
+    // TODO: any way to use java-equivalent of val parameters: Map[String, Any] ?
+
     public Operation(String name, Map<String, String> jsonEncodedValues) {
         this.name = name;
         this.jsonEncodedValues = jsonEncodedValues;

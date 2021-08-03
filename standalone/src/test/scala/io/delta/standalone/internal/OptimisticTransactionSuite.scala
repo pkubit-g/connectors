@@ -10,13 +10,15 @@ class OptimisticTransactionSuite extends FunSuite {
 
   // TODO: test prepareCommit > have more than 1 Metadata in transaction
 
-  // TODO: test prepareCommit > ensureLogDirectoryExist throws
+  // TODO: test prepareCommit > 1st commit & ensureLogDirectoryExist throws
 
-  // TODO: test prepareCommit > commitValidationEnabled & metadataAbsentException
+  // TODO: test prepareCommit > 1st commit & commitValidationEnabled & metadataAbsentException
 
-  // TODO: test prepareCommit > !commitValidationEnabled & no metadataAbsentException
+  // TODO: test prepareCommit > 1st commit & !commitValidationEnabled & no metadataAbsentException
 
-  // TODO: test prepareCommit > protocolDowngradeException
+  // TODO: test prepareCommit > protocolDowngradeException (reader)
+
+  // TODO: test prepareCommit > protocolDowngradeException (writer)
 
   // TODO: test prepareCommit > commitValidationEnabled & addFilePartitioningMismatchException
 
@@ -38,5 +40,13 @@ class OptimisticTransactionSuite extends FunSuite {
 
   // TODO: test verifyNewMetadata > Protocol.checkProtocolRequirements
 
-  // TODO: test commit > DELTA_COMMIT_INFO_ENABLED & commitInfo is actually added to final actions
+  // TODO: test commit > DELTA_COMMIT_INFO_ENABLED
+  // - commitInfo is actually added to final actions
+  // - isBlindAppend == true
+  // - isBlindAppend == false
+  // - different operation names
+
+  // TODO: test doCommit > IllegalStateException
+
+  // TODO: test doCommit > DeltaConcurrentModificationException
 }

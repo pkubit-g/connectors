@@ -99,7 +99,7 @@ private[internal] class DeltaLogImpl private(
    * Run `body` inside `deltaLogLock` lock using `lockInterruptibly` so that the thread can be
    * interrupted when waiting for the lock.
    */
-  protected def lockInterruptibly[T](body: => T): T = {
+  def lockInterruptibly[T](body: => T): T = {
     deltaLogLock.lockInterruptibly()
     try {
       body

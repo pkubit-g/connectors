@@ -17,6 +17,8 @@
 
 package io.delta.standalone.internal
 
+import java.util.ConcurrentModificationException
+
 import scala.collection.JavaConverters._
 
 import io.delta.standalone.OptimisticTransaction
@@ -25,7 +27,7 @@ import io.delta.standalone.operations.{Operation => OperationJ}
 import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, Metadata, Protocol, RemoveFile}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.sources.StandaloneHadoopConf
-import io.delta.standalone.internal.util.{ConversionUtils, SchemaMergingUtils, SchemaUtils}
+import io.delta.standalone.internal.util.{ConversionUtils, FileNames, SchemaMergingUtils, SchemaUtils}
 
 private[internal] class OptimisticTransactionImpl(
     deltaLog: DeltaLogImpl,
@@ -55,7 +57,7 @@ private[internal] class OptimisticTransactionImpl(
   def metadata: Metadata = newMetadata.getOrElse(snapshot.metadataScala) // TODO: only snapshot.___?
 
   ///////////////////////////////////////////////////////////////////////////
-  // Public API Methods
+  // Public Java API Methods
   ///////////////////////////////////////////////////////////////////////////
 
   override def commit(actionsJ: java.util.List[ActionJ]): Long =
@@ -67,7 +69,7 @@ private[internal] class OptimisticTransactionImpl(
   }
 
   ///////////////////////////////////////////////////////////////////////////
-  // Key Internal-Only Methods
+  // Critical Internal-Only Methods
   ///////////////////////////////////////////////////////////////////////////
 
   private def commit(
@@ -75,29 +77,22 @@ private[internal] class OptimisticTransactionImpl(
       op: Option[DeltaOperations.Operation]): Long = {
     val actions = actionsJ.asScala.map(ConversionUtils.convertActionJ)
 
-    val version = try {
-      // Try to commit at the next version.
-      var finalActions = prepareCommit(actions)
+    // Try to commit at the next version.
+    var finalActions = prepareCommit(actions)
 
-      if (deltaLog.hadoopConf.getBoolean(StandaloneHadoopConf.DELTA_COMMIT_INFO_ENABLED, true)) {
-        val commitInfo = CommitInfo.empty() // TODO CommitInfo(...
-        finalActions = commitInfo +: finalActions // prepend commitInfo
-      }
-
-      val commitVersion = doCommitRetryIteratively(
-        snapshot.version + 1,
-        finalActions)
-
-      postCommit(commitVersion)
-
-      commitVersion
-    } catch {
-      case _ => null // TODO
+    if (deltaLog.hadoopConf.getBoolean(StandaloneHadoopConf.DELTA_COMMIT_INFO_ENABLED, true)) {
+      val isBlindAppend = false // TODO
+      val commitInfo = CommitInfo.empty() // TODO CommitInfo(...
+      finalActions = commitInfo +: finalActions // prepend commitInfo
     }
 
-    version
+    val commitVersion = doCommit(snapshot.version + 1, finalActions)
 
-    0L
+    postCommit(commitVersion)
+
+    // TODO: runPostCommitHooks ?
+
+    commitVersion
   }
 
   /**
@@ -159,32 +154,44 @@ private[internal] class OptimisticTransactionImpl(
   }
 
   /**
-   * Commit `actions` using `attemptVersion` version number. If there are any conflicts that are
-   * found, we will retry a fixed number of times.
+   * Commit `actions` using `attemptVersion` version number.
    *
-   * @return the real version that was committed
-   */
-  private def doCommitRetryIteratively(attemptVersion: Long, actions: Seq[Action]): Long = {
-    // TODO
-    0L
-  }
-
-  /**
-   * Commit `actions` using `attemptVersion` version number. Throws a FileAlreadyExistsException
-   * if any conflicts are detected.
+   * If you detect any conflicts, try to resolve logical conflicts and commit using a new version.
    *
    * @return the real version that was committed.
+   * @throws IllegalStateException if the attempted commit version is ahead of the current delta log
+   *                               version
+   * @throws ConcurrentModificationException if any conflicts are detected
    */
-  private def doCommit(attemptVersion: Long, actions: Seq[Action], attemptNumber: Int): Long = {
-    // TODO
-    attemptVersion
+  private def doCommit(attemptVersion: Long, actions: Seq[Action]): Long = lockCommitIfEnabled {
+    try {
+      deltaLog.store.write(
+        FileNames.deltaFile(deltaLog.logPath, attemptVersion),
+        actions.map(_.json).toIterator
+      )
+
+      val postCommitSnapshot = deltaLog.update()
+      if (postCommitSnapshot.version < attemptVersion) {
+        // TODO: DeltaErrors... ?
+        throw new IllegalStateException(
+          s"The committed version is $attemptVersion " +
+            s"but the current version is ${postCommitSnapshot.version}.")
+      }
+
+      attemptVersion
+    } catch {
+      case _: java.nio.file.FileAlreadyExistsException =>
+        throw new DeltaErrors.DeltaConcurrentModificationException("TODO msg")
+    }
   }
 
   /**
    * Perform post-commit operations
    */
   private def postCommit(commitVersion: Long): Unit = {
-    // TODO
+    committed = true
+
+    // TODO: checkpoint
   }
 
   ///////////////////////////////////////////////////////////////////////////
@@ -211,6 +218,21 @@ private[internal] class OptimisticTransactionImpl(
 
     if (needsProtocolUpdate.isDefined) {
       newProtocol = needsProtocolUpdate
+    }
+  }
+
+  private def isCommitLockEnabled: Boolean = {
+// TODO:
+//    spark.sessionState.conf.getConf(DeltaSQLConf.DELTA_COMMIT_LOCK_ENABLED).getOrElse(
+//      deltaLog.store.isPartialWriteVisible(deltaLog.logPath))
+    true
+  }
+
+  private def lockCommitIfEnabled[T](body: => T): T = {
+    if (isCommitLockEnabled) {
+      deltaLog.lockInterruptibly(body)
+    } else {
+      body
     }
   }
 }
