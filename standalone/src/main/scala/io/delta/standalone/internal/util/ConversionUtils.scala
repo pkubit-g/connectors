@@ -109,6 +109,7 @@ private[internal] object ConversionUtils {
       internal.name,
       internal.description,
       convertFormat(internal.format),
+      internal.schemaString,
       internal.partitionColumns.toList.asJava,
       internal.configuration.asJava,
       toJavaLongOptional(internal.createdTime),
@@ -200,8 +201,91 @@ private[internal] object ConversionUtils {
   // Java to Scala conversions
   ///////////////////////////////////////////////////////////////////////////
 
+//  private implicit def toScalaLongOption(opt: OptionalJ[java.lang.Long]): Option[Long] =
+//    if (opt.isPresent) Some(opt.get()) else None
+//
+//  private implicit def toScalaStringOption(opt: OptionalJ[StringJ]): Option[String] =
+//    if (opt.isPresent) Some(opt.get()) else None
+
+  // TODO verify this actually works
+  private implicit def toScalaOption[J, S](opt: OptionalJ[J]): Option[S] =
+    if (opt.isPresent) Some(opt.get().asInstanceOf[S]) else None
+
   def convertActionJ(external: ActionJ): Action = external match {
-    case x: AddFileJ => null
+    case x: AddFileJ => convertAddFileJ(x)
+    case x: RemoveFileJ => convertRemoveFileJ(x)
+    case x: CommitInfoJ => convertCommitInfoJ(x)
+    case x: MetadataJ => convertMetadataJ(x)
+    case x: ProtocolJ => convertProtocolJ(x)
     // TODO
   }
+
+  def convertAddFileJ(external: AddFileJ): AddFile = {
+    AddFile(
+      external.getPath,
+      external.getPartitionValues.asScala.toMap,
+      external.getSize,
+      external.getModificationTime,
+      external.isDataChange,
+      external.getStats,
+      external.getTags.asScala.toMap
+    )
+  }
+
+  def convertRemoveFileJ(external: RemoveFileJ): RemoveFile = {
+    RemoveFile(
+      external.getPath,
+      external.getDeletionTimestamp, // implicit check this!
+      external.isDataChange,
+      external.isExtendedFileMetadata,
+      if (external.isExtendedFileMetadata) external.getPartitionValues.asScala.toMap else null,
+      if (external.isExtendedFileMetadata) external.getSize else 0,
+      if (external.isExtendedFileMetadata) external.getTags.asScala.toMap else null
+    )
+  }
+
+  def convertCommitInfoJ(external: CommitInfoJ): CommitInfo = {
+    CommitInfo(
+      external.getVersion, // implicit check this!
+      external.getTimestamp,
+      external.getUserId, // implicit check this!
+      external.getUserName, // implicit check this!
+      external.getOperation,
+      external.getOperationParameters.asScala.toMap,
+      None, // TODO: Option[JobInfo]
+      None, // TODO: Option[NotebookInfo]
+      external.getClusterId, // implicit check this!
+      external.getReadVersion, // implicit check this!
+      external.getIsolationLevel, // implicit check this!
+      external.getIsBlindAppend, // implicit check this!
+      external.getOperationMetrics, // implicit check this!
+      external.getUserMetadata // implicit check this!
+    )
+  }
+
+  def convertMetadataJ(external: MetadataJ): Metadata = {
+    Metadata(
+      external.getId,
+      external.getName,
+      external.getDescription,
+      convertFormatJ(external.getFormat),
+      external.getSchemaString,
+      external.getPartitionColumns.asScala,
+      external.getConfiguration.asScala.toMap,
+      external.getCreatedTime // implicit check this!
+    )
+  }
+
+  def convertProtocolJ(external: ProtocolJ): Protocol = {
+    Protocol(
+      external.getMinReaderVersion,
+      external.getMinWriterVersion
+    )
+  }
+
+  def convertFormatJ(external: FormatJ): Format = {
+    // TODO
+    null
+  }
+
 }
