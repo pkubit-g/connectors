@@ -140,6 +140,11 @@ private[internal] case class AddFile(
 /**
  * Logical removal of a given file from the reservoir. Acts as a tombstone before a file is
  * deleted permanently.
+ *
+ * Note that for protocol compatibility reasons, the fields `partitionValues`, `size`, and `tags`
+ * are only present when the extendedFileMetadata flag is true. New writers should generally be
+ * setting this flag, but old writers (and FSCK) won't, so readers must check this flag before
+ * attempting to consume those values.
  */
 private[internal] case class RemoveFile(
     path: String,

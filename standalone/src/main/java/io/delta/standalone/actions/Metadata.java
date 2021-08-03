@@ -34,18 +34,20 @@ public final class Metadata implements Action {
     private final String name;
     private final String description;
     private final Format format;
+    private final String schemaString;
     private final List<String> partitionColumns;
     private final Map<String, String> configuration;
     private final Optional<Long> createdTime;
     private final StructType schema;
 
-    public Metadata(String id, String name, String description, Format format,
+    public Metadata(String id, String name, String description, Format format, String schemaString,
                     List<String> partitionColumns, Map<String, String> configuration,
                     Optional<Long> createdTime, StructType schema) {
         this.id = id;
         this.name = name;
         this.description = description;
         this.format = format;
+        this.schemaString = schemaString;
         this.partitionColumns = partitionColumns;
         this.configuration = configuration;
         this.createdTime = createdTime;
@@ -78,6 +80,10 @@ public final class Metadata implements Action {
      */
     public Format getFormat() {
         return format;
+    }
+
+    public String getSchemaString() {
+        return schemaString;
     }
 
     /**
@@ -120,6 +126,7 @@ public final class Metadata implements Action {
                 Objects.equals(name, metadata.name) &&
                 Objects.equals(description, metadata.description) &&
                 Objects.equals(format, metadata.format) &&
+                Objects.equals(schemaString, metadata.schemaString) &&
                 Objects.equals(partitionColumns, metadata.partitionColumns) &&
                 Objects.equals(configuration, metadata.configuration) &&
                 Objects.equals(createdTime, metadata.createdTime) &&
@@ -128,7 +135,6 @@ public final class Metadata implements Action {
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, name, description, format, partitionColumns,
-                configuration, createdTime, schema);
+        return Objects.hash(id, name, description, format, schemaString, partitionColumns, configuration, createdTime, schema);
     }
 }
