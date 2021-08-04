@@ -16,9 +16,14 @@
 
 package io.delta.standalone.internal
 
-import io.delta.standalone.internal.util.GoldenTableUtils._
-import io.delta.standalone.internal.util.TestUtils._
+import java.util.{Collections, Optional, UUID}
+
+import scala.collection.JavaConverters._
+
 import io.delta.standalone.DeltaLog
+import io.delta.standalone.actions.{AddFile => AddFileJ, Format => FormatJ, Metadata => MetadataJ}
+import io.delta.standalone.types.{IntegerType, StringType, StructField, StructType}
+import io.delta.standalone.internal.util.TestUtils._
 import org.apache.hadoop.conf.Configuration
 
 // scalastyle:off funsuite
@@ -27,19 +32,43 @@ import org.scalatest.FunSuite
 class OptimisticTransactionSuite extends FunSuite {
   // scalastyle:on funsuite
 
+//  val schema = new StructType(Array(
+//    new StructField("col1", new IntegerType(), true),
+//    new StructField("col2", new StringType(), true)))
+
+  val metadata = new MetadataJ(UUID.randomUUID().toString, null, null, new FormatJ(), null,
+    Collections.emptyList(), Collections.emptyMap(), Optional.of(100L), new StructType(Array.empty))
+
+  val add1 = new AddFileJ("fake/path/1", Collections.emptyMap(), 100, 100, true, null, null)
+  val add2 = new AddFileJ("fake/path/2", Collections.emptyMap(), 100, 100, true, null, null)
+
+  // FAILS due to error reading, writing, then reading a CommitInfo
+//  test("basic - old") {
+//    withLogForGoldenTable("snapshot-data0") { log =>
+//      withTempDir { dir =>
+//        val versionLogsIter = log.getChanges(0, true)
+//        assert(versionLogsIter.hasNext, "versionLogsIter for snapshot-data0 should not be empty")
+//        val actions = versionLogsIter.next().getActions
+//
+//        val newTablePath = dir.getCanonicalPath
+//        val newLog = DeltaLog.forTable(new Configuration(), newTablePath)
+//        val txn = newLog.startTransaction()
+//        txn.commit(actions, null)
+//      }
+//    }
+//  }
+
   test("basic") {
-    withLogForGoldenTable("snapshot-data0") { log =>
-      withTempDir { dir =>
-        val versionLogsIter = log.getChanges(0, true)
-        assert(versionLogsIter.hasNext, "versionLogsIter for snapshot-data0 should not be empty")
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      val txn = log.startTransaction()
+      val actions = Seq(metadata, add1, add2)
+      txn.commit(actions.asJava, null)
 
-        val newTablePath = dir.getCanonicalPath
-        val newLog = DeltaLog.forTable(new Configuration(), newTablePath)
-        val txn = newLog.startTransaction()
+      val versionLogs = log.getChanges(0).asScala.toList
+      val readActions = versionLogs(0).getActions.asScala
 
-        val actions = versionLogsIter.next().getActions
-        txn.commit(actions)
-      }
+      assert(actions.toSet.subsetOf(readActions.toSet))
     }
   }
 

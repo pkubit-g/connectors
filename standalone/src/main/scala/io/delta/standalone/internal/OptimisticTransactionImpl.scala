@@ -59,8 +59,8 @@ private[internal] class OptimisticTransactionImpl(
   // Public Java API Methods
   ///////////////////////////////////////////////////////////////////////////
 
-  override def commit(actionsJ: java.util.List[ActionJ]): Long =
-    commit(actionsJ, Option.empty[DeltaOperations.Operation])
+//  override def commit(actionsJ: java.util.List[ActionJ]): Long =
+//    commit(actionsJ, Option.empty[DeltaOperations.Operation])
 
   override def commit(actionsJ: java.util.List[ActionJ], opJ: OperationJ): Long = {
     val op: DeltaOperations.Operation = null // TODO convert opJ to scala
