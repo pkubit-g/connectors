@@ -289,8 +289,10 @@ private[internal] object ConversionUtils {
   }
 
   def convertFormatJ(external: FormatJ): Format = {
-    // TODO
-    null
+    Format(
+      external.getProvider,
+      external.getOptions.asScala.toMap
+    )
   }
 
 }
