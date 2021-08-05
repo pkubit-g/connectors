@@ -21,7 +21,7 @@ package io.delta.standalone.internal.sources
  */
 private[internal] object StandaloneHadoopConf {
 
-  /** time zone as which time-based parquet values will be decoded */
+  /** time zone as which time-based parquet values will be encoded and decoded */
   val PARQUET_DATA_TIME_ZONE_ID = "io.delta.standalone.PARQUET_DATA_TIME_ZONE_ID"
 
   /** Whether to log commit information into the Delta log */
