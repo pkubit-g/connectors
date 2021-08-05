@@ -42,7 +42,21 @@ class OptimisticTransactionSuite extends FunSuite {
   val add1 = new AddFileJ("fake/path/1", Collections.emptyMap(), 100, 100, true, null, null)
   val add2 = new AddFileJ("fake/path/2", Collections.emptyMap(), 100, 100, true, null, null)
 
-  // FAILS due to error reading, writing, then reading a CommitInfo
+  test("basic") {
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      val txn = log.startTransaction()
+      val actions = Seq(metadata, add1, add2)
+      txn.commit(actions.asJava, null)
+
+      val versionLogs = log.getChanges(0).asScala.toList
+      val readActions = versionLogs(0).getActions.asScala
+
+      assert(actions.toSet.subsetOf(readActions.toSet))
+    }
+  }
+
+// FAILS due to error reading, writing, then reading a CommitInfo
 //  test("basic - old") {
 //    withLogForGoldenTable("snapshot-data0") { log =>
 //      withTempDir { dir =>
@@ -57,20 +71,6 @@ class OptimisticTransactionSuite extends FunSuite {
 //      }
 //    }
 //  }
-
-  test("basic") {
-    withTempDir { dir =>
-      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
-      val txn = log.startTransaction()
-      val actions = Seq(metadata, add1, add2)
-      txn.commit(actions.asJava, null)
-
-      val versionLogs = log.getChanges(0).asScala.toList
-      val readActions = versionLogs(0).getActions.asScala
-
-      assert(actions.toSet.subsetOf(readActions.toSet))
-    }
-  }
 
   // TODO: test prepareCommit > assert not already committed
 

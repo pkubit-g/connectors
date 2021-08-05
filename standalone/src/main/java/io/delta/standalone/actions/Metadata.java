@@ -40,6 +40,8 @@ public final class Metadata implements Action {
     private final Optional<Long> createdTime;
     private final StructType schema;
 
+    // TODO: add back in previous constructor (in DSR)
+
     public Metadata(String id, String name, String description, Format format, String schemaString,
                     List<String> partitionColumns, Map<String, String> configuration,
                     Optional<Long> createdTime, StructType schema) {
