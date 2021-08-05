@@ -25,7 +25,7 @@ object StandaloneMimaExcludes {
     // Ignore changes to internal Scala codes
     ProblemFilters.exclude[Problem]("io.delta.standalone.internal.*"),
 
-    // Public API changes in 0.2.0
+    // Public API changes in 0.2.0 -> 0.3.0
     ProblemFilters.exclude[ReversedMissingMethodProblem]("io.delta.standalone.DeltaLog.getChanges")
   )
 }
