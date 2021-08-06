@@ -216,6 +216,8 @@ object Checkpoints {
 
     // TODO ++ snapshot.removeFiles ++ snapshot.addFiles ++ snapshot.transaction
     // TODO SingleAction instead of Action?
+    // do NOT include commitInfo
+    // see https://github.com/delta-io/delta/blob/master/PROTOCOL.md#checkpoint-schema
      val actions: Seq[SingleAction] =
       (Seq(snapshot.protocolScala, snapshot.metadataScala) ++ snapshot.allFilesScala).map(_.wrap)
 
