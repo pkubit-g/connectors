@@ -67,7 +67,7 @@ import io.delta.standalone.types._
  * @param timeZone the timeZone as which time-based data will be read
  */
 private[internal] case class RowParquetRecordImpl(
-    private val record: RowParquetRecord,
+    private[internal] val record: RowParquetRecord,
     private val schema: StructType,
     private val timeZone: TimeZone) extends RowParquetRecordJ {
 
@@ -75,6 +75,19 @@ private[internal] case class RowParquetRecordImpl(
    * Needed to decode values. Constructed with the `timeZone` to properly decode time-based data.
    */
   private val codecConf = ValueCodecConfiguration(timeZone)
+
+  def this(schema: StructType) = {
+    this(RowParquetRecord.empty, schema, null)
+  }
+
+  def this(schema: StructType, timeZone: TimeZone) = {
+    this(RowParquetRecord.empty, schema, timeZone)
+  }
+
+  override def add(fieldName: String, value: Int): RowParquetRecordJ = {
+    record.add(fieldName, value, codecConf)
+    this
+  }
 
   ///////////////////////////////////////////////////////////////////////////
   // Public API Methods

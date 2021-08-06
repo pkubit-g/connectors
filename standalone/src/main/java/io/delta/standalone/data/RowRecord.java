@@ -21,6 +21,7 @@ import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
 
+import io.delta.standalone.internal.data.RowParquetRecordImpl;
 import io.delta.standalone.types.StructField;
 import io.delta.standalone.types.StructType;
 
@@ -40,6 +41,16 @@ import io.delta.standalone.types.StructType;
  * @see StructField StructField
  */
 public interface RowRecord {
+
+    static RowRecord empty(StructType schema) {
+        return new RowParquetRecordImpl(schema);
+    }
+
+    static RowRecord empty(StructType schema, java.util.TimeZone timeZone) {
+        return new RowParquetRecordImpl(schema, timeZone);
+    }
+
+    RowRecord add(String fieldName, int value);
 
     /**
      * @return the schema for this {@link RowRecord}

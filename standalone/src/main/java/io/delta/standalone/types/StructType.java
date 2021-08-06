@@ -57,6 +57,10 @@ public final class StructType extends DataType {
         Arrays.stream(fields).forEach(field -> nameToField.put(field.getName(), field));
     }
 
+    public int length() {
+        return fields.length;
+    }
+
     /**
      * @return array of fields
      */

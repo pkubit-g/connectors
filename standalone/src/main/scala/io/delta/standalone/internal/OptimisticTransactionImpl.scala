@@ -21,9 +21,11 @@ import java.util.ConcurrentModificationException
 import scala.collection.JavaConverters._
 
 import io.delta.standalone.OptimisticTransaction
-import io.delta.standalone.actions.{Action => ActionJ}
+import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ}
+import io.delta.standalone.data.{RowRecord => RowRecordJ}
 import io.delta.standalone.operations.{Operation => OperationJ}
 import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, Metadata, Protocol, RemoveFile}
+import io.delta.standalone.internal.data.{ParquetDataWriter, RowParquetRecordImpl}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.sources.StandaloneHadoopConf
 import io.delta.standalone.internal.util.{ConversionUtils, FileNames, SchemaMergingUtils, SchemaUtils}
@@ -59,12 +61,33 @@ private[internal] class OptimisticTransactionImpl(
   // Public Java API Methods
   ///////////////////////////////////////////////////////////////////////////
 
-//  override def commit(actionsJ: java.util.List[ActionJ]): Long =
-//    commit(actionsJ, Option.empty[DeltaOperations.Operation])
-
   override def commit(actionsJ: java.util.List[ActionJ], opJ: OperationJ): Long = {
     val op: DeltaOperations.Operation = null // TODO convert opJ to scala
     commit(actionsJ, None)
+  }
+
+  /**
+   * We either keep RowRecord.java as an interface and RowRecordImpl.scala implements it
+   * (rename RowParquetRecordImpl -> RowRecordImpl). In this function we cast it to the Scala
+   * implementation.
+   *
+   * Or RowRecord.java becomes a class. And HAS a RowRecordImpl. and getImpl is a public method
+   * In this function we map each java instance to _.getImpl to get the scala references.
+   */
+  override def writeFiles(data: java.util.List[RowRecordJ]): java.util.List[AddFileJ] = {
+    if (data.isEmpty) return Nil.asJava
+
+    data.get(0) match {
+      case head: RowParquetRecordImpl =>
+        require(head.record.length == head.getSchema.length(),
+          "mismatch between record schema and underlying data") // TODO: show mismatch
+
+        ParquetDataWriter.write(
+          deltaLog.dataPath,
+          data.asScala.asInstanceOf[Seq[RowParquetRecordImpl]])
+      case _ =>
+        throw new Exception("TODO")
+    }
   }
 
   ///////////////////////////////////////////////////////////////////////////
