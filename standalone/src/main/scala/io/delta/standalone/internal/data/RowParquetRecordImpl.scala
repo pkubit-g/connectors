@@ -89,6 +89,13 @@ private[internal] case class RowParquetRecordImpl(
     this
   }
 
+  override def add(fieldName: String, value: Any): RowParquetRecordJ = {
+    value match {
+      case x: Int => record.add(fieldName, x, codecConf)
+    }
+    this
+  }
+
   ///////////////////////////////////////////////////////////////////////////
   // Public API Methods
   ///////////////////////////////////////////////////////////////////////////

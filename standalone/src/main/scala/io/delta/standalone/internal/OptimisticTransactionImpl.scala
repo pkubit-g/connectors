@@ -74,6 +74,7 @@ private[internal] class OptimisticTransactionImpl(
    * Or RowRecord.java becomes a class. And HAS a RowRecordImpl. and getImpl is a public method
    * In this function we map each java instance to _.getImpl to get the scala references.
    */
+  // TODO: should be iter
   override def writeFiles(data: java.util.List[RowRecordJ]): java.util.List[AddFileJ] = {
     if (data.isEmpty) return Nil.asJava
 

@@ -21,8 +21,8 @@ import java.util.{Collections, Optional, TimeZone, UUID}
 import scala.collection.JavaConverters._
 
 import io.delta.standalone.internal.util.TestUtils._
-import io.delta.standalone.DeltaLog
-import io.delta.standalone.actions.{Action => ActionJ, Metadata => MetadataJ, Format => FormatJ}
+import io.delta.standalone.{DeltaLog, OptimisticTransaction}
+import io.delta.standalone.actions.{Action => ActionJ, Format => FormatJ, Metadata => MetadataJ}
 import io.delta.standalone.data.RowRecord
 import io.delta.standalone.types.{IntegerType, StructField, StructType}
 import org.apache.hadoop.conf.Configuration
@@ -32,8 +32,6 @@ import org.scalatest.FunSuite
 
 class DeltaDataWriterSuite extends FunSuite {
   // scalastyle:on funsuite
-
-
 
   test("basic data write") {
     withTempDir { dir =>
@@ -62,6 +60,37 @@ class DeltaDataWriterSuite extends FunSuite {
       //   Field "col1" does not exist. Available fields: []
       //   java.lang.IllegalArgumentException: Field "col1" does not exist. Available fields: []
 
+      assert(readData.asScala.length == 10)
+    }
+  }
+
+  test("another write API") {
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      val dataSchema = new StructType(Array(
+        new StructField("col1", new IntegerType(), false),
+        new StructField("col2", new IntegerType(), false)
+      ))
+      val metadata = new MetadataJ(UUID.randomUUID().toString, null, null, new FormatJ(), null,
+        Collections.emptyList(), Collections.emptyMap(), Optional.of(100L), dataSchema)
+
+      val data = (0 until 10).map { i =>
+        val list: java.util.List[Object] = new java.util.ArrayList[Object]()
+        list.add(i.asInstanceOf[Object])
+        list.add((i * 2).asInstanceOf[Object])
+        list
+      }.asJava
+      val txn = log.startTransaction()
+
+      val writeRecords = OptimisticTransaction.parseData(data, dataSchema)
+
+      val addFiles = txn.writeFiles(writeRecords)
+
+      val actions: Seq[ActionJ] = Seq(metadata) ++ addFiles.asScala
+
+      txn.commit(actions.asJava, null)
+
+      val readData = log.update().open()
       assert(readData.asScala.length == 10)
     }
   }

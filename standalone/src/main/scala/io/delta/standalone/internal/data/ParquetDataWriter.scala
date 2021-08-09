@@ -37,6 +37,7 @@ object ParquetDataWriter {
       throw new Exception(s"unsure how to cast spark type ${dataType.getTypeName} to parquet")
   }
 
+  // should be iter
   def write(dataPath: Path, data: Seq[RowParquetRecordImpl]): java.util.List[AddFileJ] = {
     assert(data.nonEmpty)
 
@@ -49,6 +50,7 @@ object ParquetDataWriter {
 
     implicit val schema: MessageType = schemaBuilder.named("schema")
 
+    // TODO: there must be a proper way to do this
     val newDataFilePath =
       new Path(dataPath, java.util.UUID.randomUUID().toString).toString + ".parquet"
 
@@ -60,7 +62,8 @@ object ParquetDataWriter {
     }
 
     // TODO: size (B) written?
-    val addFile = new AddFileJ(newDataFilePath, Collections.emptyMap(), 500, 100L, false, null, null)
+    val addFile =
+      new AddFileJ(newDataFilePath, Collections.emptyMap(), 500, 100L, false, null, null)
 
     (addFile :: Nil).asJava
   }
