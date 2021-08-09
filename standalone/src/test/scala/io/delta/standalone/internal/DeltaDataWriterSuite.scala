@@ -37,21 +37,18 @@ class DeltaDataWriterSuite extends FunSuite {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       val dataSchema = new StructType(Array(new StructField("col1", new IntegerType(), false)))
-      val timeZone = TimeZone.getTimeZone("PST")
+//      val timeZone = TimeZone.getTimeZone("PST")
+//
+//      val metadata = new MetadataJ(UUID.randomUUID().toString, null, null, new FormatJ(), null,
+//        Collections.emptyList(), Collections.emptyMap(), Optional.of(100L), dataSchema)
 
-      val metadata = new MetadataJ(UUID.randomUUID().toString, null, null, new FormatJ(), null,
-        Collections.emptyList(), Collections.emptyMap(), Optional.of(100L), dataSchema)
-
-      val data = (0 until 10).map { i =>
+      val records = (0 until 10).map { i =>
         RowRecord.empty(dataSchema).add("col1", i)
       }.asJava
 
       val txn = log.startTransaction()
-      val addFiles = txn.writeFiles(data)
-      val actions: Seq[ActionJ] = Seq(metadata) ++ addFiles.asScala
-      txn.commit(actions.asJava, null)
-
-      val readFiles = log.update().getAllFiles
+      // TODO: txn.updateMetadata(metadata);
+      txn.writeRecordsAndCommit(records)
 
       val readData = log.update().open()
 
@@ -67,12 +64,12 @@ class DeltaDataWriterSuite extends FunSuite {
   test("another write API") {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
-      val dataSchema = new StructType(Array(
-        new StructField("col1", new IntegerType(), false),
-        new StructField("col2", new IntegerType(), false)
-      ))
-      val metadata = new MetadataJ(UUID.randomUUID().toString, null, null, new FormatJ(), null,
-        Collections.emptyList(), Collections.emptyMap(), Optional.of(100L), dataSchema)
+//      val dataSchema = new StructType(Array(
+//        new StructField("col1", new IntegerType(), false),
+//        new StructField("col2", new IntegerType(), false)
+//      ))
+//      val metadata = new MetadataJ(UUID.randomUUID().toString, null, null, new FormatJ(), null,
+//        Collections.emptyList(), Collections.emptyMap(), Optional.of(100L), dataSchema)
 
       val data = (0 until 10).map { i =>
         val list: java.util.List[Object] = new java.util.ArrayList[Object]()
@@ -82,13 +79,8 @@ class DeltaDataWriterSuite extends FunSuite {
       }.asJava
       val txn = log.startTransaction()
 
-      val writeRecords = OptimisticTransaction.parseData(data, dataSchema)
-
-      val addFiles = txn.writeFiles(writeRecords)
-
-      val actions: Seq[ActionJ] = Seq(metadata) ++ addFiles.asScala
-
-      txn.commit(actions.asJava, null)
+      // TODO: txn.updateMetadata(metadata);
+      txn.writeDataAndCommit(data)
 
       val readData = log.update().open()
       assert(readData.asScala.length == 10)

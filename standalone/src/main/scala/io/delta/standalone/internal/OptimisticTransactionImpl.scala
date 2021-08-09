@@ -62,8 +62,9 @@ private[internal] class OptimisticTransactionImpl(
   ///////////////////////////////////////////////////////////////////////////
 
   override def commit(actionsJ: java.util.List[ActionJ], opJ: OperationJ): Long = {
+    val actions = actionsJ.asScala.map(ConversionUtils.convertActionJ)
     val op: DeltaOperations.Operation = null // TODO convert opJ to scala
-    commit(actionsJ, None)
+    commit(actions, None)
   }
 
   /**
@@ -74,11 +75,13 @@ private[internal] class OptimisticTransactionImpl(
    * Or RowRecord.java becomes a class. And HAS a RowRecordImpl. and getImpl is a public method
    * In this function we map each java instance to _.getImpl to get the scala references.
    */
+  // TODO: document how if this is the 1st commit, then txn.updateMetadata() must have been called
   // TODO: should be iter
-  override def writeFiles(data: java.util.List[RowRecordJ]): java.util.List[AddFileJ] = {
-    if (data.isEmpty) return Nil.asJava
+  override def writeRecordsAndCommit(data: java.util.List[RowRecordJ]): Long = {
+    // TODO maybe return current snapshot version? edge case?
+    require(!data.isEmpty, "cannot write and commit empty record data list")
 
-    data.get(0) match {
+    val addFile = data.get(0) match {
       case head: RowParquetRecordImpl =>
         require(head.record.length == head.getSchema.length(),
           "mismatch between record schema and underlying data") // TODO: show mismatch
@@ -89,6 +92,31 @@ private[internal] class OptimisticTransactionImpl(
       case _ =>
         throw new Exception("TODO")
     }
+
+    commit(addFile :: Nil, null)
+  }
+
+  // TODO: document how if this is the 1st commit, then txn.updateMetadata() must have been called
+  override def writeDataAndCommit(data: java.util.List[java.util.List[AnyRef]]): Long = {
+    // TODO maybe return current snapshot version? edge case?
+    require(!data.isEmpty, "cannot write and commit empty record data list")
+
+    val schemaFieldNames = metadata.schema.getFieldNames
+    val records = data.asScala.map { inputRow =>
+
+      if (inputRow.size != schemaFieldNames.length) {
+        throw new RuntimeException("data columns do not match expected schema columns");
+      }
+      val outputRow = RowRecordJ.empty(metadata.schema)
+
+      (0 until inputRow.size).foreach { i =>
+        outputRow.add(schemaFieldNames(i), inputRow.get(i))
+      }
+
+      outputRow
+    }.asJava
+
+    writeRecordsAndCommit(records)
   }
 
   ///////////////////////////////////////////////////////////////////////////
@@ -96,9 +124,8 @@ private[internal] class OptimisticTransactionImpl(
   ///////////////////////////////////////////////////////////////////////////
 
   private def commit(
-      actionsJ: java.util.List[ActionJ],
+      actions: Seq[Action],
       op: Option[DeltaOperations.Operation]): Long = {
-    val actions = actionsJ.asScala.map(ConversionUtils.convertActionJ)
 
     // Try to commit at the next version.
     var finalActions = prepareCommit(actions)

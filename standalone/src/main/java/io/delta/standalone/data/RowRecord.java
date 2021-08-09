@@ -50,12 +50,6 @@ public interface RowRecord {
         return new RowParquetRecordImpl(schema, timeZone);
     }
 
-    // TODO should be iter of List
-    static List<RowRecord> createRecords(StructType schema, List<List<Object>> data) {
-        // TODO does this API make sense? Scala impl
-        return null;
-    }
-
     RowRecord add(String fieldName, int value);
 
     RowRecord add(String fieldName, Object value);

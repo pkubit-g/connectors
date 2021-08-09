@@ -21,8 +21,9 @@ import java.util.Collections
 import scala.collection.JavaConverters._
 
 import com.github.mjakubowski84.parquet4s.{ParquetWriter, RowParquetRecord}
-import io.delta.standalone.actions.{AddFile => AddFileJ}
+import io.delta.standalone.internal.actions.AddFile
 import io.delta.standalone.types.{DataType, IntegerType, StructField}
+import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.{BINARY, INT32, INT64}
 import org.apache.parquet.schema.Type.Repetition.{OPTIONAL, REQUIRED}
@@ -38,7 +39,7 @@ object ParquetDataWriter {
   }
 
   // should be iter
-  def write(dataPath: Path, data: Seq[RowParquetRecordImpl]): java.util.List[AddFileJ] = {
+  def write(dataPath: Path, data: Seq[RowParquetRecordImpl]): AddFile = {
     assert(data.nonEmpty)
 
     var schemaBuilder: Types.GroupBuilder[MessageType] = Types.buildMessage()
@@ -51,20 +52,21 @@ object ParquetDataWriter {
     implicit val schema: MessageType = schemaBuilder.named("schema")
 
     // TODO: there must be a proper way to do this
-    val newDataFilePath =
-      new Path(dataPath, java.util.UUID.randomUUID().toString).toString + ".parquet"
 
-    val writer = ParquetWriter.writer[RowParquetRecord](newDataFilePath, ParquetWriter.Options())
+    val dataFilePath = new Path(dataPath, java.util.UUID.randomUUID().toString + ".parquet")
+
+    val writer =
+      ParquetWriter.writer[RowParquetRecord](dataFilePath.toString, ParquetWriter.Options())
     try {
       data.foreach { row => writer.write(row.record) }
     } finally {
       writer.close()
     }
 
-    // TODO: size (B) written?
-    val addFile =
-      new AddFileJ(newDataFilePath, Collections.emptyMap(), 500, 100L, false, null, null)
+    val fs = dataFilePath.getFileSystem(new Configuration()) // TODO deltaLog.fs
+    val fileStatus = fs.getFileStatus(dataFilePath)
 
-    (addFile :: Nil).asJava
+    AddFile(dataFilePath.toString, Map.empty, fileStatus.getLen, fileStatus.getModificationTime,
+      dataChange = false)
   }
 }
