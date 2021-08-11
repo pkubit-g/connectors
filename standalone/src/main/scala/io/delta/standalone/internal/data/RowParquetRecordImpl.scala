@@ -103,6 +103,9 @@ private[internal] case class RowParquetRecordImpl(
   // Public API Methods
   ///////////////////////////////////////////////////////////////////////////
 
+
+  override def getUnderlyingRecord: RowParquetRecord = record
+
   override def getSchema: StructType = schema
 
   override def getLength: Int = record.length

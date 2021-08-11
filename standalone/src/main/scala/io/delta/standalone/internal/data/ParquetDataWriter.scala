@@ -20,15 +20,16 @@ import java.util.Collections
 
 import scala.collection.JavaConverters._
 
-import com.github.mjakubowski84.parquet4s.{ParquetWriter, RowParquetRecord}
+import com.github.mjakubowski84.parquet4s.{ParquetWriter, RowParquetRecord => Parquet4sRecord}
 import io.delta.standalone.internal.actions.AddFile
-import io.delta.standalone.types.{DataType, IntegerType, StructField}
+import io.delta.standalone.types.{DataType, IntegerType, StructField, StructType}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.{BINARY, INT32, INT64}
 import org.apache.parquet.schema.Type.Repetition.{OPTIONAL, REQUIRED}
 import org.apache.parquet.schema.{MessageType, OriginalType, Types, Type => ParquetType}
 
+// TODO change this into trait ParquetDataWriter .. { self: OptimisticTransction =>
 object ParquetDataWriter {
 
   def sparkToParquetType(dataType: DataType, fieldName: String): ParquetType = dataType match {
@@ -39,12 +40,13 @@ object ParquetDataWriter {
   }
 
   // should be iter
-  def write(dataPath: Path, data: Seq[RowParquetRecordImpl]): AddFile = {
+  def write(dataPath: Path, data: Seq[Parquet4sRecord], catalystSchema: StructType): AddFile = {
     assert(data.nonEmpty)
 
+    // TODO: SparkToParquetSchemaConverter
     var schemaBuilder: Types.GroupBuilder[MessageType] = Types.buildMessage()
 
-    data.head.getSchema.getFields.foreach { field =>
+    catalystSchema.getFields.foreach { field =>
       val parquetTypeWithName = sparkToParquetType(field.getDataType, field.getName)
       schemaBuilder = schemaBuilder.addField(parquetTypeWithName)
     }
@@ -56,9 +58,9 @@ object ParquetDataWriter {
     val dataFilePath = new Path(dataPath, java.util.UUID.randomUUID().toString + ".parquet")
 
     val writer =
-      ParquetWriter.writer[RowParquetRecord](dataFilePath.toString, ParquetWriter.Options())
+      ParquetWriter.writer[Parquet4sRecord](dataFilePath.toString, ParquetWriter.Options())
     try {
-      data.foreach { row => writer.write(row.record) }
+      data.foreach { row => writer.write(row) }
     } finally {
       writer.close()
     }

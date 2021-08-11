@@ -54,6 +54,8 @@ public interface RowRecord {
 
     RowRecord add(String fieldName, Object value);
 
+    com.github.mjakubowski84.parquet4s.RowParquetRecord getUnderlyingRecord();
+
     /**
      * @return the schema for this {@link RowRecord}
      */

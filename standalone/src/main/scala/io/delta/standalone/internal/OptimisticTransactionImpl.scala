@@ -81,19 +81,11 @@ private[internal] class OptimisticTransactionImpl(
     // TODO maybe return current snapshot version? edge case?
 //    require(!data.isEmpty, "cannot write and commit empty record data list")
 
-    val addFile = data.get(0) match {
-      case head: RowParquetRecordImpl =>
-
-        // TODO RowRecord should be able to handle this validation
-//        require(head.record.length == head.getSchema.length(),
-//          "mismatch between record schema and underlying data") // TODO: show mismatch
-
-        ParquetDataWriter.write(
-          deltaLog.dataPath,
-          data.asScala.asInstanceOf[Seq[RowParquetRecordImpl]])
-      case _ =>
-        throw new Exception("TODO")
-    }
+    val addFile = ParquetDataWriter.write(
+      deltaLog.dataPath,
+      data.asScala.map(_.getUnderlyingRecord),
+      metadata.schema
+    )
 
     commit(addFile :: Nil, null)
   }
