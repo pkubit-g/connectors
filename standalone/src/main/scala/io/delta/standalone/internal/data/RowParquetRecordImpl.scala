@@ -90,6 +90,9 @@ private[internal] case class RowParquetRecordImpl(
   }
 
   override def add(fieldName: String, value: Any): RowParquetRecordJ = {
+    // TODO: verify that this fieldName is contained in the schema
+    // TODO: verify that this data type is correct. we could just add it then read it?
+
     value match {
       case x: Int => record.add(fieldName, x, codecConf)
     }

@@ -79,12 +79,14 @@ private[internal] class OptimisticTransactionImpl(
   // TODO: should be iter
   override def writeRecordsAndCommit(data: java.util.List[RowRecordJ]): Long = {
     // TODO maybe return current snapshot version? edge case?
-    require(!data.isEmpty, "cannot write and commit empty record data list")
+//    require(!data.isEmpty, "cannot write and commit empty record data list")
 
     val addFile = data.get(0) match {
       case head: RowParquetRecordImpl =>
-        require(head.record.length == head.getSchema.length(),
-          "mismatch between record schema and underlying data") // TODO: show mismatch
+
+        // TODO RowRecord should be able to handle this validation
+//        require(head.record.length == head.getSchema.length(),
+//          "mismatch between record schema and underlying data") // TODO: show mismatch
 
         ParquetDataWriter.write(
           deltaLog.dataPath,
@@ -103,7 +105,6 @@ private[internal] class OptimisticTransactionImpl(
 
     val schemaFieldNames = metadata.schema.getFieldNames
     val records = data.asScala.map { inputRow =>
-
       if (inputRow.size != schemaFieldNames.length) {
         throw new RuntimeException("data columns do not match expected schema columns");
       }
