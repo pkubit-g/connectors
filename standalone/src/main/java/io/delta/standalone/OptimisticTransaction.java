@@ -13,6 +13,7 @@ public interface OptimisticTransaction {
     // TODO should be iter?
     long writeRecordsAndCommit(List<RowRecord> data);
 
-    void setReadFiles(List<AddFile> readFiles);
-    void setConflictChecker(CommitConflictChecker checker);
+    void setConflictResolutionMeta(Iterable<AddFile> readFiles, CommitConflictChecker checker);
+
+    void setIsBlindAppend();
 }

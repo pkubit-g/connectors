@@ -19,7 +19,7 @@ package io.delta.standalone.internal.exception
 import java.io.{FileNotFoundException, IOException}
 import java.util.ConcurrentModificationException
 
-import io.delta.standalone.internal.actions.Protocol
+import io.delta.standalone.internal.actions.{CommitInfo, Protocol}
 import io.delta.standalone.internal.sources.StandaloneHadoopConf
 import org.apache.hadoop.fs.Path
 import io.delta.standalone.types.StructType
@@ -187,7 +187,53 @@ private[internal] object DeltaErrors {
       """.stripMargin, cause)
   }
 
-  ///////////////////////////////////////////////////////////////////////////
+  def concurrentModificationExceptionMsg(
+      baseMessage: String,
+      commit: Option[CommitInfo]): String = {
+    // TODO
+    ""
+  }
+
+  def concurrentAppendException(conflictingCommit: Option[CommitInfo]): Exception = {
+    // TODO: return type of io.delta.exceptions.ConcurrentAppendException
+    val message = DeltaErrors.concurrentModificationExceptionMsg(
+      "todo",
+      conflictingCommit)
+
+    null
+  }
+
+  def concurrentDeleteReadException(
+      conflictingCommit: Option[CommitInfo],
+      file: String): Exception = {
+    // TODO: io.delta.exceptions.ConcurrentDeleteReadException
+    val message = DeltaErrors.concurrentModificationExceptionMsg(
+      "This transaction attempted to read one or more files that were deleted" +
+        s" (for example $file) by a concurrent update. Please try the operation again.",
+      conflictingCommit)
+//    new io.delta.exceptions.ConcurrentDeleteReadException(message)
+    null
+  }
+
+  def maxCommitRetriesExceededException(
+      attemptNumber: Int,
+      attemptVersion: Long,
+      initAttemptVersion: Long,
+      numActions: Int,
+      totalCommitAttemptTime: Long): Throwable = {
+    new IllegalStateException(
+      s"""This commit has failed as it has been tried $attemptNumber times but did not succeed.
+         |This can be caused by the Delta table being committed continuously by many concurrent
+         |commits.
+         |
+         |Commit started at version: $initAttemptVersion
+         |Commit failed at version: $attemptVersion
+         |Number of actions attempted to commit: $numActions
+         |Total time spent attempting this commit: $totalCommitAttemptTime ms
+       """.stripMargin)
+  }
+
+    ///////////////////////////////////////////////////////////////////////////
   // Helper Methods
   ///////////////////////////////////////////////////////////////////////////
 

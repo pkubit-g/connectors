@@ -16,6 +16,8 @@
 
 package io.delta.standalone.internal
 
+import java.lang
+import java.nio.file.FileAlreadyExistsException
 import java.util.ConcurrentModificationException
 
 import scala.collection.JavaConverters._
@@ -25,7 +27,7 @@ import io.delta.standalone.{CommitConflictChecker, OptimisticTransaction}
 import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ}
 import io.delta.standalone.data.{RowRecord => RowRecordJ}
 import io.delta.standalone.operations.{Operation => OperationJ}
-import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, Metadata, Protocol, RemoveFile}
+import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, FileAction, Metadata, Protocol, RemoveFile}
 import io.delta.standalone.internal.data.{ParquetDataWriter, RowParquetRecordImpl}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.sources.StandaloneHadoopConf
@@ -43,12 +45,20 @@ private[internal] class OptimisticTransactionImpl(
   /** Tracks if this transaction has already committed. */
   private var committed = false
 
+  private var isBlindAppend = false
+
   /** Stores the updated metadata (if any) that will result from this txn. */
 //  private var newMetadata: Option[Metadata] = None
   private val newMetadata: Option[Metadata] = None // TODO: remove?
 
   /** Stores the updated protocol (if any) that will result from this txn. */
   private var newProtocol: Option[Protocol] = None
+
+  /**
+   * Tracks the start time since we started trying to write a particular commit.
+   * Used for logging duration of retried transactions.
+   */
+  private var commitAttemptStartTime: Long = _
 
   private var externalConflictChecker: Option[CommitConflictChecker] = None
 
@@ -98,13 +108,24 @@ private[internal] class OptimisticTransactionImpl(
     commit(addFile :: Nil, null)
   }
 
-  override def setReadFiles(_readFilesJ: java.util.List[AddFileJ]): Unit = {
-    readFiles ++= _readFilesJ.asScala.map(ConversionUtils.convertAddFileJ)
+  override def setConflictResolutionMeta(
+      readFilesJ: java.lang.Iterable[AddFileJ],
+      checker: CommitConflictChecker): Unit = {
+    // TODO: check if we have already committed? If so, why is the user doing this?
+    require(!isBlindAppend,
+      "`setIsBlindAppend` has already been called. There shouldn't be any need to call " +
+        "`setConflictResolutionMeta`.")
+
+    readFiles ++= readFilesJ.asScala.map(ConversionUtils.convertAddFileJ)
+    externalConflictChecker = Some(checker)
   }
 
-  override def setConflictChecker(checker: CommitConflictChecker): Unit = {
+  override def setIsBlindAppend(): Unit = {
     // TODO: check if we have already committed? If so, why is the user doing this?
-    externalConflictChecker = Some(checker)
+    require(readFiles.isEmpty && externalConflictChecker.isEmpty,
+      "`setConflictResolutionMeta` has already been called. There shouldn't be any need to call " +
+        "`setIsBlindAppend`.")
+    isBlindAppend = true
   }
 
   ///////////////////////////////////////////////////////////////////////////
@@ -118,13 +139,29 @@ private[internal] class OptimisticTransactionImpl(
     // Try to commit at the next version.
     var finalActions = prepareCommit(actions)
 
+    // Find the isolation level to use for this commit
+    val noDataChanged = actions.collect { case f: FileAction => f.dataChange }.forall(_ == false)
+    val isolationLevelToUse = if (noDataChanged) {
+      // If no data has changed (i.e. its is only being rearranged), then SnapshotIsolation
+      // provides Serializable guarantee. Hence, allow reduced conflict detection by using
+      // SnapshotIsolation of what the table isolation level is.
+      SnapshotIsolation
+    } else {
+      Serializable
+    }
+
     if (deltaLog.hadoopConf.getBoolean(StandaloneHadoopConf.DELTA_COMMIT_INFO_ENABLED, true)) {
 //      val isBlindAppend = false // TODO
 //      val commitInfo = CommitInfo.empty() // TODO CommitInfo(...
 //      finalActions = commitInfo +: finalActions // prepend commitInfo
     }
 
-    val commitVersion = doCommit(snapshot.version + 1, finalActions)
+    commitAttemptStartTime = System.currentTimeMillis()
+
+    val commitVersion = doCommitRetryIteratively(
+      snapshot.version + 1,
+      finalActions,
+      isolationLevelToUse)
 
     postCommit(commitVersion)
 
@@ -193,6 +230,44 @@ private[internal] class OptimisticTransactionImpl(
   }
 
   /**
+   * Commit `actions` using `attemptVersion` version number. If there are any conflicts that are
+   * found, we will retry a fixed number of times.
+   *
+   * @return the real version that was committed
+   */
+  protected def doCommitRetryIteratively(
+      attemptVersion: Long,
+      actions: Seq[Action],
+      isolationLevel: IsolationLevel): Long = lockCommitIfEnabled {
+    var tryCommit = true
+    var commitVersion = attemptVersion
+    var attemptNumber = 0
+
+    while (tryCommit) {
+      try {
+        if (attemptNumber == 0) {
+          doCommit(commitVersion, actions)
+        } else if (attemptNumber > DELTA_MAX_RETRY_COMMIT_ATTEMPTS) {
+          val totalCommitAttemptTime = System.currentTimeMillis() - commitAttemptStartTime
+          throw DeltaErrors.maxCommitRetriesExceededException(
+            attemptNumber,
+            commitVersion,
+            attemptVersion,
+            actions.length,
+            totalCommitAttemptTime)
+        } else {
+          commitVersion = checkForConflicts(commitVersion, actions, isolationLevel)
+          doCommit(commitVersion, actions)
+        }
+        tryCommit = false
+      } catch {
+        case _: FileAlreadyExistsException => attemptNumber += 1
+      }
+    }
+    commitVersion
+  }
+
+  /**
    * Commit `actions` using `attemptVersion` version number.
    *
    * If you detect any conflicts, try to resolve logical conflicts and commit using a new version.
@@ -208,8 +283,6 @@ private[internal] class OptimisticTransactionImpl(
         FileNames.deltaFile(deltaLog.logPath, attemptVersion),
         actions.map(_.json).toIterator
       )
-
-      val actionsJsonStr = actions.map(_.json).toIterator // TODO remove
 
       val postCommitSnapshot = deltaLog.update()
       if (postCommitSnapshot.version < attemptVersion) {
@@ -244,14 +317,17 @@ private[internal] class OptimisticTransactionImpl(
    * conflicts with the read/writes. If no conflicts are found return the commit version to attempt
    * next.
    */
-  protected def checkForConflicts(
+  private def checkForConflicts(
       checkVersion: Long,
       actions: Seq[Action],
       commitIsolationLevel: IsolationLevel): Long = {
     val nextAttemptVersion = getNextAttemptVersion
 
+    val conflictCheckerToUse = externalConflictChecker
+      .getOrElse(getDefaultExternalConflictChecker(isBlindAppend))
+
     val currentTransactionInfo = CurrentTransactionInfo(
-      externalConflictChecker = externalConflictChecker.getOrElse(defaultExternalConflictChecker),
+      externalConflictChecker = conflictCheckerToUse,
       readFiles = readFiles.toSet,
       readWholeTable = false, // TODO readTheWholeTable
       readAppIds = Nil.toSet, // TODO: readTxn.toSet,
@@ -328,5 +404,16 @@ private[internal] class OptimisticTransactionImpl(
 }
 
 private[internal] object OptimisticTransactionImpl {
-  val defaultExternalConflictChecker: CommitConflictChecker = (_: java.util.List[AddFileJ]) => true
+
+  val DELTA_MAX_RETRY_COMMIT_ATTEMPTS = 10000000
+
+  /**
+   * if isBlindAppend is TRUE, then doesConflict should return FALSE. (i.e. blind appends should
+   * have no conflicts)
+   *
+   * if isBlindAppend is FALSE, then doesConflict should return TRUE. (i.e. by default, always
+   * assume there is a conflict)
+   */
+  def getDefaultExternalConflictChecker(isBlindAppend: Boolean): CommitConflictChecker =
+    (_: java.util.List[AddFileJ]) => !isBlindAppend
 }

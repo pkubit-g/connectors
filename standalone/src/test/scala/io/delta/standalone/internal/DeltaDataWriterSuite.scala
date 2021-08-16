@@ -60,30 +60,4 @@ class DeltaDataWriterSuite extends FunSuite {
       assert(readData.asScala.length == 10)
     }
   }
-
-  test("another write API") {
-    withTempDir { dir =>
-      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
-//      val dataSchema = new StructType(Array(
-//        new StructField("col1", new IntegerType(), false),
-//        new StructField("col2", new IntegerType(), false)
-//      ))
-//      val metadata = new MetadataJ(UUID.randomUUID().toString, null, null, new FormatJ(), null,
-//        Collections.emptyList(), Collections.emptyMap(), Optional.of(100L), dataSchema)
-
-      val data = (0 until 10).map { i =>
-        val list: java.util.List[Object] = new java.util.ArrayList[Object]()
-        list.add(i.asInstanceOf[Object])
-        list.add((i * 2).asInstanceOf[Object])
-        list
-      }.asJava
-      val txn = log.startTransaction()
-
-      // TODO: txn.updateMetadata(metadata);
-      txn.writeDataAndCommit(data)
-
-      val readData = log.update().open()
-      assert(readData.asScala.length == 10)
-    }
-  }
 }

@@ -16,9 +16,12 @@
 
 package io.delta.standalone.internal
 
-import io.delta.standalone.internal.actions.{Action, AddFile, Metadata}
+import scala.collection.JavaConverters._
+
+import io.delta.standalone.internal.actions._
 import io.delta.standalone.CommitConflictChecker
-import io.delta.standalone.internal.util.FileNames
+import io.delta.standalone.internal.exception.DeltaErrors
+import io.delta.standalone.internal.util.{ConversionUtils, FileNames}
 
 /**
  * A class representing different attributes of current transaction needed for conflict detection.
@@ -46,7 +49,26 @@ private[internal] case class CurrentTransactionInfo(
  * @param commitVersion - winning commit version
  */
 private[internal] case class WinningCommitSummary(actions: Seq[Action], commitVersion: Long) {
-
+  val metadataUpdates: Seq[Metadata] = actions.collect { case a: Metadata => a }
+  val appLevelTransactions: Seq[SetTransaction] = actions.collect { case a: SetTransaction => a }
+  val protocol: Seq[Protocol] = actions.collect { case a: Protocol => a }
+  val commitInfo: Option[CommitInfo] = actions.collectFirst { case a: CommitInfo => a }.map(
+    ci => ci.copy(version = Some(commitVersion)))
+  val removedFiles: Seq[RemoveFile] = actions.collect { case a: RemoveFile => a }
+  val addedFiles: Seq[AddFile] = actions.collect { case a: AddFile => a }
+  val isBlindAppendOption: Option[Boolean] = commitInfo.flatMap(_.isBlindAppend)
+  val blindAppendAddedFiles: Seq[AddFile] = if (isBlindAppendOption.getOrElse(false)) {
+    addedFiles
+  } else {
+    Seq()
+  }
+  val changedDataAddedFiles: Seq[AddFile] = if (isBlindAppendOption.getOrElse(false)) {
+    Seq()
+  } else {
+    addedFiles
+  }
+  val onlyAddFiles: Boolean = actions.collect { case f: FileAction => f }
+    .forall(_.isInstanceOf[AddFile])
 }
 
 private[internal] class ConflictChecker(
@@ -81,7 +103,20 @@ private[internal] class ConflictChecker(
    * the current transaction.
    */
   def checkForAddedFilesThatShouldHaveBeenReadByCurrentTxn(): Unit = {
+    // Fail if new files have been added that the txn should have read.
+    val addedFilesToCheckForConflicts = isolationLevel match {
+      case Serializable =>
+        winningCommitSummary.changedDataAddedFiles ++ winningCommitSummary.blindAppendAddedFiles
+      case SnapshotIsolation =>
+        Seq.empty
+    }
 
+    val doesConflict = currentTransactionInfo.externalConflictChecker
+      .doesConflict(addedFilesToCheckForConflicts.map(ConversionUtils.convertAddFile).asJava)
+
+    if (doesConflict) {
+      throw DeltaErrors.concurrentAppendException(winningCommitSummary.commitInfo)
+    }
   }
 
   /**
@@ -89,6 +124,38 @@ private[internal] class ConflictChecker(
    * read by the current transaction.
    */
   def checkForDeletedFilesAgainstCurrentTxnReadFiles(): Unit = {
+    // Fail if files have been deleted that the txn read.
+    val readFilePaths = currentTransactionInfo.readFiles.map(
+      f => f.path -> f.partitionValues).toMap
+    val deleteReadOverlap = winningCommitSummary.removedFiles
+      .find(r => readFilePaths.contains(r.path))
+    if (deleteReadOverlap.nonEmpty) {
+      val filePath = deleteReadOverlap.get.path
+      val partition = getPrettyPartitionMessage(readFilePaths(filePath))
+      throw DeltaErrors.concurrentDeleteReadException(
+        winningCommitSummary.commitInfo, s"$filePath in $partition")
+    }
+    if (winningCommitSummary.removedFiles.nonEmpty && currentTransactionInfo.readWholeTable) {
+      val filePath = winningCommitSummary.removedFiles.head.path
+      throw DeltaErrors.concurrentDeleteReadException(
+        winningCommitSummary.commitInfo, s"$filePath")
+    }
+  }
 
+  ///////////////////////////////////////////////////////////////////////////
+  // Helper Methods
+  ///////////////////////////////////////////////////////////////////////////
+
+  /** A helper function for pretty printing a specific partition directory. */
+  private def getPrettyPartitionMessage(partitionValues: Map[String, String]): String = {
+    val partitionColumns = currentTransactionInfo.metadata.partitionColumns
+    if (partitionColumns.isEmpty) {
+      "the root of the table"
+    } else {
+      val partition = partitionColumns.map { name =>
+        s"$name=${partitionValues(name)}"
+      }.mkString("[", ", ", "]")
+      s"partition ${partition}"
+    }
   }
 }
