@@ -1,6 +1,7 @@
 package io.delta.standalone;
 
 import io.delta.standalone.actions.Action;
+import io.delta.standalone.actions.AddFile;
 import io.delta.standalone.data.RowRecord;
 import io.delta.standalone.operations.Operation;
 
@@ -12,6 +13,6 @@ public interface OptimisticTransaction {
     // TODO should be iter?
     long writeRecordsAndCommit(List<RowRecord> data);
 
-    // TODO should be iter?
-    long writeDataAndCommit(List<List<Object>> data);
+    void setReadFiles(List<AddFile> readFiles);
+    void setConflictChecker(CommitConflictChecker checker);
 }

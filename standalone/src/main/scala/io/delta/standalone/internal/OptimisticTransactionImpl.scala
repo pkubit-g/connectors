@@ -19,8 +19,9 @@ package io.delta.standalone.internal
 import java.util.ConcurrentModificationException
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 
-import io.delta.standalone.OptimisticTransaction
+import io.delta.standalone.{CommitConflictChecker, OptimisticTransaction}
 import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ}
 import io.delta.standalone.data.{RowRecord => RowRecordJ}
 import io.delta.standalone.operations.{Operation => OperationJ}
@@ -34,6 +35,11 @@ private[internal] class OptimisticTransactionImpl(
     deltaLog: DeltaLogImpl,
     snapshot: SnapshotImpl) extends OptimisticTransaction {
 
+  import OptimisticTransactionImpl._
+
+  /** Tracks specific files that have been seen by this transaction. */
+  protected val readFiles = new mutable.HashSet[AddFile]
+
   /** Tracks if this transaction has already committed. */
   private var committed = false
 
@@ -43,6 +49,8 @@ private[internal] class OptimisticTransactionImpl(
 
   /** Stores the updated protocol (if any) that will result from this txn. */
   private var newProtocol: Option[Protocol] = None
+
+  private var externalConflictChecker: Option[CommitConflictChecker] = None
 
   // Whether this transaction is creating a new table.
 //  private var isCreatingNewTable: Boolean = false
@@ -64,7 +72,7 @@ private[internal] class OptimisticTransactionImpl(
   override def commit(actionsJ: java.util.List[ActionJ], opJ: OperationJ): Long = {
     val actions = actionsJ.asScala.map(ConversionUtils.convertActionJ)
     val op: DeltaOperations.Operation = null // TODO convert opJ to scala
-    commit(actions, None)
+    commit(actions, None) // TODO: Some(op)
   }
 
   /**
@@ -90,26 +98,13 @@ private[internal] class OptimisticTransactionImpl(
     commit(addFile :: Nil, null)
   }
 
-  // TODO: document how if this is the 1st commit, then txn.updateMetadata() must have been called
-  override def writeDataAndCommit(data: java.util.List[java.util.List[AnyRef]]): Long = {
-    // TODO maybe return current snapshot version? edge case?
-    require(!data.isEmpty, "cannot write and commit empty record data list")
+  override def setReadFiles(_readFilesJ: java.util.List[AddFileJ]): Unit = {
+    readFiles ++= _readFilesJ.asScala.map(ConversionUtils.convertAddFileJ)
+  }
 
-    val schemaFieldNames = metadata.schema.getFieldNames
-    val records = data.asScala.map { inputRow =>
-      if (inputRow.size != schemaFieldNames.length) {
-        throw new RuntimeException("data columns do not match expected schema columns");
-      }
-      val outputRow = RowRecordJ.empty(metadata.schema)
-
-      (0 until inputRow.size).foreach { i =>
-        outputRow.add(schemaFieldNames(i), inputRow.get(i))
-      }
-
-      outputRow
-    }.asJava
-
-    writeRecordsAndCommit(records)
+  override def setConflictChecker(checker: CommitConflictChecker): Unit = {
+    // TODO: check if we have already committed? If so, why is the user doing this?
+    externalConflictChecker = Some(checker)
   }
 
   ///////////////////////////////////////////////////////////////////////////
@@ -244,9 +239,37 @@ private[internal] class OptimisticTransactionImpl(
     }
   }
 
-  ///////////////////////////////////////////////////////////////////////////
-  // Helper Methods
-  ///////////////////////////////////////////////////////////////////////////
+  /**
+   * Looks at actions that have happened since the txn started and checks for logical
+   * conflicts with the read/writes. If no conflicts are found return the commit version to attempt
+   * next.
+   */
+  protected def checkForConflicts(
+      checkVersion: Long,
+      actions: Seq[Action],
+      commitIsolationLevel: IsolationLevel): Long = {
+    val nextAttemptVersion = getNextAttemptVersion
+
+    val currentTransactionInfo = CurrentTransactionInfo(
+      externalConflictChecker = externalConflictChecker.getOrElse(defaultExternalConflictChecker),
+      readFiles = readFiles.toSet,
+      readWholeTable = false, // TODO readTheWholeTable
+      readAppIds = Nil.toSet, // TODO: readTxn.toSet,
+      metadata = metadata,
+      actions = actions,
+      deltaLog = deltaLog)
+
+    (checkVersion until nextAttemptVersion).foreach { otherCommitVersion =>
+      val conflictChecker = new ConflictChecker(
+        currentTransactionInfo,
+        otherCommitVersion,
+        commitIsolationLevel)
+
+      conflictChecker.checkConflicts()
+    }
+
+    nextAttemptVersion
+  }
 
   private def verifyNewMetadata(metadata: Metadata): Unit = {
     // TODO assert(!CharVarcharUtils.hasCharVarchar...) ?
@@ -271,6 +294,16 @@ private[internal] class OptimisticTransactionImpl(
     }
   }
 
+  ///////////////////////////////////////////////////////////////////////////
+  // Helper Methods
+  ///////////////////////////////////////////////////////////////////////////
+
+  /** Returns the next attempt version given the last attempted version */
+  private def getNextAttemptVersion: Long = {
+    deltaLog.update()
+    deltaLog.snapshot.version + 1
+  }
+
   private def isCommitLockEnabled: Boolean = {
 // TODO:
 //    spark.sessionState.conf.getConf(DeltaSQLConf.DELTA_COMMIT_LOCK_ENABLED).getOrElse(
@@ -292,4 +325,8 @@ private[internal] class OptimisticTransactionImpl(
   private def shouldCheckpoint(committedVersion: Long): Boolean = {
     committedVersion != 0 && committedVersion % deltaLog.checkpointInterval == 0
   }
+}
+
+private[internal] object OptimisticTransactionImpl {
+  val defaultExternalConflictChecker: CommitConflictChecker = (_: java.util.List[AddFileJ]) => true
 }
