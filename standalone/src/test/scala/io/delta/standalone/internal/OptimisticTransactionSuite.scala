@@ -217,4 +217,8 @@ class OptimisticTransactionSuite extends FunSuite {
   // TODO: test doCommit > IllegalStateException
 
   // TODO: test doCommit > DeltaConcurrentModificationException
+
+  // TODO: test more ConcurrentAppendException
+
+  // TODO: test more ConcurrentDeleteReadException (including readWholeTable)
 }
