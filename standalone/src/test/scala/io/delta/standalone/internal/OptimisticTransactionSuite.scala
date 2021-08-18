@@ -110,14 +110,15 @@ class OptimisticTransactionSuite extends FunSuite {
           otherCommitFiles.asScala.exists(_.getPartitionValues.asScala.exists(_ == ("part" -> "1")))
         }
       }
-      tx1.setConflictResolutionMeta(addA_P1 :: Nil, commitConflictChecker)
+
+      tx1.addReadFiles(addA_P1 :: Nil)
 
       val tx2 = log.startTransaction()
       tx2.commit(addB_P1 :: Nil, null)
 
       intercept[ConcurrentAppendException] {
         // P1 was modified by TX2. TX1 commit should fail
-        tx1.commit(metadata :: addE_P3 :: Nil, null)
+        tx1.commit(metadata :: addE_P3 :: Nil, null, commitConflictChecker)
       }
     }
   }
@@ -138,6 +139,7 @@ class OptimisticTransactionSuite extends FunSuite {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       log.startTransaction().commit(metadata :: Nil, null)
+      log.startTransaction().commit(addA_P1 :: addB_P1 :: Nil, null)
 
       // TX1 reads the whole table
       val tx1 = log.startTransaction()
@@ -146,15 +148,53 @@ class OptimisticTransactionSuite extends FunSuite {
         override def doesConflict(otherCommitFiles: java.util.List[AddFileJ]): Boolean =
           !otherCommitFiles.isEmpty
       }
-      tx1.setConflictResolutionMeta(addA_P1 :: addB_P1 :: Nil, commitConflictChecker)
+      tx1.addReadFiles(addA_P1 :: addB_P1 :: Nil)
 
       val tx2 = log.startTransaction()
       tx2.commit(removeA_P1 :: Nil, null)
 
       intercept[ConcurrentDeleteReadException] {
         // TX1 read whole table but TX2 concurrently modified partition P1
-        tx1.commit(removeB_P1 :: Nil, null)
+        tx1.commit(removeB_P1 :: Nil, null, commitConflictChecker)
       }
+    }
+  }
+
+  test("prevent improver usage of setIsBlindAppend and readFiles") {
+    // setIsBlindAppend -> readFiles
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      val txn = log.startTransaction()
+      txn.setIsBlindAppend()
+      val e = intercept[IllegalArgumentException] {
+        txn.addReadFiles(add1 :: Nil)
+      }
+      assert(e.getMessage.contains("setIsBlindAppend has already been called."))
+    }
+
+    // readFiles -> setIsBlindAppend
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      val txn = log.startTransaction()
+      txn.addReadFiles(add1 :: Nil)
+      val e = intercept[IllegalArgumentException] {
+        txn.setIsBlindAppend()
+      }
+      assert(e.getMessage.contains("addReadFiles has already been called."))
+    }
+
+    // setIsBlindAppend -> commit(..., commitConflictChecker)
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      val txn = log.startTransaction()
+      txn.setIsBlindAppend()
+      val commitConflictChecker = new CommitConflictChecker {
+        override def doesConflict(otherCommitFiles: java.util.List[AddFileJ]): Boolean = true
+      }
+      val e = intercept[IllegalArgumentException] {
+        txn.commit(add1 :: Nil, null, commitConflictChecker)
+      }
+      assert(e.getMessage.contains("setIsBlindAppend has already been called"))
     }
   }
 

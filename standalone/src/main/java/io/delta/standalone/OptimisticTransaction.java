@@ -10,10 +10,12 @@ import java.util.List;
 public interface OptimisticTransaction {
     long commit(List<Action> actions, Operation op);
 
+    long commit(List<Action> actions, Operation op, CommitConflictChecker commitConflictChecker);
+
     // TODO should be iter?
     long writeRecordsAndCommit(List<RowRecord> data);
 
-    void setConflictResolutionMeta(Iterable<AddFile> readFiles, CommitConflictChecker checker);
+    void addReadFiles(Iterable<AddFile> readFiles);
 
     void setIsBlindAppend();
 }

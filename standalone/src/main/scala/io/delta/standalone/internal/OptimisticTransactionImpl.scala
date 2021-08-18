@@ -85,6 +85,28 @@ private[internal] class OptimisticTransactionImpl(
     commit(actions, None) // TODO: Some(op)
   }
 
+  override def commit(
+      actionsJ: java.util.List[ActionJ],
+      opJ: OperationJ,
+      commitConflictChecker: CommitConflictChecker): Long = {
+    require(!isBlindAppend, "setIsBlindAppend has already been called. There shouldn't be any" +
+      "need to call commit with a CommitConflictChecker.")
+
+    val actions = actionsJ.asScala.map(ConversionUtils.convertActionJ)
+    val op: DeltaOperations.Operation = null // TODO convert opJ to scala
+    externalConflictChecker = Some(commitConflictChecker)
+
+    commit(actions, None) // TODO: Some(op)
+  }
+
+  override def addReadFiles(readFilesJ: lang.Iterable[AddFileJ]): Unit = {
+    // TODO: check if we have already committed? If so, why is the user doing this?
+    require(!isBlindAppend, "setIsBlindAppend has already been called. There shouldn't be any" +
+      "need to call addReadFiles.")
+
+    readFiles ++= readFilesJ.asScala.map(ConversionUtils.convertAddFileJ)
+  }
+
   /**
    * We either keep RowRecord.java as an interface and RowRecordImpl.scala implements it
    * (rename RowParquetRecordImpl -> RowRecordImpl). In this function we cast it to the Scala
@@ -108,23 +130,11 @@ private[internal] class OptimisticTransactionImpl(
     commit(addFile :: Nil, null)
   }
 
-  override def setConflictResolutionMeta(
-      readFilesJ: java.lang.Iterable[AddFileJ],
-      checker: CommitConflictChecker): Unit = {
-    // TODO: check if we have already committed? If so, why is the user doing this?
-    require(!isBlindAppend,
-      "`setIsBlindAppend` has already been called. There shouldn't be any need to call " +
-        "`setConflictResolutionMeta`.")
-
-    readFiles ++= readFilesJ.asScala.map(ConversionUtils.convertAddFileJ)
-    externalConflictChecker = Some(checker)
-  }
-
   override def setIsBlindAppend(): Unit = {
     // TODO: check if we have already committed? If so, why is the user doing this?
-    require(readFiles.isEmpty && externalConflictChecker.isEmpty,
-      "`setConflictResolutionMeta` has already been called. There shouldn't be any need to call " +
-        "`setIsBlindAppend`.")
+    require(readFiles.isEmpty, "addReadFiles has already been called. There shouldn't be any" +
+      "need to call setIsBlindAppend.")
+
     isBlindAppend = true
   }
 
