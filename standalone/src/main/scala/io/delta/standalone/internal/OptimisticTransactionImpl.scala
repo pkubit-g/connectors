@@ -402,12 +402,14 @@ private[internal] object OptimisticTransactionImpl {
   val DELTA_MAX_RETRY_COMMIT_ATTEMPTS = 10000000
 
   /**
-   * if isBlindAppend is TRUE, then doesConflict should return FALSE. (i.e. blind appends should
-   * have no conflicts)
+   * if isBlindAppend is TRUE, then return FALSE. (i.e. blind appends should have no conflicts)
    *
-   * if isBlindAppend is FALSE, then doesConflict should return TRUE. (i.e. by default, always
-   * assume there is a conflict)
+   * if isBlindAppend is FALSE & otherCommitFiles is NOT empty, then return TRUE (i.e. assume we
+   * conflicted with that other file(s))
+   *
+   * if isBlindAppend is FALSE & otherCommitFiles IS empty, then return FALSE (i.e. there are no
+   * other files for us to conflict with)
    */
   def getDefaultExternalConflictChecker(isBlindAppend: Boolean): CommitConflictChecker =
-    (_: java.util.List[AddFileJ]) => !isBlindAppend
+    (otherCommitFiles: java.util.List[AddFileJ]) => !isBlindAppend && !otherCommitFiles.isEmpty
 }

@@ -22,7 +22,7 @@ import scala.collection.JavaConverters._
 
 import io.delta.standalone.{CommitConflictChecker, DeltaLog}
 import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, Format => FormatJ, Metadata => MetadataJ, RemoveFile => RemoveFileJ}
-import io.delta.standalone.internal.exception.ConcurrentAppendException
+import io.delta.standalone.internal.exception.{ConcurrentAppendException, ConcurrentDeleteReadException}
 import io.delta.standalone.types.{IntegerType, StringType, StructField, StructType}
 import io.delta.standalone.internal.util.TestUtils._
 import org.apache.hadoop.conf.Configuration
@@ -92,13 +92,10 @@ class OptimisticTransactionSuite extends FunSuite {
     val A_P1 = "part=1/a"
     val B_P1 = "part=1/b"
     val E_P3 = "part=3/e"
-
     val addA_P1 = new AddFileJ(A_P1, Collections.singletonMap("part", "1"), 1, 1, true, null, null)
     val addB_P1 = new AddFileJ(B_P1, Collections.singletonMap("part", "1"), 1, 1, true, null, null)
     val addE_P3 = new AddFileJ(E_P3, Collections.singletonMap("part", "3"), 1, 1, true, null, null)
-
     val schema = new StructType(Array(new StructField("part", new StringType, false)))
-
     val metadata = new MetadataJ(UUID.randomUUID().toString, null, null, new FormatJ(),
       null, "part" :: Nil, Collections.emptyMap(), Optional.of(100L), schema)
 
@@ -113,8 +110,7 @@ class OptimisticTransactionSuite extends FunSuite {
           otherCommitFiles.asScala.exists(_.getPartitionValues.asScala.exists(_ == ("part" -> "1")))
         }
       }
-      val readFiles = java.util.Arrays.asList(addA_P1)
-      tx1.setConflictResolutionMeta(readFiles, commitConflictChecker)
+      tx1.setConflictResolutionMeta(addA_P1 :: Nil, commitConflictChecker)
 
       val tx2 = log.startTransaction()
       tx2.commit(addB_P1 :: Nil, null)
@@ -124,7 +120,42 @@ class OptimisticTransactionSuite extends FunSuite {
         tx1.commit(metadata :: addE_P3 :: Nil, null)
       }
     }
+  }
 
+  test("block commit when full table read conflicts with delete in any partition") {
+    val A_P1 = "part=1/a"
+    val B_P1 = "part=1/b"
+    val addA_P1 = new AddFileJ(A_P1, Collections.singletonMap("part", "1"), 1, 1, true, null, null)
+    val addB_P1 = new AddFileJ(B_P1, Collections.singletonMap("part", "1"), 1, 1, true, null, null)
+    val removeA_P1 = new RemoveFileJ(A_P1, Optional.of(1), true, true,
+      Collections.singletonMap("part", "1"), 1, Collections.emptyMap())
+    val removeB_P1 = new RemoveFileJ(B_P1, Optional.of(1), true, true,
+      Collections.singletonMap("part", "1"), 1, Collections.emptyMap())
+    val schema = new StructType(Array(new StructField("part", new StringType, false)))
+    val metadata = new MetadataJ(UUID.randomUUID().toString, null, null, new FormatJ(),
+      null, "part" :: Nil, Collections.emptyMap(), Optional.of(100L), schema)
+
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      log.startTransaction().commit(metadata :: Nil, null)
+
+      // TX1 reads the whole table
+      val tx1 = log.startTransaction()
+      val commitConflictChecker = new CommitConflictChecker {
+        // we assume we only conflict with otherCommitFiles if there is actually a file in that list
+        override def doesConflict(otherCommitFiles: java.util.List[AddFileJ]): Boolean =
+          !otherCommitFiles.isEmpty
+      }
+      tx1.setConflictResolutionMeta(addA_P1 :: addB_P1 :: Nil, commitConflictChecker)
+
+      val tx2 = log.startTransaction()
+      tx2.commit(removeA_P1 :: Nil, null)
+
+      intercept[ConcurrentDeleteReadException] {
+        // TX1 read whole table but TX2 concurrently modified partition P1
+        tx1.commit(removeB_P1 :: Nil, null)
+      }
+    }
   }
 
 // FAILS due to error reading, writing, then reading a CommitInfo
