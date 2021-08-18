@@ -261,4 +261,7 @@ class OptimisticTransactionSuite extends FunSuite {
   // TODO: test more ConcurrentAppendException
 
   // TODO: test more ConcurrentDeleteReadException (including readWholeTable)
+
+  // TODO: test checkForAddedFilesThatShouldHaveBeenReadByCurrentTxn with SnapshotIsolation
+  // i.e. datachange = false
 }
