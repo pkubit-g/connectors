@@ -20,8 +20,9 @@ import java.util.{Collections, Optional, UUID}
 
 import scala.collection.JavaConverters._
 
-import io.delta.standalone.DeltaLog
-import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, RemoveFile => RemoveFileJ, Format => FormatJ, Metadata => MetadataJ}
+import io.delta.standalone.{CommitConflictChecker, DeltaLog}
+import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, Format => FormatJ, Metadata => MetadataJ, RemoveFile => RemoveFileJ}
+import io.delta.standalone.internal.exception.ConcurrentAppendException
 import io.delta.standalone.types.{IntegerType, StringType, StructField, StructType}
 import io.delta.standalone.internal.util.TestUtils._
 import org.apache.hadoop.conf.Configuration
@@ -50,12 +51,14 @@ class OptimisticTransactionSuite extends FunSuite {
     new RemoveFileJ(path, Optional.of(100L), true, false, null, 0, null)
   }
 
+  implicit def seqToList[T](seq: Seq[T]): java.util.List[T] = seq.asJava
+
   test("basic") {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       val txn = log.startTransaction()
       val actions = Seq(metadata, add1, add2)
-      txn.commit(actions.asJava, null)
+      txn.commit(actions, null)
 
       val versionLogs = log.getChanges(0).asScala.toList
       val readActions = versionLogs(0).getActions.asScala
@@ -76,7 +79,7 @@ class OptimisticTransactionSuite extends FunSuite {
         } else {
           Nil
         }
-        txn.commit((meta ++ delete ++ file).asJava, null)
+        txn.commit(meta ++ delete ++ file, null)
       }
 
       val log2 = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
@@ -85,6 +88,44 @@ class OptimisticTransactionSuite extends FunSuite {
     }
   }
 
+  test("block concurrent commit when read partition was appended to by concurrent write") {
+    val A_P1 = "part=1/a"
+    val B_P1 = "part=1/b"
+    val E_P3 = "part=3/e"
+
+    val addA_P1 = new AddFileJ(A_P1, Collections.singletonMap("part", "1"), 1, 1, true, null, null)
+    val addB_P1 = new AddFileJ(B_P1, Collections.singletonMap("part", "1"), 1, 1, true, null, null)
+    val addE_P3 = new AddFileJ(E_P3, Collections.singletonMap("part", "3"), 1, 1, true, null, null)
+
+    val schema = new StructType(Array(new StructField("part", new StringType, false)))
+
+    val metadata = new MetadataJ(UUID.randomUUID().toString, null, null, new FormatJ(),
+      null, "part" :: Nil, Collections.emptyMap(), Optional.of(100L), schema)
+
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      log.startTransaction().commit(metadata :: Nil, null)
+
+      // TX1 only reads P1
+      val tx1 = log.startTransaction()
+      val commitConflictChecker = new CommitConflictChecker {
+        override def doesConflict(otherCommitFiles: java.util.List[AddFileJ]): Boolean = {
+          otherCommitFiles.asScala.exists(_.getPartitionValues.asScala.exists(_ == ("part" -> "1")))
+        }
+      }
+      val readFiles = java.util.Arrays.asList(addA_P1)
+      tx1.setConflictResolutionMeta(readFiles, commitConflictChecker)
+
+      val tx2 = log.startTransaction()
+      tx2.commit(addB_P1 :: Nil, null)
+
+      intercept[ConcurrentAppendException] {
+        // P1 was modified by TX2. TX1 commit should fail
+        tx1.commit(metadata :: addE_P3 :: Nil, null)
+      }
+    }
+
+  }
 
 // FAILS due to error reading, writing, then reading a CommitInfo
 //  test("basic - old") {

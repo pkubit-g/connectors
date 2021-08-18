@@ -17,7 +17,6 @@
 package io.delta.standalone.internal.exception
 
 import java.io.{FileNotFoundException, IOException}
-import java.util.ConcurrentModificationException
 
 import io.delta.standalone.internal.actions.{CommitInfo, Protocol}
 import io.delta.standalone.internal.sources.StandaloneHadoopConf
@@ -37,9 +36,6 @@ private[internal] object DeltaErrors {
        |Delta protocol version ${tableProtocol.simpleString} is too new for this version of Delta
        |Standalone Reader/Writer ${clientProtocol.simpleString}. Please upgrade to a newer release.
        |""".stripMargin)
-
-  class DeltaConcurrentModificationException(message: String)
-    extends ConcurrentModificationException(message)
 
   def deltaVersionsNotContiguousException(deltaVersions: Seq[Long]): Throwable = {
     new IllegalStateException(s"Versions ($deltaVersions) are not contiguous.")
@@ -194,13 +190,13 @@ private[internal] object DeltaErrors {
     ""
   }
 
-  def concurrentAppendException(conflictingCommit: Option[CommitInfo]): Exception = {
-    // TODO: return type of io.delta.exceptions.ConcurrentAppendException
+  def concurrentAppendException(
+      conflictingCommit: Option[CommitInfo]): ConcurrentAppendException = {
+    // TODO: include partition?
     val message = DeltaErrors.concurrentModificationExceptionMsg(
-      "todo",
+      s"Files were added by a concurrent update. Please try the operation again.",
       conflictingCommit)
-
-    null
+    new ConcurrentAppendException(message)
   }
 
   def concurrentDeleteReadException(

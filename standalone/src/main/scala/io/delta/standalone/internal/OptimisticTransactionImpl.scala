@@ -29,7 +29,7 @@ import io.delta.standalone.data.{RowRecord => RowRecordJ}
 import io.delta.standalone.operations.{Operation => OperationJ}
 import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, FileAction, Metadata, Protocol, RemoveFile}
 import io.delta.standalone.internal.data.{ParquetDataWriter, RowParquetRecordImpl}
-import io.delta.standalone.internal.exception.DeltaErrors
+import io.delta.standalone.internal.exception.{DeltaConcurrentModificationException, DeltaErrors}
 import io.delta.standalone.internal.sources.StandaloneHadoopConf
 import io.delta.standalone.internal.util.{ConversionUtils, FileNames, SchemaMergingUtils, SchemaUtils}
 
@@ -275,28 +275,22 @@ private[internal] class OptimisticTransactionImpl(
    * @return the real version that was committed.
    * @throws IllegalStateException if the attempted commit version is ahead of the current delta log
    *                               version
-   * @throws ConcurrentModificationException if any conflicts are detected
    */
   private def doCommit(attemptVersion: Long, actions: Seq[Action]): Long = lockCommitIfEnabled {
-    try {
-      deltaLog.store.write(
-        FileNames.deltaFile(deltaLog.logPath, attemptVersion),
-        actions.map(_.json).toIterator
-      )
+    deltaLog.store.write(
+      FileNames.deltaFile(deltaLog.logPath, attemptVersion),
+      actions.map(_.json).toIterator
+    )
 
-      val postCommitSnapshot = deltaLog.update()
-      if (postCommitSnapshot.version < attemptVersion) {
-        // TODO: DeltaErrors... ?
-        throw new IllegalStateException(
-          s"The committed version is $attemptVersion " +
-            s"but the current version is ${postCommitSnapshot.version}.")
-      }
-
-      attemptVersion
-    } catch {
-      case _: java.nio.file.FileAlreadyExistsException =>
-        throw new DeltaErrors.DeltaConcurrentModificationException("TODO msg")
+    val postCommitSnapshot = deltaLog.update()
+    if (postCommitSnapshot.version < attemptVersion) {
+      // TODO: DeltaErrors... ?
+      throw new IllegalStateException(
+        s"The committed version is $attemptVersion " +
+          s"but the current version is ${postCommitSnapshot.version}.")
     }
+
+    attemptVersion
   }
 
   /**
