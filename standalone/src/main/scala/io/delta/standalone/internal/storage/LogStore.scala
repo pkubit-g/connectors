@@ -16,6 +16,8 @@
 
 package io.delta.standalone.internal.storage
 
+import io.delta.standalone.internal.sources.StandaloneHadoopConf
+import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
 
 /**
@@ -33,7 +35,7 @@ import org.apache.hadoop.fs.{FileStatus, Path}
  * 3. Consistent listing: Once a file has been written in a directory, all future listings for
  *    that directory must return that file.
  */
-private[internal] trait ReadOnlyLogStore { // TODO: rename and refactor
+private[internal] trait LogStore {
 
   /** Read the given `path` */
   def read(path: String): Seq[String] = read(new Path(path))
@@ -80,4 +82,22 @@ private[internal] trait ReadOnlyLogStore { // TODO: rename and refactor
    * Any LogStore implementation should override this instead of relying on the default.
    */
   def isPartialWriteVisible(path: Path): Boolean = true
+}
+
+private[internal] trait LogStoreProvider {
+
+  val defaultLogStoreClassName = classOf[HDFSLogStore].getName
+
+  def createLogStore(hadoopConf: Configuration): LogStore = {
+    val logStoreClassName =
+      hadoopConf.get(StandaloneHadoopConf.LOG_STORE_CLASS_KEY, defaultLogStoreClassName)
+
+    // scalastyle:off classforname
+    val logStoreClass =
+      Class.forName(logStoreClassName, true, Thread.currentThread().getContextClassLoader)
+    // scalastyle:on classforname
+
+    logStoreClass.getConstructor(classOf[Configuration]).newInstance(hadoopConf)
+      .asInstanceOf[LogStore]
+  }
 }

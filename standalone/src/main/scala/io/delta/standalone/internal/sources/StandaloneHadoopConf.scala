@@ -36,4 +36,6 @@ private[internal] object StandaloneHadoopConf {
    */
   val DELTA_PARTITION_COLUMN_CHECK_ENABLED =
     "io.delta.standalone.DELTA_PARTITION_COLUMN_CHECK_ENABLED"
+
+  val LOG_STORE_CLASS_KEY = "io.delta.standalone.LOG_STORE_CLASS_KEY"
 }

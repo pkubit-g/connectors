@@ -27,7 +27,7 @@ import io.delta.standalone.{DeltaLog, OptimisticTransaction, VersionLog}
 import io.delta.standalone.actions.{CommitInfo => CommitInfoJ}
 import io.delta.standalone.internal.actions.{Action, Metadata, Protocol}
 import io.delta.standalone.internal.exception.DeltaErrors
-import io.delta.standalone.internal.storage.HDFSReadOnlyLogStore
+import io.delta.standalone.internal.storage.{HDFSLogStore, LogStoreProvider}
 import io.delta.standalone.internal.util.{ConversionUtils, FileNames}
 
 /**
@@ -39,10 +39,11 @@ private[internal] class DeltaLogImpl private(
     val dataPath: Path)
   extends DeltaLog
   with Checkpoints
+  with LogStoreProvider
   with SnapshotManagement {
 
-  /** Used to read (not write) physical log files and checkpoints. */
-  lazy val store = new HDFSReadOnlyLogStore(hadoopConf)
+  /** Used to read and write physical log files and checkpoints. */
+  lazy val store = createLogStore(hadoopConf)
 
   /** Direct access to the underlying storage system. */
   private lazy val fs = logPath.getFileSystem(hadoopConf)

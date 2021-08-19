@@ -32,14 +32,14 @@ import org.apache.hadoop.fs.CreateFlag.CREATE
 import org.apache.hadoop.fs.Options.{ChecksumOpt, CreateOpts}
 
 /**
- * The [[LogStore]] implementation for HDFS, which uses Hadoop [[FileContext]] API's to
+ * The [[LogStore]] implementation for HDFS, which uses Hadoop [[FileContext]] APIs to
  * provide the necessary atomic and durability guarantees:
  *
  * 1. Atomic visibility of files: `FileContext.rename` is used write files which is atomic for HDFS.
  *
  * 2. Consistent file listing: HDFS file listing is consistent.
  */
-private[internal] class HDFSReadOnlyLogStore(hadoopConf: Configuration) extends ReadOnlyLogStore {
+private[internal] class HDFSLogStore(hadoopConf: Configuration) extends LogStore {
 
   val noAbstractFileSystemExceptionMessage = "No AbstractFileSystem"
 

@@ -18,7 +18,7 @@ package io.delta.standalone.internal
 
 import java.io.File
 
-import io.delta.standalone.internal.storage.HDFSReadOnlyLogStore
+import io.delta.standalone.internal.storage.HDFSLogStore
 import io.delta.standalone.internal.util.GoldenTableUtils._
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
@@ -35,36 +35,36 @@ import org.scalatest.FunSuite
  * See io.delta.golden.GoldenTables for documentation on how to ensure that the needed files have
  * been generated.
  */
-class ReadOnlyLogStoreSuite extends FunSuite {
+class LogStoreSuite extends FunSuite {
   // scalastyle:on funsuite
 
   test("read") {
     withGoldenTable("log-store-read") { tablePath =>
-      val readStore = new HDFSReadOnlyLogStore(new Configuration())
+      val logStore = new HDFSLogStore(new Configuration())
 
       val deltas = Seq(0, 1).map(i => new File(tablePath, i.toString)).map(_.getCanonicalPath)
-      assert(readStore.read(deltas.head) == Seq("zero", "none"))
-      assert(readStore.read(deltas(1)) == Seq("one"))
+      assert(logStore.read(deltas.head) == Seq("zero", "none"))
+      assert(logStore.read(deltas(1)) == Seq("one"))
     }
   }
 
   test("listFrom") {
     withGoldenTable("log-store-listFrom") { tablePath =>
-      val readStore = new HDFSReadOnlyLogStore(new Configuration())
+      val logStore = new HDFSLogStore(new Configuration())
       val deltas = Seq(0, 1, 2, 3, 4)
         .map(i => new File(tablePath, i.toString))
         .map(_.toURI)
         .map(new Path(_))
 
-      assert(readStore.listFrom(deltas.head).map(_.getPath.getName)
+      assert(logStore.listFrom(deltas.head).map(_.getPath.getName)
         .filterNot(_ == "_delta_log").toArray === Seq(1, 2, 3).map(_.toString))
-      assert(readStore.listFrom(deltas(1)).map(_.getPath.getName)
+      assert(logStore.listFrom(deltas(1)).map(_.getPath.getName)
         .filterNot(_ == "_delta_log").toArray === Seq(1, 2, 3).map(_.toString))
-      assert(readStore.listFrom(deltas(2)).map(_.getPath.getName)
+      assert(logStore.listFrom(deltas(2)).map(_.getPath.getName)
         .filterNot(_ == "_delta_log").toArray === Seq(2, 3).map(_.toString))
-      assert(readStore.listFrom(deltas(3)).map(_.getPath.getName)
+      assert(logStore.listFrom(deltas(3)).map(_.getPath.getName)
         .filterNot(_ == "_delta_log").toArray === Seq(3).map(_.toString))
-      assert(readStore.listFrom(deltas(4)).map(_.getPath.getName)
+      assert(logStore.listFrom(deltas(4)).map(_.getPath.getName)
         .filterNot(_ == "_delta_log").toArray === Nil)
     }
   }
