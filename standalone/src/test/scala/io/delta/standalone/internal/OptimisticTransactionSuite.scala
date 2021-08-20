@@ -21,9 +21,11 @@ import java.util.{Collections, Optional, UUID}
 import scala.collection.JavaConverters._
 
 import io.delta.standalone.{CommitConflictChecker, DeltaLog}
-import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, Format => FormatJ, Metadata => MetadataJ, RemoveFile => RemoveFileJ}
-import io.delta.standalone.internal.exception.{ConcurrentAppendException, ConcurrentDeleteReadException}
-import io.delta.standalone.types.{IntegerType, StringType, StructField, StructType}
+import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, Format => FormatJ, Metadata => MetadataJ, RemoveFile => RemoveFileJ, CommitInfo => CommitInfoJ, Protocol => ProtocolJ}
+import io.delta.standalone.internal.actions.{Action, AddFile, Metadata, RemoveFile}
+import io.delta.standalone.internal.exception.{ConcurrentAppendException, ConcurrentDeleteReadException, DeltaErrors}
+import io.delta.standalone.internal.util.ConversionUtils
+import io.delta.standalone.types.{StringType, StructField, StructType}
 import io.delta.standalone.internal.util.TestUtils._
 import io.delta.standalone.operations.ManualUpdate
 import org.apache.hadoop.conf.Configuration
@@ -34,17 +36,25 @@ import org.scalatest.FunSuite
 class OptimisticTransactionSuite extends FunSuite {
   // scalastyle:on funsuite
 
-//  val schema = new StructType(Array(
-//    new StructField("col1", new IntegerType(), true),
-//    new StructField("col2", new StringType(), true)))
+  val ManualUpdate = new ManualUpdate()
 
-  val manualUpdate = new ManualUpdate()
+  val A_P1 = "part=1/a"
+  val B_P1 = "part=1/b"
+  val C_P1 = "part=1/c"
+  val C_P2 = "part=2/c"
+  val D_P2 = "part=2/d"
+  val E_P3 = "part=3/e"
+  val F_P3 = "part=3/f"
+  val G_P4 = "part=4/g"
 
-  val metadata = new MetadataJ(UUID.randomUUID().toString, null, null, new FormatJ(), null,
-    Collections.emptyList(), Collections.emptyMap(), Optional.of(100L), new StructType(Array.empty))
-
-  val add1 = new AddFileJ("fake/path/1", Collections.emptyMap(), 100, 100, true, null, null)
-  val add2 = new AddFileJ("fake/path/2", Collections.emptyMap(), 100, 100, true, null, null)
+  private val addA_P1 = AddFile(A_P1, Map("part" -> "1"), 1, 1, dataChange = true)
+  private val addB_P1 = AddFile(B_P1, Map("part" -> "1"), 1, 1, dataChange = true)
+  private val addC_P1 = AddFile(C_P1, Map("part" -> "1"), 1, 1, dataChange = true)
+  private val addC_P2 = AddFile(C_P2, Map("part" -> "2"), 1, 1, dataChange = true)
+  private val addD_P2 = AddFile(D_P2, Map("part" -> "2"), 1, 1, dataChange = true)
+  private val addE_P3 = AddFile(E_P3, Map("part" -> "3"), 1, 1, dataChange = true)
+  private val addF_P3 = AddFile(F_P3, Map("part" -> "3"), 1, 1, dataChange = true)
+  private val addG_P4 = AddFile(G_P4, Map("part" -> "4"), 1, 1, dataChange = true)
 
   def createAddFileJ(path: String): AddFileJ = {
     new AddFileJ(path, Collections.emptyMap(), 100, 100, true, null, null)
@@ -54,35 +64,74 @@ class OptimisticTransactionSuite extends FunSuite {
     new RemoveFileJ(path, Optional.of(100L), true, false, null, 0, null)
   }
 
-  implicit def seqToList[T](seq: Seq[T]): java.util.List[T] = seq.asJava
+  implicit def actionSeqToList[T <: Action](seq: Seq[T]): java.util.List[ActionJ] =
+    seq.map(ConversionUtils.convertAction).asJava
 
-  test("basic") {
+  implicit def addFileSeqToList(seq: Seq[AddFile]): java.util.List[AddFileJ] =
+    seq.map(ConversionUtils.convertAddFile).asJava
+
+  def withLog(
+      actions: Seq[Action],
+      partitionCols: Seq[String] = "part" :: Nil)(
+      test: DeltaLog => Unit): Unit = {
+    val schemaFields = partitionCols.map { p => new StructField(p, new StringType()) }.toArray
+    val schema = new StructType(schemaFields)
+    val metadata = new MetadataJ(
+      UUID.randomUUID().toString, // UUID
+      null, // name
+      null, // description
+      new FormatJ(), // format
+      null, // schemaString TODO: schema.getJson()
+      partitionCols.asJava, // partitionColumns
+      Collections.emptyMap(), // configuration
+      Optional.of(System.currentTimeMillis()), // createdTime
+      schema) // schema
+
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
-      val txn = log.startTransaction()
-      val actions = Seq(metadata, add1, add2)
-      txn.commit(actions, manualUpdate)
+      log.startTransaction().commit(java.util.Arrays.asList(metadata), ManualUpdate)
+      log.startTransaction().commit(actions, ManualUpdate)
 
-      val versionLogs = log.getChanges(0).asScala.toList
-      val readActions = versionLogs(0).getActions.asScala
-
-      assert(actions.toSet.subsetOf(readActions.toSet))
+      test(log)
     }
   }
 
-  test("checkpoint") {
+  test("basic commit") {
+    withLog(addA_P1 :: addB_P1 :: Nil) { log =>
+      log.startTransaction().commit(addA_P1.remove :: Nil, ManualUpdate)
+
+      // [...] is what is automatically added my OptimisticTransaction
+      // 0 -> metadata [CommitInfo, Protocol]
+      // 1 -> addA_P1, addB_P1 [CommitInfo]
+      // 2 -> removeA_P1 [CommitInfo]
+      val versionLogs = log.getChanges(0).asScala.toList
+
+      assert(versionLogs(0).getActions.asScala.count(_.isInstanceOf[MetadataJ]) == 1)
+      assert(versionLogs(0).getActions.asScala.count(_.isInstanceOf[CommitInfoJ]) == 1)
+      assert(versionLogs(0).getActions.asScala.count(_.isInstanceOf[ProtocolJ]) == 1)
+
+      assert(versionLogs(1).getActions.asScala.count(_.isInstanceOf[AddFileJ]) == 2)
+      assert(versionLogs(1).getActions.asScala.count(_.isInstanceOf[CommitInfoJ]) == 1)
+
+      assert(versionLogs(2).getActions.asScala.count(_.isInstanceOf[RemoveFileJ]) == 1)
+      assert(versionLogs(2).getActions.asScala.count(_.isInstanceOf[CommitInfoJ]) == 1)
+    }
+  }
+
+  test("basic checkpoint") {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       (1 to 15).foreach { i =>
-        val meta = if (i == 1) metadata :: Nil else Nil
+        val meta = if (i == 1) Metadata() :: Nil else Nil
         val txn = log.startTransaction()
-        val file = createAddFileJ(i.toString) :: Nil
-        val delete: Seq[ActionJ] = if (i > 1) {
-          createRemoveFileJ(i - 1 toString) :: Nil
+        val file = AddFile(i.toString, Map.empty, 1, 1, dataChange = true) :: Nil
+
+        val delete: Seq[Action] = if (i > 1) {
+          RemoveFile(i - 1 toString, Some(System.currentTimeMillis()), true) :: Nil
         } else {
           Nil
         }
-        txn.commit(meta ++ delete ++ file, manualUpdate)
+        txn.commit(meta ++ delete ++ file, ManualUpdate)
       }
 
       val log2 = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
@@ -92,73 +141,41 @@ class OptimisticTransactionSuite extends FunSuite {
   }
 
   test("block concurrent commit when read partition was appended to by concurrent write") {
-    val A_P1 = "part=1/a"
-    val B_P1 = "part=1/b"
-    val E_P3 = "part=3/e"
-    val addA_P1 = new AddFileJ(A_P1, Collections.singletonMap("part", "1"), 1, 1, true, null, null)
-    val addB_P1 = new AddFileJ(B_P1, Collections.singletonMap("part", "1"), 1, 1, true, null, null)
-    val addE_P3 = new AddFileJ(E_P3, Collections.singletonMap("part", "3"), 1, 1, true, null, null)
-    val schema = new StructType(Array(new StructField("part", new StringType, false)))
-    val metadata = new MetadataJ(UUID.randomUUID().toString, null, null, new FormatJ(),
-      null, "part" :: Nil, Collections.emptyMap(), Optional.of(100L), schema)
-
-    withTempDir { dir =>
-      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
-      log.startTransaction().commit(metadata :: Nil, manualUpdate)
-
-      // TX1 only reads P1
+    withLog(addA_P1 :: addD_P2 :: addE_P3 :: Nil) { log =>
+      // TX1 reads only P1
       val tx1 = log.startTransaction()
+      tx1.addReadFiles(addA_P1 :: Nil)
       val commitConflictChecker = new CommitConflictChecker {
         override def doesConflict(otherCommitFiles: java.util.List[AddFileJ]): Boolean = {
           otherCommitFiles.asScala.exists(_.getPartitionValues.asScala.exists(_ == ("part" -> "1")))
         }
       }
 
-      tx1.addReadFiles(addA_P1 :: Nil)
-
+      // TX2 modifies only P1
       val tx2 = log.startTransaction()
-      tx2.commit(addB_P1 :: Nil, manualUpdate)
+      tx2.commit(addB_P1 :: Nil, ManualUpdate)
 
       intercept[ConcurrentAppendException] {
         // P1 was modified by TX2. TX1 commit should fail
-        tx1.commit(metadata :: addE_P3 :: Nil, manualUpdate, commitConflictChecker)
+        tx1.commit(addC_P2 :: addE_P3 :: Nil, ManualUpdate, commitConflictChecker)
       }
     }
   }
 
+  // ALSO readWholeTable should block concurrent delete
   test("block commit when full table read conflicts with delete in any partition") {
-    val A_P1 = "part=1/a"
-    val B_P1 = "part=1/b"
-    val addA_P1 = new AddFileJ(A_P1, Collections.singletonMap("part", "1"), 1, 1, true, null, null)
-    val addB_P1 = new AddFileJ(B_P1, Collections.singletonMap("part", "1"), 1, 1, true, null, null)
-    val removeA_P1 = new RemoveFileJ(A_P1, Optional.of(1), true, true,
-      Collections.singletonMap("part", "1"), 1, Collections.emptyMap())
-    val removeB_P1 = new RemoveFileJ(B_P1, Optional.of(1), true, true,
-      Collections.singletonMap("part", "1"), 1, Collections.emptyMap())
-    val schema = new StructType(Array(new StructField("part", new StringType, false)))
-    val metadata = new MetadataJ(UUID.randomUUID().toString, null, null, new FormatJ(),
-      null, "part" :: Nil, Collections.emptyMap(), Optional.of(100L), schema)
-
-    withTempDir { dir =>
-      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
-      log.startTransaction().commit(metadata :: Nil, manualUpdate)
-      log.startTransaction().commit(addA_P1 :: addB_P1 :: Nil, manualUpdate)
-
-      // TX1 reads the whole table
+    withLog(addA_P1 :: addC_P2 :: Nil) { log =>
+      // TX1 reads the whole table (this happens by DEFAULT)
       val tx1 = log.startTransaction()
-      val commitConflictChecker = new CommitConflictChecker {
-        // we assume we only conflict with otherCommitFiles if there is actually a file in that list
-        override def doesConflict(otherCommitFiles: java.util.List[AddFileJ]): Boolean =
-          !otherCommitFiles.isEmpty
-      }
       tx1.addReadFiles(addA_P1 :: addB_P1 :: Nil)
+      // TODO: tx1.readWholeTable
 
       val tx2 = log.startTransaction()
-      tx2.commit(removeA_P1 :: Nil, manualUpdate)
+      tx2.commit(addA_P1.remove :: Nil, ManualUpdate)
 
       intercept[ConcurrentDeleteReadException] {
         // TX1 read whole table but TX2 concurrently modified partition P1
-        tx1.commit(removeB_P1 :: Nil, manualUpdate, commitConflictChecker)
+        tx1.commit(addB_P1.remove :: Nil, ManualUpdate)
       }
     }
   }
@@ -170,7 +187,7 @@ class OptimisticTransactionSuite extends FunSuite {
       val txn = log.startTransaction()
       txn.setIsBlindAppend()
       val e = intercept[IllegalArgumentException] {
-        txn.addReadFiles(add1 :: Nil)
+        txn.addReadFiles(addA_P1 :: Nil)
       }
       assert(e.getMessage.contains("setIsBlindAppend has already been called."))
     }
@@ -179,7 +196,7 @@ class OptimisticTransactionSuite extends FunSuite {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       val txn = log.startTransaction()
-      txn.addReadFiles(add1 :: Nil)
+      txn.addReadFiles(addA_P1 :: Nil)
       val e = intercept[IllegalArgumentException] {
         txn.setIsBlindAppend()
       }
@@ -192,10 +209,14 @@ class OptimisticTransactionSuite extends FunSuite {
       val txn = log.startTransaction()
       txn.setIsBlindAppend()
       val commitConflictChecker = new CommitConflictChecker {
-        override def doesConflict(otherCommitFiles: java.util.List[AddFileJ]): Boolean = true
+        override def doesConflict(otherCommitFiles: java.util.List[AddFileJ]): Boolean = {
+          // some conflict logic
+          true
+        }
+
       }
       val e = intercept[IllegalArgumentException] {
-        txn.commit(add1 :: Nil, manualUpdate, commitConflictChecker)
+        txn.commit(addA_P1 :: Nil, ManualUpdate, commitConflictChecker)
       }
       assert(e.getMessage.contains("setIsBlindAppend has already been called"))
     }
@@ -251,7 +272,18 @@ class OptimisticTransactionSuite extends FunSuite {
 
   // TODO: test verifyNewMetadata > Protocol.checkProtocolRequirements
 
-  // TODO: test commit > isBlindAppend == true but there is a RemoveFile
+  test("blindAppend commit with a RemoveFile action should fail") {
+    withLog(addA_P1 :: Nil) { log =>
+      val txn = log.startTransaction()
+      txn.setIsBlindAppend()
+
+      val e = intercept[IllegalStateException] {
+        txn.commit(addA_P1.remove :: Nil, ManualUpdate)
+      }
+
+      assert(e.getMessage == DeltaErrors.invalidBlindAppendException().getMessage)
+    }
+  }
 
   // TODO: test doCommit > IllegalStateException
 

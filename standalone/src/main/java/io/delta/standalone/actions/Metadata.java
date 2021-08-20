@@ -17,6 +17,7 @@ package io.delta.standalone.actions;
 
 import java.util.*;
 
+import io.delta.standalone.types.StructField;
 import io.delta.standalone.types.StructType;
 
 /**
@@ -41,6 +42,8 @@ public final class Metadata implements Action {
     private final StructType schema;
 
     // TODO: add back in previous constructor (in DSR)
+
+    // TODO: builder class?
 
     public Metadata(String id, String name, String description, Format format, String schemaString,
                     List<String> partitionColumns, Map<String, String> configuration,
