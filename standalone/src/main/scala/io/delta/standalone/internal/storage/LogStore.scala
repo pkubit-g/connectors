@@ -94,6 +94,8 @@ private[internal] trait LogStore {
   def isPartialWriteVisible(path: Path): Boolean = true
 }
 
+private[internal] object LogStore extends LogStoreProvider
+
 private[internal] trait LogStoreProvider {
 
   val defaultLogStoreClassName = classOf[HDFSLogStore].getName
