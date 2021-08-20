@@ -199,8 +199,6 @@ private[internal] class OptimisticTransactionImpl(
    */
   private def prepareCommit(actions: Seq[Action]): Seq[Action] = {
     assert(!committed, "Transaction already committed.")
-    val commitValidationEnabled =
-      deltaLog.hadoopConf.getBoolean(StandaloneHadoopConf.DELTA_COMMIT_VALIDATION_ENABLED, true)
 
     // If the metadata has changed, add that to the set of actions
     var finalActions = newMetadata.toSeq ++ actions
@@ -220,7 +218,7 @@ private[internal] class OptimisticTransactionImpl(
       }
 
       // If this is the first commit and no metadata is specified, throw an exception
-      if (commitValidationEnabled && !finalActions.exists(_.isInstanceOf[Metadata])) {
+      if (!finalActions.exists(_.isInstanceOf[Metadata])) {
         throw DeltaErrors.metadataAbsentException()
       }
     }
@@ -237,7 +235,7 @@ private[internal] class OptimisticTransactionImpl(
             throw DeltaErrors.protocolDowngradeException(currentVersion, newVersion)
           }
         }
-      case a: AddFile if commitValidationEnabled && partitionColumns != a.partitionValues.keySet =>
+      case a: AddFile if partitionColumns != a.partitionValues.keySet =>
         throw DeltaErrors.addFilePartitioningMismatchException(
           a.partitionValues.keySet.toSeq, partitionColumns.toSeq)
       case _ => // nothing

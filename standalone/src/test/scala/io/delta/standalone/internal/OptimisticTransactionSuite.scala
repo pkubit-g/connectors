@@ -21,8 +21,8 @@ import java.util.{Collections, Optional, UUID}
 import scala.collection.JavaConverters._
 
 import io.delta.standalone.{CommitConflictChecker, DeltaLog}
-import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, Format => FormatJ, Metadata => MetadataJ, RemoveFile => RemoveFileJ, CommitInfo => CommitInfoJ, Protocol => ProtocolJ}
-import io.delta.standalone.internal.actions.{Action, AddFile, Metadata, RemoveFile}
+import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, CommitInfo => CommitInfoJ, Format => FormatJ, Metadata => MetadataJ, Protocol => ProtocolJ, RemoveFile => RemoveFileJ}
+import io.delta.standalone.internal.actions.{Action, AddFile, Metadata, Protocol, RemoveFile}
 import io.delta.standalone.internal.exception.{ConcurrentAppendException, ConcurrentDeleteReadException, DeltaErrors}
 import io.delta.standalone.internal.util.ConversionUtils
 import io.delta.standalone.types.{StringType, StructField, StructType}
@@ -238,19 +238,79 @@ class OptimisticTransactionSuite extends FunSuite {
 //    }
 //  }
 
-  // TODO: test prepareCommit > assert not already committed
+  test("committing twice in the same transaction should fail") {
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      val txn = log.startTransaction()
+      txn.commit(Metadata() :: Nil, ManualUpdate)
+      val e = intercept[AssertionError] {
+        txn.commit(Nil, ManualUpdate)
+      }
+      assert(e.getMessage.contains("Transaction already committed."))
+    }
+  }
 
-  // TODO: test prepareCommit > have more than 1 Metadata in transaction
+  test("commits shouldn't have more than one Metadata") {
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      val txn = log.startTransaction()
+      val e = intercept[AssertionError] {
+        txn.commit(Metadata() :: Metadata() :: Nil, ManualUpdate)
+      }
+      assert(e.getMessage.contains("Cannot change the metadata more than once in a transaction."))
+    }
+  }
 
-  // TODO: test prepareCommit > 1st commit & ensureLogDirectoryExist throws
+  test("transaction should throw if it cannot read log directory during first commit ") {
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      dir.setReadOnly()
 
-  // TODO: test prepareCommit > 1st commit & commitValidationEnabled & metadataAbsentException
+      val txn = log.startTransaction()
+      assertThrows[java.io.IOException] {
+        txn.commit(Metadata() :: Nil, ManualUpdate)
+      }
+    }
+  }
 
-  // TODO: test prepareCommit > 1st commit & !commitValidationEnabled & no metadataAbsentException
+  test("first commit must have a Metadata") {
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      val txn = log.startTransaction()
+      val e = intercept[IllegalStateException] {
+        txn.commit(Nil, ManualUpdate)
+      }
+      assert(e.getMessage == DeltaErrors.metadataAbsentException().getMessage)
+    }
+  }
 
-  // TODO: test prepareCommit > protocolDowngradeException (reader)
+  test("prevent invalid Protocol reader/writer versions from being committed") {
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      val txn = log.startTransaction()
+      val e1 = intercept[IllegalArgumentException] {
+        txn.commit(Metadata() :: Protocol(0, 2) :: Nil, ManualUpdate)
+      }
+      assert(e1.getMessage.contains("The reader version needs to be greater than 0"))
 
-  // TODO: test prepareCommit > protocolDowngradeException (writer)
+      val e2 = intercept[IllegalArgumentException] {
+        txn.commit(Metadata() :: Protocol(1, 0) :: Nil, ManualUpdate)
+      }
+      assert(e2.getMessage.contains("The writer version needs to be greater than 0"))
+    }
+  }
+
+  test("prevent protocol downgrades") {
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      log.startTransaction().commit(Metadata() :: Protocol(1, 2) :: Nil, ManualUpdate)
+      val e = intercept[RuntimeException] {
+        log.startTransaction().commit(Protocol(1, 1) :: Nil, ManualUpdate)
+      }
+      assert(e.getMessage.contains("Protocol version cannot be downgraded "))
+    }
+  }
+
 
   // TODO: test prepareCommit > commitValidationEnabled & addFilePartitioningMismatchException
 

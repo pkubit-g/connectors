@@ -24,9 +24,6 @@ private[internal] object StandaloneHadoopConf {
   /** time zone as which time-based parquet values will be encoded and decoded */
   val PARQUET_DATA_TIME_ZONE_ID = "io.delta.standalone.PARQUET_DATA_TIME_ZONE_ID"
 
-  /** Whether to perform validation checks before commit or not */
-  val DELTA_COMMIT_VALIDATION_ENABLED = "io.delta.standalone.DELTA_COMMIT_VALIDATION_ENABLED"
-
   /**
    * Whether to check whether the partition column names have valid names, just like the data
    * columns
