@@ -17,5 +17,9 @@ public interface OptimisticTransaction {
 
     void addReadFiles(Iterable<AddFile> readFiles);
 
+    /**
+     * Configure this transaction to be a blind append. By default, it is not a blind append and
+     * assumes you have read some part of the table.
+     */
     void setIsBlindAppend();
 }

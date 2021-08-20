@@ -25,6 +25,7 @@ import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, Form
 import io.delta.standalone.internal.exception.{ConcurrentAppendException, ConcurrentDeleteReadException}
 import io.delta.standalone.types.{IntegerType, StringType, StructField, StructType}
 import io.delta.standalone.internal.util.TestUtils._
+import io.delta.standalone.operations.ManualUpdate
 import org.apache.hadoop.conf.Configuration
 
 // scalastyle:off funsuite
@@ -36,6 +37,8 @@ class OptimisticTransactionSuite extends FunSuite {
 //  val schema = new StructType(Array(
 //    new StructField("col1", new IntegerType(), true),
 //    new StructField("col2", new StringType(), true)))
+
+  val manualUpdate = new ManualUpdate()
 
   val metadata = new MetadataJ(UUID.randomUUID().toString, null, null, new FormatJ(), null,
     Collections.emptyList(), Collections.emptyMap(), Optional.of(100L), new StructType(Array.empty))
@@ -58,7 +61,7 @@ class OptimisticTransactionSuite extends FunSuite {
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       val txn = log.startTransaction()
       val actions = Seq(metadata, add1, add2)
-      txn.commit(actions, null)
+      txn.commit(actions, manualUpdate)
 
       val versionLogs = log.getChanges(0).asScala.toList
       val readActions = versionLogs(0).getActions.asScala
@@ -79,7 +82,7 @@ class OptimisticTransactionSuite extends FunSuite {
         } else {
           Nil
         }
-        txn.commit(meta ++ delete ++ file, null)
+        txn.commit(meta ++ delete ++ file, manualUpdate)
       }
 
       val log2 = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
@@ -101,7 +104,7 @@ class OptimisticTransactionSuite extends FunSuite {
 
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
-      log.startTransaction().commit(metadata :: Nil, null)
+      log.startTransaction().commit(metadata :: Nil, manualUpdate)
 
       // TX1 only reads P1
       val tx1 = log.startTransaction()
@@ -114,11 +117,11 @@ class OptimisticTransactionSuite extends FunSuite {
       tx1.addReadFiles(addA_P1 :: Nil)
 
       val tx2 = log.startTransaction()
-      tx2.commit(addB_P1 :: Nil, null)
+      tx2.commit(addB_P1 :: Nil, manualUpdate)
 
       intercept[ConcurrentAppendException] {
         // P1 was modified by TX2. TX1 commit should fail
-        tx1.commit(metadata :: addE_P3 :: Nil, null, commitConflictChecker)
+        tx1.commit(metadata :: addE_P3 :: Nil, manualUpdate, commitConflictChecker)
       }
     }
   }
@@ -138,8 +141,8 @@ class OptimisticTransactionSuite extends FunSuite {
 
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
-      log.startTransaction().commit(metadata :: Nil, null)
-      log.startTransaction().commit(addA_P1 :: addB_P1 :: Nil, null)
+      log.startTransaction().commit(metadata :: Nil, manualUpdate)
+      log.startTransaction().commit(addA_P1 :: addB_P1 :: Nil, manualUpdate)
 
       // TX1 reads the whole table
       val tx1 = log.startTransaction()
@@ -151,11 +154,11 @@ class OptimisticTransactionSuite extends FunSuite {
       tx1.addReadFiles(addA_P1 :: addB_P1 :: Nil)
 
       val tx2 = log.startTransaction()
-      tx2.commit(removeA_P1 :: Nil, null)
+      tx2.commit(removeA_P1 :: Nil, manualUpdate)
 
       intercept[ConcurrentDeleteReadException] {
         // TX1 read whole table but TX2 concurrently modified partition P1
-        tx1.commit(removeB_P1 :: Nil, null, commitConflictChecker)
+        tx1.commit(removeB_P1 :: Nil, manualUpdate, commitConflictChecker)
       }
     }
   }
@@ -192,7 +195,7 @@ class OptimisticTransactionSuite extends FunSuite {
         override def doesConflict(otherCommitFiles: java.util.List[AddFileJ]): Boolean = true
       }
       val e = intercept[IllegalArgumentException] {
-        txn.commit(add1 :: Nil, null, commitConflictChecker)
+        txn.commit(add1 :: Nil, manualUpdate, commitConflictChecker)
       }
       assert(e.getMessage.contains("setIsBlindAppend has already been called"))
     }
@@ -248,11 +251,7 @@ class OptimisticTransactionSuite extends FunSuite {
 
   // TODO: test verifyNewMetadata > Protocol.checkProtocolRequirements
 
-  // TODO: test commit > DELTA_COMMIT_INFO_ENABLED
-  // - commitInfo is actually added to final actions
-  // - isBlindAppend == true
-  // - isBlindAppend == false
-  // - different operation names
+  // TODO: test commit > isBlindAppend == true but there is a RemoveFile
 
   // TODO: test doCommit > IllegalStateException
 

@@ -227,6 +227,15 @@ private[internal] object DeltaErrors {
        """.stripMargin)
   }
 
+  def invalidBlindAppendException(): Throwable = {
+    new IllegalStateException(
+      s"""
+         |You have called OptimisticTransaction::setIsBlindAppend yet the actions you attempted to
+         |commit include non-AddFile FileActions. Please check that this commit really is a blind
+         |append and try again.
+         |""".stripMargin)
+  }
+
     ///////////////////////////////////////////////////////////////////////////
   // Helper Methods
   ///////////////////////////////////////////////////////////////////////////

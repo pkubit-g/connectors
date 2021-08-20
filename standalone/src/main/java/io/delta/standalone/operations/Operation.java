@@ -8,13 +8,14 @@ public abstract class Operation {
     private final String name;
     private final Map<String, String> jsonEncodedValues;
     private final Optional<String> userMetadata;
+    // TODO: operationMetrics?
 
-    // TODO: any way to use java-equivalent of val parameters: Map[String, Any] ?
+    public Operation(String name) {
+        this(name, Collections.emptyMap());
+    }
 
     public Operation(String name, Map<String, String> jsonEncodedValues) {
-        this.name = name;
-        this.jsonEncodedValues = jsonEncodedValues;
-        this.userMetadata = Optional.empty();
+        this(name, jsonEncodedValues, Optional.empty());
     }
 
     public Operation(String name, Map<String, String> jsonEncodedValues, Optional<String> userMetadata) {

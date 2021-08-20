@@ -208,7 +208,7 @@ private[internal] object ConversionUtils {
 //    if (opt.isPresent) Some(opt.get()) else None
 
   // TODO verify this actually works
-  private implicit def toScalaOption[J, S](opt: OptionalJ[J]): Option[S] =
+  implicit def toScalaOption[J, S](opt: OptionalJ[J]): Option[S] =
     if (opt.isPresent) Some(opt.get().asInstanceOf[S]) else None
 
   def convertActionJ(external: ActionJ): Action = external match {

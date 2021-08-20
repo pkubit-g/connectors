@@ -75,28 +75,29 @@ private[internal] class OptimisticTransactionImpl(
    */
   def metadata: Metadata = newMetadata.getOrElse(snapshot.metadataScala) // TODO: only snapshot.___?
 
+  /** The version that this transaction is reading from. */
+  private def readVersion: Long = snapshot.version
+
   ///////////////////////////////////////////////////////////////////////////
   // Public Java API Methods
   ///////////////////////////////////////////////////////////////////////////
 
-  override def commit(actionsJ: java.util.List[ActionJ], opJ: OperationJ): Long = {
+  override def commit(actionsJ: java.util.List[ActionJ], op: OperationJ): Long = {
     val actions = actionsJ.asScala.map(ConversionUtils.convertActionJ)
-    val op: DeltaOperations.Operation = null // TODO convert opJ to scala
-    commit(actions, None) // TODO: Some(op)
+    commit(actions, op)
   }
 
   override def commit(
       actionsJ: java.util.List[ActionJ],
-      opJ: OperationJ,
+      op: OperationJ,
       commitConflictChecker: CommitConflictChecker): Long = {
     require(!isBlindAppend, "setIsBlindAppend has already been called. There shouldn't be any" +
       "need to call commit with a CommitConflictChecker.")
 
     val actions = actionsJ.asScala.map(ConversionUtils.convertActionJ)
-    val op: DeltaOperations.Operation = null // TODO convert opJ to scala
     externalConflictChecker = Some(commitConflictChecker)
 
-    commit(actions, None) // TODO: Some(op)
+    commit(actions, op)
   }
 
   override def addReadFiles(readFilesJ: lang.Iterable[AddFileJ]): Unit = {
@@ -119,7 +120,6 @@ private[internal] class OptimisticTransactionImpl(
   // TODO: should be iter
   override def writeRecordsAndCommit(data: java.util.List[RowRecordJ]): Long = {
     // TODO maybe return current snapshot version? edge case?
-//    require(!data.isEmpty, "cannot write and commit empty record data list")
 
     val addFile = ParquetDataWriter.write(
       deltaLog.dataPath,
@@ -132,6 +132,7 @@ private[internal] class OptimisticTransactionImpl(
 
   override def setIsBlindAppend(): Unit = {
     // TODO: check if we have already committed? If so, why is the user doing this?
+    // TODO: check if we have already called setIsBlindAppend? If so, why is the user doing this?
     require(readFiles.isEmpty, "addReadFiles has already been called. There shouldn't be any" +
       "need to call setIsBlindAppend.")
 
@@ -142,12 +143,16 @@ private[internal] class OptimisticTransactionImpl(
   // Critical Internal-Only Methods
   ///////////////////////////////////////////////////////////////////////////
 
-  private def commit(
-      actions: Seq[Action],
-      op: Option[DeltaOperations.Operation]): Long = {
-
+  private def commit(actions: Seq[Action], op: OperationJ): Long = {
     // Try to commit at the next version.
     var finalActions = prepareCommit(actions)
+
+    val onlyAddFiles =
+      finalActions.collect { case f: FileAction => f }.forall(_.isInstanceOf[AddFile])
+
+    if (isBlindAppend && !onlyAddFiles) {
+      throw DeltaErrors.invalidBlindAppendException()
+    }
 
     // Find the isolation level to use for this commit
     val noDataChanged = actions.collect { case f: FileAction => f.dataChange }.forall(_ == false)
@@ -160,11 +165,19 @@ private[internal] class OptimisticTransactionImpl(
       Serializable
     }
 
-    if (deltaLog.hadoopConf.getBoolean(StandaloneHadoopConf.DELTA_COMMIT_INFO_ENABLED, true)) {
-//      val isBlindAppend = false // TODO
-//      val commitInfo = CommitInfo.empty() // TODO CommitInfo(...
-//      finalActions = commitInfo +: finalActions // prepend commitInfo
-    }
+    val commitInfo = CommitInfo(
+      System.currentTimeMillis(),
+      op.getName,
+      op.getJsonEncodedValues.asScala.toMap,
+      Map.empty,
+      Some(readVersion).filter(_ >= 0),
+      None,
+      Some(isBlindAppend),
+      None, // TODO: operation metrics?
+      if (op.getUserMetadata.isPresent) Some(op.getUserMetadata.get()) else None
+    )
+
+    finalActions = commitInfo +: finalActions
 
     commitAttemptStartTime = System.currentTimeMillis()
 
