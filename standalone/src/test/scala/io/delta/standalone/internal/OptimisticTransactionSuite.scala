@@ -24,6 +24,7 @@ import io.delta.standalone.{CommitConflictChecker, DeltaLog}
 import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, CommitInfo => CommitInfoJ, Format => FormatJ, Metadata => MetadataJ, Protocol => ProtocolJ, RemoveFile => RemoveFileJ}
 import io.delta.standalone.internal.actions.{Action, AddFile, Metadata, Protocol, RemoveFile}
 import io.delta.standalone.internal.exception.{ConcurrentAppendException, ConcurrentDeleteReadException, DeltaErrors}
+import io.delta.standalone.internal.exception.DeltaErrors.InvalidProtocolVersionException
 import io.delta.standalone.internal.util.ConversionUtils
 import io.delta.standalone.types.{StringType, StructField, StructType}
 import io.delta.standalone.internal.util.TestUtils._
@@ -76,20 +77,12 @@ class OptimisticTransactionSuite extends FunSuite {
       test: DeltaLog => Unit): Unit = {
     val schemaFields = partitionCols.map { p => new StructField(p, new StringType()) }.toArray
     val schema = new StructType(schemaFields)
-    val metadata = new MetadataJ(
-      UUID.randomUUID().toString, // UUID
-      null, // name
-      null, // description
-      new FormatJ(), // format
-      null, // schemaString TODO: schema.getJson()
-      partitionCols.asJava, // partitionColumns
-      Collections.emptyMap(), // configuration
-      Optional.of(System.currentTimeMillis()), // createdTime
-      schema) // schema
+//  TODO  val metadata = Metadata(partitionColumns = partitionCols, schemaString = schema.json)
+    val metadata = Metadata(partitionColumns = partitionCols)
 
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
-      log.startTransaction().commit(java.util.Arrays.asList(metadata), ManualUpdate)
+      log.startTransaction().commit(metadata :: Nil, ManualUpdate)
       log.startTransaction().commit(actions, ManualUpdate)
 
       test(log)
@@ -307,17 +300,48 @@ class OptimisticTransactionSuite extends FunSuite {
       val e = intercept[RuntimeException] {
         log.startTransaction().commit(Protocol(1, 1) :: Nil, ManualUpdate)
       }
-      assert(e.getMessage.contains("Protocol version cannot be downgraded "))
+      assert(e.getMessage.contains("Protocol version cannot be downgraded"))
     }
   }
 
+  test("AddFile partition mismatches should fail") {
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      log.startTransaction().commit(Metadata() :: Nil, ManualUpdate)
+      val e = intercept[IllegalStateException] {
+        log.startTransaction().commit(addA_P1 :: Nil, ManualUpdate)
+      }
+      assert(e.getMessage.contains("The AddFile contains partitioning schema different from the " +
+        "table's partitioning schema"))
+    }
+  }
 
-  // TODO: test prepareCommit > commitValidationEnabled & addFilePartitioningMismatchException
+  test("access with protocol too high") {
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      log.startTransaction().commit(Metadata() :: Protocol(1, 2) :: Nil, ManualUpdate)
+      val txn = log.startTransaction()
+      txn.commit(Protocol(1, 3) :: Nil, ManualUpdate)
 
-  // TODO: test prepareCommit > !commitValidationEnabled & no addFilePartitioningMismatchException
+      val e = intercept[InvalidProtocolVersionException] {
+        log.startTransaction().commit(Metadata() :: Nil, ManualUpdate)
+      }
+      assert(e.getMessage.contains("Delta protocol version (1,3) is too new for this version"))
+    }
+  }
 
-  // TODO: test prepareCommit > assertProtocolWrite
+  test("can't remove from an append-only table") {
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      val metadata = Metadata(configuration = Map("appendOnly" -> "true"))
+      log.startTransaction().commit(metadata :: Nil, ManualUpdate)
 
+      val e = intercept[UnsupportedOperationException] {
+        log.startTransaction().commit(addA_P1.remove :: Nil, ManualUpdate)
+      }
+      assert(e.getMessage.contains("This table is configured to only allow appends"))
+    }
+  }
   // TODO: test prepareCommit > assertRemovable
 
   // TODO: test verifyNewMetadata > SchemaMergingUtils.checkColumnNameDuplication
