@@ -342,7 +342,6 @@ class OptimisticTransactionSuite extends FunSuite {
       assert(e.getMessage.contains("This table is configured to only allow appends"))
     }
   }
-  // TODO: test prepareCommit > assertRemovable
 
   // TODO: test verifyNewMetadata > SchemaMergingUtils.checkColumnNameDuplication
 
