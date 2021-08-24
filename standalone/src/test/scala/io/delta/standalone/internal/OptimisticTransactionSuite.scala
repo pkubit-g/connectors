@@ -267,7 +267,7 @@ class OptimisticTransactionSuite extends FunSuite {
     }
   }
 
-  test("transaction should throw if it cannot read log directory during first commit ") {
+  test("transaction should throw if it cannot read log directory during first commit") {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       dir.setReadOnly()
@@ -279,7 +279,7 @@ class OptimisticTransactionSuite extends FunSuite {
     }
   }
 
-  test("first commit must have a Metadata") {
+  test("initial commit without metadata should fail") {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       val txn = log.startTransaction()
@@ -317,10 +317,10 @@ class OptimisticTransactionSuite extends FunSuite {
     }
   }
 
-  test("AddFile partition mismatches should fail") {
+  test("AddFile with different partition schema compared to metadata should fail") {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
-      log.startTransaction().commit(Metadata() :: Nil, ManualUpdate)
+      log.startTransaction().commit(Metadata(partitionColumns = Seq("foo")) :: Nil, ManualUpdate)
       val e = intercept[IllegalStateException] {
         log.startTransaction().commit(addA_P1 :: Nil, ManualUpdate)
       }
