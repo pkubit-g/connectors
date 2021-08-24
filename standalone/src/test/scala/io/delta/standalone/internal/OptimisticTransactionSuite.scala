@@ -19,6 +19,7 @@ package io.delta.standalone.internal
 import java.util.{Collections, Optional, UUID}
 
 import scala.collection.JavaConverters._
+import scala.reflect.ClassTag
 
 import io.delta.standalone.{CommitConflictChecker, DeltaLog}
 import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, CommitInfo => CommitInfoJ, Format => FormatJ, Metadata => MetadataJ, Protocol => ProtocolJ, RemoveFile => RemoveFileJ}
@@ -57,14 +58,6 @@ class OptimisticTransactionSuite extends FunSuite {
   private val addF_P3 = AddFile(F_P3, Map("part" -> "3"), 1, 1, dataChange = true)
   private val addG_P4 = AddFile(G_P4, Map("part" -> "4"), 1, 1, dataChange = true)
 
-  def createAddFileJ(path: String): AddFileJ = {
-    new AddFileJ(path, Collections.emptyMap(), 100, 100, true, null, null)
-  }
-
-  def createRemoveFileJ(path: String): RemoveFileJ = {
-    new RemoveFileJ(path, Optional.of(100L), true, false, null, 0, null)
-  }
-
   implicit def actionSeqToList[T <: Action](seq: Seq[T]): java.util.List[ActionJ] =
     seq.map(ConversionUtils.convertAction).asJava
 
@@ -86,6 +79,26 @@ class OptimisticTransactionSuite extends FunSuite {
       log.startTransaction().commit(actions, ManualUpdate)
 
       test(log)
+    }
+  }
+
+  /**
+   * @tparam T expected exception type
+   */
+  def testMetadata[T <: Throwable : ClassTag](
+      metadata: Metadata,
+      expectedExceptionMessageSubStr: String): Unit = {
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      val e1 = intercept[T] {
+        log.startTransaction().commit(metadata :: Nil, ManualUpdate)
+      }
+      assert(e1.getMessage.contains(expectedExceptionMessageSubStr))
+
+      val e2 = intercept[T] {
+        log.startTransaction().updateMetadata(ConversionUtils.convertMetadata(metadata))
+      }
+      assert(e2.getMessage.contains(expectedExceptionMessageSubStr))
     }
   }
 
@@ -343,17 +356,85 @@ class OptimisticTransactionSuite extends FunSuite {
     }
   }
 
-  // TODO: test verifyNewMetadata > SchemaMergingUtils.checkColumnNameDuplication
+  test("BROKEN can't update metadata after you've already written data") {
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      // TODO: write data (use the correct data API after design doc is approved) ...
+      val e = intercept[AssertionError] {
+        log.startTransaction().updateMetadata(ConversionUtils.convertMetadata(Metadata()))
+      }
 
-  // TODO: test verifyNewMetadata > SchemaUtils.checkFieldNames(dataSchema) > ParquetSchemaConverter
+      assert(e.getMessage.contains("Cannot update the metadata in a transaction that has already " +
+        "written data."))
+    }
+  }
 
-  // TODO: test verifyNewMetadata > SchemaUtils.checkFieldNames(dataSchema) > invalidColumnName
+  test("can't update metadata more than once in a transaction") {
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      val txn = log.startTransaction()
+      txn.updateMetadata(ConversionUtils.convertMetadata(Metadata()))
+      val e = intercept[AssertionError] {
+        txn.updateMetadata(ConversionUtils.convertMetadata(Metadata()))
+      }
 
-  // TODO: test verifyNewMetadata > ...checkFieldNames(partitionColumns) > ParquetSchemaConverter
+      assert(e.getMessage.contains("Cannot change the metadata more than once in a transaction."))
+    }
+  }
 
-  // TODO: test verifyNewMetadata > ...checkFieldNames(partitionColumns) > invalidColumnName
+  // TODO: updateMetadata > unenforceable not null constraints are removed from metadata schemaStr
 
-  // TODO: test verifyNewMetadata > Protocol.checkProtocolRequirements
+  test("Protocol Action should be automatically added to transaction for new table") {
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      log.startTransaction().commit(Metadata() :: Nil, ManualUpdate)
+      assert(log.getChanges(0).asScala.next().getActions.contains(new ProtocolJ(1, 2)))
+    }
+  }
+
+  test("updateMetadata removes Protocol properties from metadata config") {
+    // Note: These Protocol properties are not currently exposed to the user. However, they
+    //       might be in the future, and nothing is stopping the user now from seeing these
+    //       properties in Delta OSS and adding them to the config map here.
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      val txn = log.startTransaction()
+      val metadata = Metadata(configuration = Map(
+        Protocol.MIN_READER_VERSION_PROP -> "1",
+        Protocol.MIN_WRITER_VERSION_PROP -> "2"
+      ))
+      txn.updateMetadata(ConversionUtils.convertMetadata(metadata))
+      txn.commit(Nil, ManualUpdate)
+
+      val writtenConfig = log.update().getMetadata.getConfiguration
+      assert(!writtenConfig.containsKey(Protocol.MIN_READER_VERSION_PROP))
+      assert(!writtenConfig.containsKey(Protocol.MIN_WRITER_VERSION_PROP))
+    }
+  }
+
+  // FUTURE: test that metadata configuration Protocol properties are actually used
+
+  test("can't have duplicate column names") {
+    // TODO: just call myStruct.getJson()
+    // scalastyle:off
+    val schemaStr = """{"type":"struct","fields":[{"name":"col1","type":"integer","nullable":true,"metadata":{}},{"name":"col1","type":"integer","nullable":true,"metadata":{}}]}"""
+    // scalastyle:on
+    testMetadata[RuntimeException](Metadata(schemaString = schemaStr), "Found duplicate column(s)")
+  }
+
+  test("column names (both data and partition) must be acceptable by parquet") {
+    // TODO: just call myStruct.getJson()
+    // test DATA columns
+    // scalastyle:off
+    val schemaStr1 = """{"type":"struct","fields":[{"name":"bad;column,name","type":"integer","nullable":true,"metadata":{}}]}"""
+    // scalastyle:on
+    testMetadata[RuntimeException](Metadata(schemaString = schemaStr1),
+      """Attribute name "bad;column,name" contains invalid character(s)""")
+
+    // test PARTITION columns
+    testMetadata[RuntimeException](Metadata(partitionColumns = "bad;column,name" :: Nil),
+      "Found partition columns having invalid character(s)")
+  }
 
   test("blindAppend commit with a RemoveFile action should fail") {
     withLog(addA_P1 :: Nil) { log =>

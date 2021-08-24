@@ -2,6 +2,7 @@ package io.delta.standalone;
 
 import io.delta.standalone.actions.Action;
 import io.delta.standalone.actions.AddFile;
+import io.delta.standalone.actions.Metadata;
 import io.delta.standalone.data.RowRecord;
 import io.delta.standalone.operations.Operation;
 
@@ -16,6 +17,8 @@ public interface OptimisticTransaction {
     long writeRecordsAndCommit(List<RowRecord> data);
 
     void addReadFiles(Iterable<AddFile> readFiles);
+
+    void updateMetadata(Metadata metadata);
 
     /**
      * Configure this transaction to be a blind append. By default, it is not a blind append and

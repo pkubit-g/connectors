@@ -24,7 +24,7 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 
 import io.delta.standalone.{CommitConflictChecker, OptimisticTransaction}
-import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ}
+import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, Metadata => MetadataJ}
 import io.delta.standalone.data.{RowRecord => RowRecordJ}
 import io.delta.standalone.operations.{Operation => OperationJ}
 import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, FileAction, Metadata, Protocol, RemoveFile}
@@ -36,7 +36,6 @@ import io.delta.standalone.internal.util.{ConversionUtils, FileNames, SchemaMerg
 private[internal] class OptimisticTransactionImpl(
     deltaLog: DeltaLogImpl,
     snapshot: SnapshotImpl) extends OptimisticTransaction {
-
   import OptimisticTransactionImpl._
 
   /** Tracks specific files that have been seen by this transaction. */
@@ -45,14 +44,18 @@ private[internal] class OptimisticTransactionImpl(
   /** Tracks if this transaction has already committed. */
   private var committed = false
 
+  private var hasWritten = false
+
   private var isBlindAppend = false
 
   /** Stores the updated metadata (if any) that will result from this txn. */
-//  private var newMetadata: Option[Metadata] = None
-  private val newMetadata: Option[Metadata] = None // TODO: remove?
+  private var newMetadata: Option[Metadata] = None
 
   /** Stores the updated protocol (if any) that will result from this txn. */
   private var newProtocol: Option[Protocol] = None
+
+  /** Whether this transaction is creating a new table. */
+  private var isCreatingNewTable: Boolean = false
 
   /**
    * Tracks the start time since we started trying to write a particular commit.
@@ -62,18 +65,14 @@ private[internal] class OptimisticTransactionImpl(
 
   private var externalConflictChecker: Option[CommitConflictChecker] = None
 
-  // Whether this transaction is creating a new table.
-//  private var isCreatingNewTable: Boolean = false
-  private val isCreatingNewTable: Boolean = false // TODO: remove?
-
   /** The protocol of the snapshot that this transaction is reading at. */
   def protocol: Protocol = newProtocol.getOrElse(snapshot.protocolScala)
 
   /**
    * Returns the metadata for this transaction. The metadata refers to the metadata of the snapshot
-   * at the transaction's read version unless updated during the transaction. TODO: update comment?
+   * at the transaction's read version unless updated during the transaction.
    */
-  def metadata: Metadata = newMetadata.getOrElse(snapshot.metadataScala) // TODO: only snapshot.___?
+  def metadata: Metadata = newMetadata.getOrElse(snapshot.metadataScala)
 
   /** The version that this transaction is reading from. */
   private def readVersion: Long = snapshot.version
@@ -81,6 +80,62 @@ private[internal] class OptimisticTransactionImpl(
   ///////////////////////////////////////////////////////////////////////////
   // Public Java API Methods
   ///////////////////////////////////////////////////////////////////////////
+
+
+  override def updateMetadata(metadataJ: MetadataJ): Unit = {
+    assert(!hasWritten,
+      "Cannot update the metadata in a transaction that has already written data.")
+    assert(newMetadata.isEmpty,
+      "Cannot change the metadata more than once in a transaction.")
+
+    val metadata = ConversionUtils.convertMetadataJ(metadataJ)
+
+    val metadataWithFixedSchema =
+      if (snapshot.metadataScala.schemaString == metadata.schemaString) {
+        // Shortcut when the schema hasn't changed to avoid generating spurious schema change logs.
+        // It's fine if two different but semantically equivalent schema strings skip this special
+        // case - that indicates that something upstream attempted to do a no-op schema change, and
+        // we'll just end up doing a bit of redundant work in the else block.
+        metadata
+      } else {
+        // TODO getJson()
+        //   val fixedSchema =
+        //   SchemaUtils.removeUnenforceableNotNullConstraints(metadata.schema).getJson()
+        // metadata.copy(schemaString = fixedSchema)
+
+        metadata
+      }
+
+    val updatedMetadata = if (readVersion == -1) {
+      val m = Metadata(configuration = Map("appendOnly" -> "false"))
+      isCreatingNewTable = true
+      newProtocol = Some(Protocol())
+      m
+    } else {
+      metadataWithFixedSchema
+    }
+
+    // Remove the protocol version properties
+    val configs = updatedMetadata.configuration.filter {
+      case (Protocol.MIN_READER_VERSION_PROP, value) =>
+        if (!isCreatingNewTable) {
+          // FUTURE: use Protocol.getVersion(Protocol.MIN_READER_VERSION_PROP, value)
+          newProtocol = Some(Protocol())
+        }
+        false
+      case (Protocol.MIN_WRITER_VERSION_PROP, value) =>
+        if (!isCreatingNewTable) {
+          // FUTURE: use Protocol.getVersion(Protocol.MIN_WRITER_VERSION_PROP, value)
+          newProtocol = Some(Protocol())
+        }
+        false
+      case _ => true
+    }
+
+    val noProtocolVersionMetadata = metadataWithFixedSchema.copy(configuration = configs)
+    verifyNewMetadata(noProtocolVersionMetadata)
+    newMetadata = Some(noProtocolVersionMetadata)
+  }
 
   override def commit(actionsJ: java.util.List[ActionJ], op: OperationJ): Long = {
     val actions = actionsJ.asScala.map(ConversionUtils.convertActionJ)
@@ -119,7 +174,7 @@ private[internal] class OptimisticTransactionImpl(
   // TODO: document how if this is the 1st commit, then txn.updateMetadata() must have been called
   // TODO: should be iter
   override def writeRecordsAndCommit(data: java.util.List[RowRecordJ]): Long = {
-    // TODO maybe return current snapshot version? edge case?
+    hasWritten = true
 
     val addFile = ParquetDataWriter.write(
       deltaLog.dataPath,
@@ -373,11 +428,10 @@ private[internal] class OptimisticTransactionImpl(
       SchemaUtils.checkFieldNames(metadata.partitionColumns)
     } catch {
       // TODO: case e: AnalysisException ?
-      case e: RuntimeException if (partitionColCheckIsFatal) =>
+      case e: RuntimeException if partitionColCheckIsFatal =>
         throw DeltaErrors.invalidPartitionColumn(e)
     }
 
-    // TODO: this function is still incomplete
     val needsProtocolUpdate = Protocol.checkProtocolRequirements(metadata, protocol)
 
     if (needsProtocolUpdate.isDefined) {

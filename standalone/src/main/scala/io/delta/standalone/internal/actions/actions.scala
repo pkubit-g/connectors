@@ -18,6 +18,9 @@ package io.delta.standalone.internal.actions
 
 import java.net.URI
 import java.sql.Timestamp
+import java.util.Locale
+
+import scala.collection.mutable.ArrayBuffer
 
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonInclude, JsonRawValue}
 import com.fasterxml.jackson.core.JsonGenerator
@@ -73,17 +76,21 @@ private[internal] object Protocol {
 
   /**
    * Verify that the protocol version of the table satisfies the version requirements of all the
-   * configurations to be set for the table. Returns the minimum required protocol if not.
+   * configurations to be set for the table. Else, returns None.
    */
-  def checkProtocolRequirements(metadata: Metadata, protocol: Protocol): Option[Protocol] = {
+  def checkProtocolRequirements(metadata: Metadata, current: Protocol): Option[Protocol] = {
     assert(!metadata.configuration.contains(MIN_READER_VERSION_PROP), s"Should not have the " +
       s"protocol version ($MIN_READER_VERSION_PROP) as part of table properties")
     assert(!metadata.configuration.contains(MIN_WRITER_VERSION_PROP), s"Should not have the " +
       s"protocol version ($MIN_WRITER_VERSION_PROP) as part of table properties")
 
-    // TODO: requiredMinimumProtocol(...)
+    // FUTURE: compare param protocol with requiredMinimumProtocol(metadata)
 
-    Some(protocol)
+    if (current == Protocol()) {
+      Some(current)
+    } else {
+      None
+    }
   }
 }
 
