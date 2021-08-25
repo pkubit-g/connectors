@@ -116,7 +116,7 @@ private[internal] trait Checkpoints {
     val json = JsonUtils.toJson(checkpointMetaData)
     store.write(LAST_CHECKPOINT, Iterator(json), overwrite = true)
 
-    // TODO: doLogCleanup()
+    doLogCleanup()
   }
 
   /** Loads the checkpoint metadata from the _last_checkpoint file. */

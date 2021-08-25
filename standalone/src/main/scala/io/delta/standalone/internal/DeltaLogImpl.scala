@@ -28,7 +28,7 @@ import io.delta.standalone.actions.{CommitInfo => CommitInfoJ}
 import io.delta.standalone.internal.actions.{Action, Metadata, Protocol}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.storage.HDFSReadOnlyLogStore
-import io.delta.standalone.internal.util.{ConversionUtils, FileNames}
+import io.delta.standalone.internal.util.{Clock, ConversionUtils, FileNames, SystemClock}
 
 /**
  * Scala implementation of Java interface [[DeltaLog]].
@@ -36,9 +36,11 @@ import io.delta.standalone.internal.util.{ConversionUtils, FileNames}
 private[internal] class DeltaLogImpl private(
     val hadoopConf: Configuration,
     val logPath: Path,
-    val dataPath: Path)
+    val dataPath: Path,
+    val clock: Clock)
   extends DeltaLog
   with Checkpoints
+  with MetadataCleanup
   with SnapshotManagement {
 
   /** Used to read (not write) physical log files and checkpoints. */
@@ -160,10 +162,21 @@ private[standalone] object DeltaLogImpl {
     apply(hadoopConf, new Path(dataPath, "_delta_log"))
   }
 
-  def apply(hadoopConf: Configuration, rawPath: Path): DeltaLogImpl = {
+  def forTable(hadoopConf: Configuration, dataPath: String, clock: Clock): DeltaLogImpl = {
+    apply(hadoopConf, new Path(dataPath, "_delta_log"), clock)
+  }
+
+  def forTable(hadoopConf: Configuration, dataPath: Path, clock: Clock): DeltaLogImpl = {
+    apply(hadoopConf, new Path(dataPath, "_delta_log"), clock)
+  }
+
+  def apply(
+      hadoopConf: Configuration,
+      rawPath: Path,
+      clock: Clock = new SystemClock): DeltaLogImpl = {
     val fs = rawPath.getFileSystem(hadoopConf)
     val path = fs.makeQualified(rawPath)
 
-    new DeltaLogImpl(hadoopConf, path, path.getParent)
+    new DeltaLogImpl(hadoopConf, path, path.getParent, clock)
   }
 }

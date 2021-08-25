@@ -464,6 +464,4 @@ class OptimisticTransactionSuite extends FunSuite {
 
   // TODO: test Checkpoint > !partialWriteVisible (==> !useRename)
 
-  // TODO: test Checkpoint > log cleanup
-
 }
