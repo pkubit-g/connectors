@@ -213,12 +213,11 @@ private[internal] object Checkpoints {
     // Use the string in the closure as Path is not Serializable.
     val path = checkpointFileSingular(snapshot.path, snapshot.version).toString
 
-    // TODO ++ snapshot.removeFiles ++ snapshot.addFiles ++ snapshot.setTransactions
-    // TODO SingleAction instead of Action?
-    // do NOT include commitInfo
-    // see https://github.com/delta-io/delta/blob/master/PROTOCOL.md#checkpoint-schema
      val actions: Seq[SingleAction] =
-      (Seq(snapshot.metadataScala, snapshot.protocolScala) ++ snapshot.allFilesScala).map(_.wrap)
+      (Seq(snapshot.metadataScala, snapshot.protocolScala) ++
+        snapshot.setTransactions ++
+        snapshot.allFilesScala ++
+        snapshot.tombstonesScala).map(_.wrap)
 
      val writtenPath =
        if (useRename) {

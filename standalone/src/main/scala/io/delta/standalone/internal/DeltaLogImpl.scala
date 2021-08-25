@@ -45,7 +45,7 @@ private[internal] class DeltaLogImpl private(
   lazy val store = new HDFSReadOnlyLogStore(hadoopConf)
 
   /** Direct access to the underlying storage system. */
-  private lazy val fs = logPath.getFileSystem(hadoopConf)
+  protected lazy val fs = logPath.getFileSystem(hadoopConf)
 
   // TODO: There is a race here where files could get dropped when increasing the
   // retention interval...
@@ -144,7 +144,7 @@ private[internal] class DeltaLogImpl private(
    * can remove data such as DELETE/UPDATE/MERGE.
    */
   def assertRemovable(): Unit = {
-    // TODO: DeltaConfig.IS_APPEND_ONLY
+    // TODO: DeltaConfigs.IS_APPEND_ONLY
     if (metadata.configuration.getOrElse("appendOnly", "false").toBoolean) {
       throw DeltaErrors.modifyAppendOnlyTableException
     }

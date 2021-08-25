@@ -27,7 +27,7 @@ import org.apache.hadoop.fs.{FileSystem, Path}
 import io.delta.standalone.Snapshot
 import io.delta.standalone.actions.{AddFile => AddFileJ, Metadata => MetadataJ}
 import io.delta.standalone.data.{CloseableIterator, RowRecord => RowParquetRecordJ}
-import io.delta.standalone.internal.actions.{Action, AddFile, InMemoryLogReplay, Metadata, Parquet4sSingleActionWrapper, Protocol, SingleAction}
+import io.delta.standalone.internal.actions.{Action, AddFile, InMemoryLogReplay, Metadata, Parquet4sSingleActionWrapper, Protocol, RemoveFile, SetTransaction, SingleAction}
 import io.delta.standalone.internal.data.CloseableParquetDataIterator
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.sources.StandaloneHadoopConf
@@ -86,6 +86,8 @@ private[internal] class SnapshotImpl(
   ///////////////////////////////////////////////////////////////////////////
 
   def allFilesScala: Seq[AddFile] = state.activeFiles.values.toSeq
+  def tombstonesScala: Seq[RemoveFile] = state.tombstones.values.toSeq
+  def setTransactions: Seq[SetTransaction] = state.setTransactions
   def protocolScala: Protocol = state.protocol
   def metadataScala: Metadata = state.metadata
   def numOfFiles: Long = state.numOfFiles
@@ -137,11 +139,15 @@ private[internal] class SnapshotImpl(
     State(
       replay.currentProtocolVersion,
       replay.currentMetaData,
+      replay.getSetTransactions,
       replay.getActiveFiles,
+      replay.getTombstones,
       replay.sizeInBytes,
       replay.getActiveFiles.size,
       replay.numMetadata,
-      replay.numProtocol
+      replay.numProtocol,
+      replay.getTombstones.size,
+      replay.getSetTransactions.size
     )
   }
 
@@ -185,20 +191,28 @@ private[internal] object SnapshotImpl {
    *
    * @param protocol The protocol version of the Delta table
    * @param metadata The metadata of the table
+   * @param setTransactions The streaming queries writing to this table
    * @param activeFiles The files in this table
+   * @param tombstones The unexpired tombstones
    * @param sizeInBytes The total size of the table (of active files, not including tombstones)
    * @param numOfFiles The number of files in this table
    * @param numOfMetadata The number of metadata actions in the state. Should be 1
    * @param numOfProtocol The number of protocol actions in the state. Should be 1
+   * @param numOfRemoves The number of tombstones in the state
+   * @param numOfSetTransactions Number of streams writing to this table
    */
   case class State(
       protocol: Protocol,
       metadata: Metadata,
+      setTransactions: Seq[SetTransaction],
       activeFiles: scala.collection.immutable.Map[URI, AddFile],
+      tombstones: scala.collection.immutable.Map[URI, RemoveFile],
       sizeInBytes: Long,
       numOfFiles: Long,
       numOfMetadata: Long,
-      numOfProtocol: Long)
+      numOfProtocol: Long,
+      numOfRemoves: Long,
+      numOfSetTransactions: Long)
 }
 
 /**
@@ -218,7 +232,9 @@ private class InitialSnapshotImpl(
     SnapshotImpl.State(
       Protocol(),
       Metadata(),
+      Nil,
       Map.empty[URI, AddFile],
-      0L, 0L, 1L, 1L)
+      Map.empty[URI, RemoveFile],
+      0L, 0L, 1L, 1L, 0L, 0L)
   }
 }

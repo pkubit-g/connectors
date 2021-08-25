@@ -1,5 +1,5 @@
 /*
- * Copyright (2020) The Delta Lake Project Authors.
+ * Copyright (2021) The Delta Lake Project Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,8 @@
  * limitations under the License.
  */
 
-
 package io.delta.standalone.internal
 
-object DeltaConfig {
-  // TODO IS_APPEND_ONLY
+class BufferingLogDeletionIteratorSuite {
 
-  // TODO CHECKPOINT_INTERVAL
-
-  // TODO: LOG_RETENTION
 }
