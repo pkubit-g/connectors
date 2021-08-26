@@ -51,7 +51,19 @@ private[internal] class DeltaLogImpl private(
 
   // TODO: There is a race here where files could get dropped when increasing the
   // retention interval...
-  private def metadata = if (snapshot == null) Metadata() else snapshot.metadataScala
+  protected def metadata = if (snapshot == null) Metadata() else snapshot.metadataScala
+
+  /** How long to keep around logically deleted files before physically deleting them. */
+  private def tombstoneRetentionMillis: Long =
+  // TODO DeltaConfigs.getMilliSeconds(DeltaConfigs.TOMBSTONE_RETENTION.fromMetaData(metadata))
+  // 1 week
+    metadata.configuration.getOrElse("deletedFileRetentionDuration", "604800000").toLong
+
+  /**
+   * Tombstones before this timestamp will be dropped from the state and the files can be
+   * garbage collected.
+   */
+  def minFileRetentionTimestamp: Long = clock.getTimeMillis() - tombstoneRetentionMillis
 
   /** Use ReentrantLock to allow us to call `lockInterruptibly`. */
   private val deltaLogLock = new ReentrantLock()

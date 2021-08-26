@@ -31,9 +31,9 @@ trait MetadataCleanup {
    * beyond this duration until the next calendar day to avoid constantly creating checkpoints.
    */
   def deltaRetentionMillis: Long = {
-    // TODO: DeltaConfigs.LOG_RETENTION
+    // TODO DeltaConfigs.getMilliSeconds(DeltaConfigs.LOG_RETENTION.fromMetaData(metadata))
     // 30 days
-    1000 * 60 * 60 * 24 * 30
+    metadata.configuration.getOrElse("logRetentionDuration", "2592000000").toLong
   }
 
   /** Clean up expired delta and checkpoint logs. Exposed for testing. */

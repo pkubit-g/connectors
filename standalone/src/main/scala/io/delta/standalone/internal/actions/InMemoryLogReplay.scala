@@ -26,8 +26,8 @@ import io.delta.standalone.internal.SnapshotImpl.canonicalizePath
  * Replays a history of action, resolving them to produce the current state
  * of the table. The protocol for resolution is as follows:
  *  - The most recent [[AddFile]] and accompanying metadata for any `path` wins.
- *  - [[RemoveFile]] deletes a corresponding [[AddFile]] and is NOT retained. No tombstones are
- *    kept.
+ *  - [[RemoveFile]] deletes a corresponding [[AddFile]] and is retained as a
+ *    tombstone until `minFileRetentionTimestamp` has passed.
  *  - The most recent [[Metadata]] wins.
  *  - The most recent [[Protocol]] version wins.
  *  - For each path, this class should always output only one [[FileAction]] (either [[AddFile]] or
@@ -35,7 +35,9 @@ import io.delta.standalone.internal.SnapshotImpl.canonicalizePath
  *
  * This class is not thread safe.
  */
-private[internal] class InMemoryLogReplay(hadoopConf: Configuration) {
+private[internal] class InMemoryLogReplay(
+    hadoopConf: Configuration,
+    minFileRetentionTimestamp: Long) {
   var currentProtocolVersion: Protocol = null
   var currentVersion: Long = -1
   var currentMetaData: Metadata = null
@@ -83,7 +85,11 @@ private[internal] class InMemoryLogReplay(hadoopConf: Configuration) {
 
   def getSetTransactions: Seq[SetTransaction] = transactions.values.toSeq
 
-  def getActiveFiles: Map[URI, AddFile] = activeFiles.toMap
+  def getActiveFiles: Iterable[AddFile] = activeFiles.values
 
-  def getTombstones: Map[URI, RemoveFile] = tombstones.toMap
+  def getTombstones: Iterable[RemoveFile] = {
+    tombstones.values.filter(_.delTimestamp > minFileRetentionTimestamp)
+  }
+
+
 }

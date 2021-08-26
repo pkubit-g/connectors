@@ -45,6 +45,7 @@ private[internal] class SnapshotImpl(
     val path: Path,
     val version: Long,
     val logSegment: LogSegment,
+    val minFileRetentionTimestamp: Long,
     val deltaLog: DeltaLogImpl,
     val timestamp: Long) extends Snapshot {
 
@@ -85,8 +86,8 @@ private[internal] class SnapshotImpl(
   // Internal-Only Methods
   ///////////////////////////////////////////////////////////////////////////
 
-  def allFilesScala: Seq[AddFile] = state.activeFiles.values.toSeq
-  def tombstonesScala: Seq[RemoveFile] = state.tombstones.values.toSeq
+  def allFilesScala: Seq[AddFile] = state.activeFiles.toSeq
+  def tombstonesScala: Seq[RemoveFile] = state.tombstones.toSeq
   def setTransactions: Seq[SetTransaction] = state.setTransactions
   def protocolScala: Protocol = state.protocol
   def metadataScala: Metadata = state.metadata
@@ -112,7 +113,7 @@ private[internal] class SnapshotImpl(
    */
   protected lazy val state: State = {
     val logPathURI = path.toUri
-    val replay = new InMemoryLogReplay(hadoopConf)
+    val replay = new InMemoryLogReplay(hadoopConf, minFileRetentionTimestamp)
     val files = (logSegment.deltas ++ logSegment.checkpoints).map(_.getPath)
 
     // assert that the log belongs to table
@@ -151,8 +152,7 @@ private[internal] class SnapshotImpl(
     )
   }
 
-  private lazy val activeFiles =
-    state.activeFiles.values.map(ConversionUtils.convertAddFile).toList.asJava
+  private lazy val activeFiles = state.activeFiles.map(ConversionUtils.convertAddFile).toList.asJava
 
   /**
    * Asserts that the client is up to date with the protocol and allowed
@@ -205,8 +205,8 @@ private[internal] object SnapshotImpl {
       protocol: Protocol,
       metadata: Metadata,
       setTransactions: Seq[SetTransaction],
-      activeFiles: scala.collection.immutable.Map[URI, AddFile],
-      tombstones: scala.collection.immutable.Map[URI, RemoveFile],
+      activeFiles: Iterable[AddFile],
+      tombstones: Iterable[RemoveFile],
       sizeInBytes: Long,
       numOfFiles: Long,
       numOfMetadata: Long,
@@ -226,15 +226,9 @@ private class InitialSnapshotImpl(
     override val hadoopConf: Configuration,
     val logPath: Path,
     override val deltaLog: DeltaLogImpl)
-  extends SnapshotImpl(hadoopConf, logPath, -1, LogSegment.empty(logPath), deltaLog, -1) {
+  extends SnapshotImpl(hadoopConf, logPath, -1, LogSegment.empty(logPath), -1, deltaLog, -1) {
 
   override lazy val state: SnapshotImpl.State = {
-    SnapshotImpl.State(
-      Protocol(),
-      Metadata(),
-      Nil,
-      Map.empty[URI, AddFile],
-      Map.empty[URI, RemoveFile],
-      0L, 0L, 1L, 1L, 0L, 0L)
+    SnapshotImpl.State(Protocol(), Metadata(), Nil, Nil, Nil, 0L, 0L, 1L, 1L, 0L, 0L)
   }
 }
