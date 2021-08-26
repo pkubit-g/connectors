@@ -16,10 +16,14 @@
 
 package io.delta.standalone.internal.util
 
+import scala.collection.JavaConverters._
+
 import java.io.File
 import java.nio.file.Files
 import java.util.UUID
 
+import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ}
+import io.delta.standalone.internal.actions.{Action, AddFile}
 import org.apache.commons.io.FileUtils
 
 object TestUtils {
@@ -35,4 +39,9 @@ object TestUtils {
     }
   }
 
+  implicit def actionSeqToList[T <: Action](seq: Seq[T]): java.util.List[ActionJ] =
+    seq.map(ConversionUtils.convertAction).asJava
+
+  implicit def addFileSeqToList(seq: Seq[AddFile]): java.util.List[AddFileJ] =
+    seq.map(ConversionUtils.convertAddFile).asJava
 }

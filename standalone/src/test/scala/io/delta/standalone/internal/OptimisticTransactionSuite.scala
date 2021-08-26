@@ -58,12 +58,6 @@ class OptimisticTransactionSuite extends FunSuite {
   private val addF_P3 = AddFile(F_P3, Map("part" -> "3"), 1, 1, dataChange = true)
   private val addG_P4 = AddFile(G_P4, Map("part" -> "4"), 1, 1, dataChange = true)
 
-  implicit def actionSeqToList[T <: Action](seq: Seq[T]): java.util.List[ActionJ] =
-    seq.map(ConversionUtils.convertAction).asJava
-
-  implicit def addFileSeqToList(seq: Seq[AddFile]): java.util.List[AddFileJ] =
-    seq.map(ConversionUtils.convertAddFile).asJava
-
   def withLog(
       actions: Seq[Action],
       partitionCols: Seq[String] = "part" :: Nil)(

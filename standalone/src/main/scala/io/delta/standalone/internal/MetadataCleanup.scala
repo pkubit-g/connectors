@@ -23,8 +23,13 @@ import io.delta.standalone.internal.util.FileNames.{checkpointPrefix, isCheckpoi
 import org.apache.commons.lang.time.DateUtils
 import org.apache.hadoop.fs.{FileStatus, Path}
 
-trait MetadataCleanup {
+private[internal] trait MetadataCleanup {
   self: DeltaLogImpl =>
+
+  /** Whether to clean up expired log files and checkpoints. */
+  def enableExpiredLogCleanup: Boolean =
+    // TODO: DeltaConfigs.ENABLE_EXPIRED_LOG_CLEANUP.fromMetaData(metadata)
+    metadata.configuration.getOrElse("enableExpiredLogCleanup", "true").toBoolean
 
   /**
    * Returns the duration in millis for how long to keep around obsolete logs. We may keep logs
@@ -36,8 +41,14 @@ trait MetadataCleanup {
     metadata.configuration.getOrElse("logRetentionDuration", "2592000000").toLong
   }
 
-  /** Clean up expired delta and checkpoint logs. Exposed for testing. */
   def doLogCleanup(): Unit = {
+    if (enableExpiredLogCleanup) {
+      cleanUpExpiredLogs()
+    }
+  }
+
+  /** Clean up expired delta and checkpoint logs. Exposed for testing. */
+  def cleanUpExpiredLogs(): Unit = {
     val fileCutOffTime = truncateDay(clock.getTimeMillis() - deltaRetentionMillis).getTime
     listExpiredDeltaLogs(fileCutOffTime.getTime).map(_.getPath).foreach { path =>
       // recursive = false

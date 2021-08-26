@@ -106,6 +106,11 @@ private[internal] trait Checkpoints {
   }
 
   /**
+   * Creates a checkpoint using the default snapshot.
+   */
+  def checkpoint(): Unit = checkpoint(snapshot)
+
+  /**
    * Creates a checkpoint using snapshotToCheckpoint. By default it uses the current log version.
    */
   def checkpoint(snapshotToCheckpoint: SnapshotImpl): Unit = {
