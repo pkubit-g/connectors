@@ -84,7 +84,7 @@ private[internal] trait MetadataCleanup {
     val date = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
     date.setTimeInMillis(timeMillis)
 
-    // TODO: this is using org.apache.commons.lang instead of org.apache.commons.lang3
+    // TODO: this is using org.apache.commons.lang2.6 instead of org.apache.commons.lang3
     DateUtils.truncate(
       date,
       Calendar.DAY_OF_MONTH)

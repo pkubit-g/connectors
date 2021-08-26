@@ -20,6 +20,54 @@ import scala.collection.mutable
 
 import org.apache.hadoop.fs.{FileStatus, Path}
 
+/**
+ * An iterator that helps select old log files for deletion. It takes the input iterator of log
+ * files from the earliest file, and returns should-be-deleted files until the given maxTimestamp
+ * or maxVersion to delete is reached. Note that this iterator may stop deleting files earlier
+ * than maxTimestamp or maxVersion if it finds that files that need to be preserved for adjusting
+ * the timestamps of subsequent files. Let's go through an example. Assume the following commit
+ * history:
+ *
+ * +---------+-----------+--------------------+
+ * | Version | Timestamp | Adjusted Timestamp |
+ * +---------+-----------+--------------------+
+ * |       0 |         0 |                  0 |
+ * |       1 |         5 |                  5 |
+ * |       2 |        10 |                 10 |
+ * |       3 |         7 |                 11 |
+ * |       4 |         8 |                 12 |
+ * |       5 |        14 |                 14 |
+ * +---------+-----------+--------------------+
+ *
+ * As you can see from the example, we require timestamps to be monotonically increasing with
+ * respect to the version of the commit, and each commit to have a unique timestamp. If we have
+ * a commit which doesn't obey one of these two requirements, we adjust the timestamp of that
+ * commit to be one millisecond greater than the previous commit.
+ *
+ * Given the above commit history, the behavior of this iterator will be as follows:
+ *  - For maxVersion = 1 and maxTimestamp = 9, we can delete versions 0 and 1
+ *  - Until we receive maxVersion >= 4 and maxTimestamp >= 12, we can't delete versions 2 and 3.
+ *    This is because version 2 is used to adjust the timestamps of commits up to version 4.
+ *  - For maxVersion >= 5 and maxTimestamp >= 14 we can delete everything
+ * The semantics of time travel guarantee that for a given timestamp, the user will ALWAYS get the
+ * same version. Consider a user asks to get the version at timestamp 11. If all files are there,
+ * we would return version 3 (timestamp 11) for this query. If we delete versions 0-2, the
+ * original timestamp of version 3 (7) will not have an anchor to adjust on, and if the time
+ * travel query is re-executed we would return version 4. This is the motivation behind this
+ * iterator implementation.
+ *
+ * The implementation maintains an internal "maybeDelete" buffer of files that we are unsure of
+ * deleting because they may be necessary to adjust time of future files. For each file we get
+ * from the underlying iterator, we check whether it needs time adjustment or not. If it does need
+ * time adjustment, then we cannot immediately decide whether it is safe to delete that file or
+ * not and therefore we put it in each the buffer. Then we iteratively peek ahead at the future
+ * files and accordingly decide whether to delete all the buffered files or retain them.
+ *
+ * @param underlying The iterator which gives the list of files in ascending version order
+ * @param maxTimestamp The timestamp until which we can delete (inclusive).
+ * @param maxVersion The version until which we can delete (inclusive).
+ * @param versionGetter A method to get the commit version from the file path.
+ */
 class BufferingLogDeletionIterator(
     underlying: Iterator[FileStatus],
     maxTimestamp: Long,

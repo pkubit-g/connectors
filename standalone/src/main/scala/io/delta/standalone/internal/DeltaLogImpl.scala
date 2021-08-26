@@ -54,7 +54,7 @@ private[internal] class DeltaLogImpl private(
   protected def metadata = if (snapshot == null) Metadata() else snapshot.metadataScala
 
   /** How long to keep around logically deleted files before physically deleting them. */
-  private def tombstoneRetentionMillis: Long =
+  def tombstoneRetentionMillis: Long =
   // TODO DeltaConfigs.getMilliSeconds(DeltaConfigs.TOMBSTONE_RETENTION.fromMetaData(metadata))
   // 1 week
     metadata.configuration.getOrElse("deletedFileRetentionDuration", "604800000").toLong

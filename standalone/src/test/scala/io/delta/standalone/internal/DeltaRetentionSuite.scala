@@ -18,8 +18,8 @@ package io.delta.standalone.internal
 
 import java.io.File
 
-import io.delta.standalone.internal.actions.{Action, AddFile, RemoveFile}
-import io.delta.standalone.internal.util.ManualClock
+import io.delta.standalone.internal.actions.{Action, AddFile, Metadata, RemoveFile}
+import io.delta.standalone.internal.util.{ConversionUtils, ManualClock}
 import io.delta.standalone.internal.util.TestUtils._
 import io.delta.standalone.operations.ManualUpdate
 import org.apache.hadoop.conf.Configuration
@@ -40,8 +40,7 @@ class DeltaRetentionSuite extends FunSuite with DeltaRetentionSuiteBase {
   test("delete expired logs") {
     withTempDir { dir =>
       val clock = new ManualClock(System.currentTimeMillis())
-      val conf = new Configuration()
-      val log = DeltaLogImpl.forTable(conf, dir.getCanonicalPath, clock)
+      val log = DeltaLogImpl.forTable(new Configuration(), dir.getCanonicalPath, clock)
       val logPath = new File(log.logPath.toUri)
       (1 to 5).foreach { i =>
         val txn = if (i == 1) startTxnWithManualLogCleanup(log) else log.startTransaction()
@@ -60,8 +59,9 @@ class DeltaRetentionSuite extends FunSuite with DeltaRetentionSuiteBase {
 
       assert(initialFiles === getLogFiles(logPath))
 
-      // TODO: use DeltaConfigs.LOG_RETENTION.defaultValue ?
-      clock.advance(log.deltaRetentionMillis + 100)
+      // TODO clock.advance(intervalStringToMillis(DeltaConfigs.LOG_RETENTION.defaultValue) +
+      //  intervalStringToMillis("interval 1 day"))
+      clock.advance(log.deltaRetentionMillis + 1000*60*60*24) // 1 day
 
       // Shouldn't clean up, no checkpoint, although all files have expired
       log.cleanUpExpiredLogs()
@@ -76,6 +76,117 @@ class DeltaRetentionSuite extends FunSuite with DeltaRetentionSuiteBase {
       assert(initialFiles !== afterCleanup)
       assert(expectedFiles.forall(suffix => afterCleanup.exists(_.getName.endsWith(suffix))),
         s"${afterCleanup.mkString("\n")}\n didn't contain files with suffixes: $expectedFiles")
+    }
+  }
+
+  // TODO FLAKY (FAILS IN SBT, BUT PASSES IN INTELLIJ RUN)
+  test("automatically delete expired logs") {
+    withTempDir { dir =>
+      val clock = new ManualClock(System.currentTimeMillis())
+      val conf = new Configuration()
+      val log = DeltaLogImpl.forTable(conf, dir.getCanonicalPath, clock)
+      val logPath = new File(log.logPath.toUri)
+
+      // write 000.json to 009.json
+      (0 to 9).foreach { i =>
+        val txn = log.startTransaction()
+        if (i == 0) {
+          txn.updateMetadata(ConversionUtils.convertMetadata(Metadata()))
+        }
+        txn.commit(AddFile(i.toString, Map.empty, 1, 1, true) :: Nil, ManualUpdate)
+      }
+
+      assert(log.update().version == 9)
+      assert(getDeltaFiles(logPath).size == 10)
+      assert(getCheckpointFiles(logPath).isEmpty)
+
+      // to expire log files, advance by the retention duration, then another day (since we
+      // truncate) and then a bit more (since writing the logs took non-zero milliseconds)
+      clock.advance(log.deltaRetentionMillis + 1000*60*60*24 + 100000)
+      // now, 000.json to 009.json have all expired
+
+      // write 010.json and 010.checkpoint AND automatically cleanup expired log files
+      log.startTransaction().commit(AddFile("11", Map.empty, 1, 1, true) :: Nil, ManualUpdate)
+
+      assert(log.update().version == 10)
+      assert(getDeltaFiles(logPath).size == 1)
+      assert(getCheckpointFiles(logPath).size == 1)
+
+      val afterAutoCleanup = getLogFiles(logPath)
+      val expectedFiles = Seq("10.json", "10.checkpoint.parquet")
+      assert(expectedFiles.forall(suffix => afterAutoCleanup.exists(_.getName.endsWith(suffix))),
+        s"${afterAutoCleanup.mkString("\n")}\n didn't contain files with suffixes: $expectedFiles")
+    }
+  }
+
+  test(
+    "RemoveFiles persist across checkpoints as tombstones if retention time hasn't expired") {
+    withTempDir { tempDir =>
+      val clock = new ManualClock(System.currentTimeMillis())
+      val log1 = DeltaLogImpl.forTable(new Configuration(), tempDir.getCanonicalPath, clock)
+
+      val txn = startTxnWithManualLogCleanup(log1)
+      val files1 = (1 to 10).map(f => AddFile(f.toString, Map.empty, 1, 1, true))
+      txn.commit(files1, ManualUpdate)
+      val txn2 = log1.startTransaction()
+      val files2 = (1 to 4).map(f => RemoveFile(f.toString, Some(clock.getTimeMillis())))
+      txn2.commit(files2, ManualUpdate)
+      log1.checkpoint()
+
+      val log2 = DeltaLogImpl.forTable(new Configuration(), tempDir.getCanonicalPath, clock)
+      assert(log2.snapshot.tombstonesScala.size === 4)
+      assert(log2.snapshot.allFilesScala.size === 6)
+    }
+  }
+
+  test("RemoveFiles get deleted during checkpoint if retention time has passed") {
+    withTempDir { tempDir =>
+      val clock = new ManualClock(System.currentTimeMillis())
+      val log1 = DeltaLogImpl.forTable(new Configuration(), tempDir.getCanonicalPath, clock)
+
+      val txn = startTxnWithManualLogCleanup(log1)
+      val files1 = (1 to 10).map(f => AddFile(f.toString, Map.empty, 1, 1, true))
+      txn.commit(files1, ManualUpdate)
+      val txn2 = log1.startTransaction()
+      val files2 = (1 to 4).map(f => RemoveFile(f.toString, Some(clock.getTimeMillis())))
+      txn2.commit(files2, ManualUpdate)
+
+      // TODO: intervalStringToMillis(DeltaConfigs.TOMBSTONE_RETENTION.defaultValue) + 1000000L)
+      clock.advance(log1.tombstoneRetentionMillis  + 1000000L)
+
+      log1.checkpoint()
+
+      val log2 = DeltaLogImpl.forTable(new Configuration(), tempDir.getCanonicalPath, clock)
+      assert(log2.snapshot.tombstonesScala.size === 0)
+      assert(log2.snapshot.allFilesScala.size === 6)
+    }
+  }
+
+  // TODO FLAKY (FAILS IN SBT, BUT PASSES IN INTELLIJ RUN)
+  test("the checkpoint file for version 0 should be cleaned") {
+    withTempDir { tempDir =>
+      val clock = new ManualClock(System.currentTimeMillis())
+      val log = DeltaLogImpl.forTable(new Configuration(), tempDir.getCanonicalPath, clock)
+      val logPath = new File(log.logPath.toUri)
+      startTxnWithManualLogCleanup(log)
+        .commit(AddFile("0", Map.empty, 1, 1, true) :: Nil, ManualUpdate)
+      log.checkpoint()
+
+      val initialFiles = getLogFiles(logPath)
+
+      // TODO clock.advance(intervalStringToMillis(DeltaConfigs.LOG_RETENTION.defaultValue) +
+      //  intervalStringToMillis("interval 1 day"))
+      clock.advance(log.deltaRetentionMillis + 1000*60*60*24 + 100000) // 1 day and a bit
+
+      // Create a new checkpoint so that the previous version can be deleted
+      log.startTransaction().commit(AddFile("1", Map.empty, 1, 1, true) :: Nil, ManualUpdate)
+      log.checkpoint()
+
+      log.cleanUpExpiredLogs()
+      val afterCleanup = getLogFiles(logPath)
+      initialFiles.foreach { file =>
+        assert(!afterCleanup.contains(file))
+      }
     }
   }
 }
