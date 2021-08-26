@@ -458,4 +458,6 @@ class OptimisticTransactionSuite extends FunSuite {
 
   // TODO: test Checkpoint > !partialWriteVisible (==> !useRename)
 
+  // TODO: test Checkpoint > correctly checkpoints all action types
+
 }
