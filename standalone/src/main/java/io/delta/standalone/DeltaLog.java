@@ -49,6 +49,8 @@ public interface DeltaLog {
      */
     Snapshot update();
 
+    Transaction startTransaction(String writerId);
+
     /**
      * Travel back in time to the {@link Snapshot} with the provided {@code version} number.
      *
