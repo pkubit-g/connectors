@@ -35,10 +35,10 @@ trait DeltaRetentionSuiteBase {
    * Start a txn that disables automatic log cleanup. Some tests may need to manually clean up logs
    * to get deterministic behaviors.
    */
-  protected def startTxnWithManualLogCleanup(log: DeltaLog): OptimisticTransaction = {
-    val txn = log.startTransaction()
-    val m = Metadata(configuration = Map("enableExpiredLogCleanup" -> "false"))
-    txn.updateMetadata(ConversionUtils.convertMetadata(m))
-    txn
-  }
+// TODO: this is dependent on withGlobalConfigDefaults
+//  protected def startTxnWithManualLogCleanup(log: DeltaLog): OptimisticTransaction = {
+//    val txn = log.startTransaction()
+//    txn.updateMetadata(ConversionUtils.convertMetadata(Metadata()))
+//    txn
+//  }
 }

@@ -107,6 +107,7 @@ private[internal] class OptimisticTransactionImpl(
       }
 
     val updatedMetadata = if (readVersion == -1) {
+      // TODO: withGlobalConfigDefaults
       val m = Metadata(configuration = Map("appendOnly" -> "false"))
       isCreatingNewTable = true
       newProtocol = Some(Protocol())

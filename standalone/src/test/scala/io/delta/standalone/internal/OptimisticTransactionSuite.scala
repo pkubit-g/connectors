@@ -443,6 +443,8 @@ class OptimisticTransactionSuite extends FunSuite {
     }
   }
 
+  // TODO: test updateMetadata withGlobalConfigDefaults
+
   // TODO: test doCommit > IllegalStateException
 
   // TODO: test doCommit > DeltaConcurrentModificationException
