@@ -46,6 +46,8 @@ public interface RowRecord {
      */
     StructType getSchema();
 
+    RowRecordBuilder builder();
+
     /**
      * @return the number of elements in this {@link RowRecord}
      */
