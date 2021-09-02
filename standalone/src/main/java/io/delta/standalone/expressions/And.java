@@ -1,24 +1,27 @@
 package io.delta.standalone.expressions;
 
+import io.delta.standalone.data.RowRecord;
+import io.delta.standalone.types.BooleanType;
+
 public class And extends BinaryOperator implements Predicate {
 
     public And(Expression left, Expression right) {
-        super(left, right, "&&");
+        super(left, right, new BooleanType(), "&&");
     }
 
     @Override
-    public BooleanLiteral eval() {
+    public Boolean eval(RowRecord record) {
         // TODO: lazy eval
-        Expression leftResult = left.eval();
-        Expression rightResult = right.eval();
+        Object leftResult = left.eval(record);
+        Object rightResult = right.eval(record);
 
-        if (!(leftResult instanceof BooleanLiteral) || !(rightResult instanceof BooleanLiteral)) {
-            throw new RuntimeException("'And' expression children.eval results must be BooleanLiteral");
+        if (null == leftResult || null == rightResult) {
+            throw new RuntimeException("'And' expression children.eval results can't be null");
+        }
+        if (!(leftResult instanceof Boolean) || !(rightResult instanceof Boolean)) {
+            throw new RuntimeException("'And' expression children.eval results must be Booleans");
         }
 
-        BooleanLiteral leftResultLiteral = (BooleanLiteral) leftResult;
-        BooleanLiteral rightResultLiteral = (BooleanLiteral) rightResult;
-
-        return new BooleanLiteral(leftResultLiteral.value() && rightResultLiteral.value());
+        return (boolean) leftResult && (boolean) rightResult;
     }
 }

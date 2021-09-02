@@ -1,5 +1,6 @@
 package io.delta.standalone.expressions;
 
+import io.delta.standalone.data.RowRecord;
 import io.delta.standalone.types.DataType;
 
 public interface Expression {
@@ -7,7 +8,7 @@ public interface Expression {
      * TODO UPDATE COMMENT
      * Returns the result of evaluating this expression on a given input Row
      */
-    Expression eval();
+    Object eval(RowRecord record);
 
     /**
      * TODO UPDATE COMMENT

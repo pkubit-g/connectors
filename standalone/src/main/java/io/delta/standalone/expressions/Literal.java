@@ -1,9 +1,16 @@
 package io.delta.standalone.expressions;
 
+import io.delta.standalone.data.RowRecord;
 import io.delta.standalone.types.BooleanType;
 import io.delta.standalone.types.DataType;
+import io.delta.standalone.types.IntegerType;
+
+import java.util.Objects;
 
 public class Literal implements Expression {
+    public static final Literal True = Literal.of(Boolean.TRUE);
+    public static final Literal False = Literal.of(false);
+
     private final Object value;
     private final DataType dataType;
 
@@ -18,9 +25,15 @@ public class Literal implements Expression {
         return value;
     }
 
+    // is this a horrible idea?
+    @SuppressWarnings("unchecked")
+    public <T> T getValueAs() {
+        return (T) value;
+    }
+
     @Override
-    public Expression eval() {
-        return this;
+    public Object eval(RowRecord record) {
+        return value;
     }
 
     @Override
@@ -33,15 +46,29 @@ public class Literal implements Expression {
         return "Literal(" + value.toString() + ")";
     }
 
-    public static Literal fromString(String str, DataType dataType) {
-        if (dataType instanceof BooleanType) new Literal(Boolean.parseBoolean(str), dataType);
-        // TODO
-        return null;
-    }
-
     private static void validateLiteralValue(Object value, DataType dataType) {
         // TODO
     }
 
-    // TODO hash and equals
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Literal literal = (Literal) o;
+        return Objects.equals(value, literal.value) &&
+            Objects.equals(dataType, literal.dataType);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(value, dataType);
+    }
+
+    public static Literal of(int value) {
+        return new Literal(value, new IntegerType());
+    }
+
+    public static Literal of(boolean value) {
+        return new Literal(value, new BooleanType());
+    }
 }

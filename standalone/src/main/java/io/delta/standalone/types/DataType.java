@@ -47,7 +47,7 @@ import java.util.Objects;
  * <a href="https://github.com/apache/spark/blob/master/sql/catalyst/src/main/scala/org/apache/spark/sql/types/DataType.scala" target="_blank">DataType</a>,
  * allowing Spark SQL schemas to be represented in Java.
  */
-public abstract class DataType {
+public abstract class DataType extends AbstractDataType {
 
     /**
      * @return the name of the type used in JSON serialization

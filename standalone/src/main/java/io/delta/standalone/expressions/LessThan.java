@@ -1,9 +1,12 @@
 package io.delta.standalone.expressions;
 
 import io.delta.standalone.data.RowRecord;
+import io.delta.standalone.types.IntegerType;
 
-public class EqualTo extends BinaryComparison {
-    public EqualTo(Expression left, Expression right) {
+import java.util.Comparator;
+
+public class LessThan extends BinaryComparison {
+    public LessThan(Expression left, Expression right) {
         super(left, right, "=");
     }
 
@@ -11,6 +14,6 @@ public class EqualTo extends BinaryComparison {
     public Boolean eval(RowRecord record) {
         Object leftResult = left.eval(record);
         Object rightResult = right.eval(record);
-        return compare(leftResult, rightResult) == 0;
+        return compare(leftResult, rightResult) < 0;
     }
 }
