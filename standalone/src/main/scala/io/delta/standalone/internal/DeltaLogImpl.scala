@@ -24,10 +24,12 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import io.delta.standalone.{DeltaLog, VersionLog}
 import io.delta.standalone.actions.{CommitInfo => CommitInfoJ}
-import io.delta.standalone.internal.actions.Action
+import io.delta.standalone.expressions.{And, BooleanLiteral, Expression, Literal, PartitionFilterEvaluator}
+import io.delta.standalone.internal.actions.{Action, AddFile}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.storage.HDFSReadOnlyLogStore
 import io.delta.standalone.internal.util.{ConversionUtils, FileNames}
+import io.delta.standalone.types.StructType
 
 /**
  * Scala implementation of Java interface [[DeltaLog]].
@@ -77,6 +79,26 @@ private[internal] class DeltaLogImpl private(
       new VersionLog(version,
         store.read(p).map(x => ConversionUtils.convertAction(Action.fromJson(x))).toList.asJava)
     }.asJava
+  }
+
+  /**
+   * Filters the given [[Dataset]] by the given `partitionFilters`, returning those that match.
+   * @param files The active files in the DeltaLog state, which contains the partition value
+   *              information
+   * @param partitionFilters Filters on the partition columns
+   */
+  def filterFileList(
+      partitionSchema: StructType,
+      files: Seq[AddFile],
+      partitionFilters: Seq[Expression]): Seq[AddFile] = {
+    val expr = partitionFilters.reduceLeftOption(new And(_, _)).getOrElse(BooleanLiteral.True)
+    val partitionFilterEvaluator = new PartitionFilterEvaluator(partitionSchema)
+    // TODO: compressedExpr = ...
+
+    files.filter { addFile =>
+      val matchesFilter = partitionFilterEvaluator.eval(expr, addFile.partitionValues.asJava)
+      matchesFilter
+    }
   }
 
   /**
