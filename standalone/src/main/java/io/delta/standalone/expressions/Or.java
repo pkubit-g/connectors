@@ -3,12 +3,12 @@ package io.delta.standalone.expressions;
 import io.delta.standalone.data.RowRecord;
 
 /**
- * Usage: new And(expr1, expr2) - Logical AND
+ * Usage: new Or(expr1, expr2) - Logical OR
  */
-public class And extends BinaryOperator implements Predicate {
+public class Or extends BinaryOperator implements Predicate {
 
-    public And(Expression left, Expression right) {
-        super(left, right, "&&");
+    public Or(Expression left, Expression right) {
+        super(left, right, "||");
     }
 
     @Override
@@ -18,12 +18,12 @@ public class And extends BinaryOperator implements Predicate {
         Object rightResult = right.eval(record);
 
         if (null == leftResult || null == rightResult) {
-            throw new RuntimeException("'And' expression children.eval results can't be null");
+            throw new RuntimeException("'Or' expression children.eval results can't be null");
         }
         if (!(leftResult instanceof Boolean) || !(rightResult instanceof Boolean)) {
-            throw new RuntimeException("'And' expression children.eval results must be Booleans");
+            throw new RuntimeException("'Or' expression children.eval results must be Booleans");
         }
 
-        return (boolean) leftResult && (boolean) rightResult;
+        return (boolean) leftResult || (boolean) rightResult;
     }
 }

@@ -1,13 +1,13 @@
 package io.delta.standalone.expressions;
 
 import io.delta.standalone.data.RowRecord;
-import io.delta.standalone.types.IntegerType;
 
-import java.util.Comparator;
-
+/**
+ * Usage: new LessThan(expr1, expr2) - Returns true if `expr1` is less than `expr2`, else false.
+ */
 public class LessThan extends BinaryComparison {
     public LessThan(Expression left, Expression right) {
-        super(left, right, "=");
+        super(left, right, "<");
     }
 
     @Override

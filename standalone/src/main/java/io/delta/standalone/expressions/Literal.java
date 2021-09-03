@@ -25,12 +25,6 @@ public class Literal implements Expression {
         return value;
     }
 
-    // is this a horrible idea?
-    @SuppressWarnings("unchecked")
-    public <T> T getValueAs() {
-        return (T) value;
-    }
-
     @Override
     public Object eval(RowRecord record) {
         return value;
@@ -42,8 +36,8 @@ public class Literal implements Expression {
     }
 
     @Override
-    public String treeString() {
-        return "Literal(" + value.toString() + ")";
+    public String toString() {
+        return value.toString();
     }
 
     private static void validateLiteralValue(Object value, DataType dataType) {

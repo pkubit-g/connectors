@@ -1,22 +1,27 @@
 package io.delta.standalone.expressions;
 
-import io.delta.standalone.types.AbstractDataType;
-
+/**
+ * An [[Expression]] that is an operator, with two properties:
+ *
+ * 1. The string representation is "x symbol y", rather than "funcName(x, y)".
+ *
+ * TODO:
+ * 2. Two inputs are expected to be of the same type. If the two inputs have different types,
+ *    the analyzer will find the tightest common type and do the proper type casting.
+ */
 public abstract class BinaryOperator implements Expression {
     protected final Expression left;
     protected final Expression right;
-    protected final AbstractDataType inputType;
     protected final String symbol;
 
-    public BinaryOperator(Expression left, Expression right, AbstractDataType inputType, String symbol) {
+    public BinaryOperator(Expression left, Expression right, String symbol) {
         this.left = left;
         this.right = right;
-        this.inputType = inputType;
         this.symbol = symbol;
     }
 
     @Override
-    public String treeString() {
-        return "(" + left.treeString() + " " + symbol + " " + right.treeString() + ")";
+    public String toString() {
+        return "(" + left.toString() + " " + symbol + " " + right.toString() + ")";
     }
 }
