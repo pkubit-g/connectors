@@ -7,7 +7,7 @@ import io.delta.standalone.types.IntegerType;
 
 import java.util.Objects;
 
-public class Literal implements Expression {
+public class Literal extends LeafExpression {
     public static final Literal True = Literal.of(Boolean.TRUE);
     public static final Literal False = Literal.of(false);
 
@@ -38,6 +38,11 @@ public class Literal implements Expression {
     @Override
     public String toString() {
         return value.toString();
+    }
+
+    @Override
+    public boolean bound() {
+        return true;
     }
 
     private static void validateLiteralValue(Object value, DataType dataType) {

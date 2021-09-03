@@ -5,7 +5,7 @@ import io.delta.standalone.data.RowRecord;
 /**
  * Usage: new And(expr1, expr2) - Logical AND
  */
-public class And extends BinaryOperator implements Predicate {
+public class And extends BinaryComparison {
 
     public And(Expression left, Expression right) {
         super(left, right, "&&");

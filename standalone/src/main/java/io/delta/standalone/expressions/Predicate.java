@@ -7,12 +7,12 @@ import io.delta.standalone.types.DataType;
 /**
  * An [[Expression]] that returns a boolean value.
  */
-public interface Predicate extends Expression {
+public abstract class Predicate extends Expression {
     @Override
-    default DataType dataType() {
+    public DataType dataType() {
         return new BooleanType();
     }
 
     @Override
-    Boolean eval(RowRecord record);
+    public abstract Boolean eval(RowRecord record);
 }

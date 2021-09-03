@@ -5,15 +5,16 @@ import io.delta.standalone.types.DataType;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Usage: new In(expr, literalList) - Returns true if `expr` is equal to any in `expr`, else false.
  */
-public class In implements Predicate {
+public class In extends Predicate {
     private final Expression value;
-    private final List<Literal> elems;
+    private final List<? extends Expression> elems;
 
-    public In(Expression value, List<Literal> elems) {
+    public In(Expression value, List<? extends Expression> elems) {
         if (null == value) {
             throw new IllegalArgumentException("In 'value' cannot be null");
         }
@@ -44,14 +45,19 @@ public class In implements Predicate {
         }
 
         return elems.stream().anyMatch(setElem -> {
-            Object setElemValue= setElem.value();
+            Object setElemValue= setElem.eval(record);
             return Util.compare(value.dataType(), result, setElemValue) == 0;
         });
     }
 
     @Override
     public String toString() {
-        String elemsStr = elems.stream().map(Literal::toString).collect(Collectors.joining(", "));
+        String elemsStr = elems.stream().map(Expression::toString).collect(Collectors.joining(", "));
         return value + " IN (" + elemsStr + ")";
+    }
+
+    @Override
+    public List<Expression> children() {
+        return Stream.concat(Stream.of(value), elems.stream()).collect(Collectors.toList());
     }
 }

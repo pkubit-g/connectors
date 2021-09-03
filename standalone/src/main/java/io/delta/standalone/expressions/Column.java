@@ -11,7 +11,7 @@ import java.util.Optional;
  *
  * Usage: new Column(columnName).
  */
-public class Column implements Expression {
+public class Column extends LeafExpression {
     private final String name;
     private Optional<DataType> dataTypeOpt;
 
@@ -47,6 +47,11 @@ public class Column implements Expression {
         }
 
         throw new RuntimeException("Couldn't find matching rowRecord DataType for column: " + name);
+    }
+
+    @Override
+    public boolean bound() {
+        return dataTypeOpt.isPresent();
     }
 
     @Override

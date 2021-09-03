@@ -15,7 +15,7 @@ class ExpressionSuite extends FunSuite {
   // scalastyle:on funsuite
 
   private def testPredicate(
-      predicate: Predicate,
+      predicate: Expression,
       expectedResult: Boolean,
       record: RowRecord = null) = {
     println(predicate.toString())
@@ -89,7 +89,7 @@ class ExpressionSuite extends FunSuite {
     val f4 = new In(new Column("col1"), inSet4)
     testPartitionFilter(schema, inputFiles, f4 :: Nil, add20 :: add21 :: add22 :: Nil)
 
-    val inSet5 = (100 to 200).map(Literal.of).asJava
+    val inSet5 = (100 to 110).map(Literal.of).asJava
     val f5 = new In(new Column("col1"), inSet5)
     testPartitionFilter(schema, inputFiles, f5 :: Nil, Nil)
   }

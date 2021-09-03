@@ -5,7 +5,7 @@ import io.delta.standalone.data.RowRecord;
 /**
  * Usage: new Or(expr1, expr2) - Logical OR
  */
-public class Or extends BinaryOperator implements Predicate {
+public class Or extends BinaryComparison {
 
     public Or(Expression left, Expression right) {
         super(left, right, "||");
