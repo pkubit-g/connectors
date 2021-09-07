@@ -16,12 +16,4 @@ public abstract class BinaryComparison extends BinaryOperator {
     public DataType dataType() {
         return new BooleanType();
     }
-
-    protected int compare(Object leftResult, Object rightResult) {
-        if (left.bound() && right.bound()) {
-            return Util.compare(left.dataType(), leftResult, rightResult);
-        }
-
-        throw new RuntimeException("BinaryComparison::compareType > can't compare two unbound Expressions");
-    }
 }

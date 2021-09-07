@@ -13,6 +13,7 @@ public abstract class Expression {
      * Short-circuit for bound() calculation. Once set to true, will remain true.
      */
     private boolean _bound = false;
+
     /**
      * Returns the result of evaluating this expression on a given input RowRecord.
      */
@@ -28,7 +29,16 @@ public abstract class Expression {
      */
     public abstract String toString();
 
+    /**
+     * Returns a List of the children of this node. Children should not change.
+     */
     public abstract List<Expression> children();
+
+    /**
+     * Checks the input data types, throwing a RuntimeException if invalid.
+     * Note: it's not valid to call this method until all children are bound.
+     */
+    public void verifyInputDataTypes() { }
 
     /**
      * Returns `true` if this expression and all its children have been bound to a specific schema
@@ -44,13 +54,14 @@ public abstract class Expression {
      * - a Literal will return true
      */
     boolean bound() {
-        if (children().isEmpty()) return true;
-        if (_bound) return true;
+        if (_bound || children().isEmpty()) return true;
 
-        DataType firstChildDataType = children().get(0).dataType();
-        _bound = children().stream().allMatch(child ->
-            child.bound() && child.dataType().equals(firstChildDataType)
-        );
+        _bound = children().stream().allMatch(Expression::bound);
+
+        if (_bound) {
+            // this is the first time that all children are bound, so let's verify their data types
+            verifyInputDataTypes();
+        }
 
         return _bound;
     }
