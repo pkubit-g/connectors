@@ -57,6 +57,10 @@ class ExpressionSuite extends FunSuite {
   }
 
   test("basic partition filter") {
+    val schema = new StructType(Array(
+      new StructField("col1", new IntegerType()),
+      new StructField("col2", new IntegerType())))
+
     val add00 = AddFile("1", Map("col1" -> "0", "col2" -> "0"), 0, 0, dataChange = true)
     val add01 = AddFile("2", Map("col1" -> "0", "col2" -> "1"), 0, 0, dataChange = true)
     val add02 = AddFile("2", Map("col1" -> "0", "col2" -> "2"), 0, 0, dataChange = true)
@@ -67,10 +71,6 @@ class ExpressionSuite extends FunSuite {
     val add21 = AddFile("4", Map("col1" -> "2", "col2" -> "1"), 0, 0, dataChange = true)
     val add22 = AddFile("4", Map("col1" -> "2", "col2" -> "2"), 0, 0, dataChange = true)
     val inputFiles = Seq(add00, add01, add02, add10, add11, add12, add20, add21, add22)
-
-    val schema = new StructType(Array(
-      new StructField("col1", new IntegerType()),
-      new StructField("col2", new IntegerType())))
 
     val f1Expr1 = new EqualTo(schema.column("col1"), Literal.of(0))
     val f1Expr2 = new EqualTo(schema.column("col2"), Literal.of(1))
@@ -97,5 +97,18 @@ class ExpressionSuite extends FunSuite {
     val inSet5 = (100 to 110).map(Literal.of).asJava
     val f5 = new In(schema.column("col1"), inSet5)
     testPartitionFilter(schema, inputFiles, f5 :: Nil, Nil)
+  }
+
+  test("not null partition filter") {
+    val schema = new StructType(Array(
+      new StructField("col1", new IntegerType(), true),
+      new StructField("col2", new IntegerType(), true)))
+
+    val add0Null = AddFile("1", Map("col1" -> "0", "col2" -> null), 0, 0, dataChange = true)
+    val addNull1 = AddFile("1", Map("col1" -> null, "col2" -> "1"), 0, 0, dataChange = true)
+    val inputFiles = Seq(add0Null, addNull1)
+
+    val f1 = new IsNotNull(schema.column("col1"))
+    testPartitionFilter(schema, inputFiles, f1 :: Nil, add0Null :: Nil)
   }
 }

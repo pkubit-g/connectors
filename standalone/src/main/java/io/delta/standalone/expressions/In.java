@@ -1,6 +1,8 @@
 package io.delta.standalone.expressions;
 
 import io.delta.standalone.data.RowRecord;
+import io.delta.standalone.types.BooleanType;
+import io.delta.standalone.types.DataType;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -9,7 +11,7 @@ import java.util.stream.Stream;
 /**
  * Usage: new In(expr, exprList) - Returns true if `expr` is equal to any in `exprList`, else false.
  */
-public final class In extends Predicate {
+public final class In extends Expression {
     private final Expression value;
     private final List<? extends Expression> elems;
     private final CastingComparator<?> comparator;
@@ -52,6 +54,11 @@ public final class In extends Predicate {
 
             return comparator.compare(result, setElemValue) == 0;
         });
+    }
+
+    @Override
+    public DataType dataType() {
+        return new BooleanType();
     }
 
     @Override

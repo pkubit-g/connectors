@@ -35,7 +35,7 @@ public final class Column extends LeafExpression {
 
     @Override
     public Object eval(RowRecord record) {
-        return evaluator.eval(record);
+        return record.isNullAt(name) ? null : evaluator.nullSafeEval(record);
     }
 
     @Override
@@ -50,6 +50,6 @@ public final class Column extends LeafExpression {
 
     @FunctionalInterface
     private interface RowRecordEvaluator {
-        Object eval(RowRecord record);
+        Object nullSafeEval(RowRecord record);
     }
 }
