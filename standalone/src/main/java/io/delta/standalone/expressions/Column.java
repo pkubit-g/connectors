@@ -9,7 +9,7 @@ import io.delta.standalone.types.*;
  * Usage: new Column(columnName, columnDataType).
  *
  * It is recommended that you instantiate using a table schema (StructType).
- * e.g. schema.createColumn(columnName)
+ * e.g. schema.column(columnName)
  */
 public final class Column extends LeafExpression {
     private final String name;

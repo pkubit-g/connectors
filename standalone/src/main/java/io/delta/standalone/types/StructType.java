@@ -91,7 +91,7 @@ public final class StructType extends DataType {
         return nameToField.get(fieldName);
     }
 
-    public Column createColumn(String fieldName) {
+    public Column column(String fieldName) {
         StructField field = nameToField.get(fieldName);
         return new Column(fieldName, field.getDataType());
     }

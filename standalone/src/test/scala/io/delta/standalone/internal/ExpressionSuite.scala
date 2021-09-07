@@ -67,32 +67,30 @@ class ExpressionSuite extends FunSuite {
       new StructField("col1", new IntegerType()),
       new StructField("col2", new IntegerType())))
 
-    val f1Expr1 = new EqualTo(schema.createColumn("col1"), Literal.of(0))
-    val f1Expr2 = new EqualTo(schema.createColumn("col2"), Literal.of(1))
+    val f1Expr1 = new EqualTo(schema.column("col1"), Literal.of(0))
+    val f1Expr2 = new EqualTo(schema.column("col2"), Literal.of(1))
     val f1 = new And(f1Expr1, f1Expr2)
 
     testPartitionFilter(schema, inputFiles, f1 :: Nil, add01 :: Nil)
     testPartitionFilter(schema, inputFiles, f1Expr1 :: f1Expr2 :: Nil, add01 :: Nil)
 
-    val f2Expr1 = new LessThan(schema.createColumn("col1"), Literal.of(1))
-    val f2Expr2 = new LessThan(schema.createColumn("col2"), Literal.of(1))
+    val f2Expr1 = new LessThan(schema.column("col1"), Literal.of(1))
+    val f2Expr2 = new LessThan(schema.column("col2"), Literal.of(1))
     val f2 = new And(f2Expr1, f2Expr2)
     testPartitionFilter(schema, inputFiles, f2 :: Nil, add00 :: Nil)
     testPartitionFilter(schema, inputFiles, f2Expr1 :: f2Expr2 :: Nil, add00 :: Nil)
 
-    val f3Expr1 = new EqualTo(schema.createColumn("col1"), Literal.of(2))
-    val f3Expr2 = new LessThan(schema.createColumn("col2"), Literal.of(1))
+    val f3Expr1 = new EqualTo(schema.column("col1"), Literal.of(2))
+    val f3Expr2 = new LessThan(schema.column("col2"), Literal.of(1))
     val f3 = new Or(f3Expr1, f3Expr2)
     testPartitionFilter(schema, inputFiles, f3 :: Nil, Seq(add20, add21, add22, add00, add10))
 
     val inSet4 = (2 to 10).map(Literal.of).asJava
-    val f4 = new In(schema.createColumn("col1"), inSet4)
+    val f4 = new In(schema.column("col1"), inSet4)
     testPartitionFilter(schema, inputFiles, f4 :: Nil, add20 :: add21 :: add22 :: Nil)
 
     val inSet5 = (100 to 110).map(Literal.of).asJava
-    val f5 = new In(schema.createColumn("col1"), inSet5)
+    val f5 = new In(schema.column("col1"), inSet5)
     testPartitionFilter(schema, inputFiles, f5 :: Nil, Nil)
-
-    // TODO: test more complex expressions as part of In
   }
 }
