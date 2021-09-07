@@ -10,6 +10,10 @@ import java.util.List;
  */
 public abstract class Expression {
     /**
+     * Short-circuit for bound() calculation. Once set to true, will remain true.
+     */
+    private boolean _bound = false;
+    /**
      * Returns the result of evaluating this expression on a given input RowRecord.
      */
     public abstract Object eval(RowRecord record);
@@ -41,10 +45,13 @@ public abstract class Expression {
      */
     boolean bound() {
         if (children().isEmpty()) return true;
+        if (_bound) return true;
 
         DataType firstChildDataType = children().get(0).dataType();
-        return children().stream().allMatch(child ->
+        _bound = children().stream().allMatch(child ->
             child.bound() && child.dataType().equals(firstChildDataType)
         );
+
+        return _bound;
     }
 }

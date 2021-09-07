@@ -113,7 +113,7 @@ private[standalone] object DeltaLogImpl {
   }
 
   /**
-   * Filters the given [[Dataset]] by the given `partitionFilters`, returning those that match.
+   * Filters the given [[AddFile]]s by the given `partitionFilters`, returning those that match.
    * @param files The active files in the DeltaLog state, which contains the partition value
    *              information
    * @param partitionFilters Filters on the partition columns

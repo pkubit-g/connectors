@@ -11,7 +11,7 @@ import java.util.Optional;
  *
  * Usage: new Column(columnName).
  */
-public class Column extends LeafExpression {
+public final class Column extends LeafExpression {
     private final String name;
     private Optional<DataType> dataTypeOpt;
 

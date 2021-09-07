@@ -10,7 +10,7 @@ import java.util.stream.Stream;
 /**
  * Usage: new In(expr, literalList) - Returns true if `expr` is equal to any in `expr`, else false.
  */
-public class In extends Predicate {
+public final class In extends Predicate {
     private final Expression value;
     private final List<? extends Expression> elems;
 
@@ -40,12 +40,25 @@ public class In extends Predicate {
     public Boolean eval(RowRecord record) {
         Object result = value.eval(record);
 
+        if (null == result) {
+            throw new RuntimeException("'In' expression 'value.eval' result can't be null");
+        }
+        if (!value.bound()) {
+            throw new RuntimeException("'In' expression can't operate on an unbound 'value'");
+        }
         if (!elems.get(0).dataType().equals(value.dataType())) {
-            throw new IllegalArgumentException("In 'value' DataType must be the same as 'elems'");
+            throw new IllegalArgumentException("'In' expression 'value' DataType must be the same as 'elems'");
         }
 
         return elems.stream().anyMatch(setElem -> {
-            Object setElemValue= setElem.eval(record);
+            Object setElemValue = setElem.eval(record);
+            if (null == setElemValue) {
+                throw new RuntimeException("'In' expression 'elems(i).eval' result can't be null");
+            }
+            if (!setElem.bound()) {
+                throw new RuntimeException("'In' expression can't operate on an unbound 'elems(i)'");
+            }
+
             return Util.compare(value.dataType(), result, setElemValue) == 0;
         });
     }

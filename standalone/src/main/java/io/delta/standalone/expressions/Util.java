@@ -6,7 +6,7 @@ import io.delta.standalone.types.IntegerType;
 
 import java.util.Comparator;
 
-public class Util {
+public final class Util {
 
     /**
      * Returns the result of the comparison between `o1` and `o2`, based on their DataType.

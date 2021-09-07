@@ -1,25 +1,16 @@
 package io.delta.standalone.expressions;
 
-import io.delta.standalone.data.RowRecord;
-
 /**
  * Usage: new And(expr1, expr2) - Logical AND
  */
-public class And extends BinaryComparison {
+public final class And extends BinaryComparison {
 
     public And(Expression left, Expression right) {
         super(left, right, "&&");
     }
 
     @Override
-    public Boolean eval(RowRecord record) {
-        // TODO: lazy eval
-        Object leftResult = left.eval(record);
-        Object rightResult = right.eval(record);
-
-        if (null == leftResult || null == rightResult) {
-            throw new RuntimeException("'And' expression children.eval results can't be null");
-        }
+    public Object nullSafeBoundEval(Object leftResult, Object rightResult) {
         if (!(leftResult instanceof Boolean) || !(rightResult instanceof Boolean)) {
             throw new RuntimeException("'And' expression children.eval results must be Booleans");
         }

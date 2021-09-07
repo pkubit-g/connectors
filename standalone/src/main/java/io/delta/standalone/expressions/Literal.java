@@ -7,7 +7,7 @@ import io.delta.standalone.types.IntegerType;
 
 import java.util.Objects;
 
-public class Literal extends LeafExpression {
+public final class Literal extends LeafExpression {
     public static final Literal True = Literal.of(Boolean.TRUE);
     public static final Literal False = Literal.of(false);
 
