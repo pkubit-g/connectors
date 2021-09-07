@@ -3,21 +3,30 @@ package io.delta.standalone.expressions;
 import io.delta.standalone.data.RowRecord;
 import io.delta.standalone.types.*;
 
-import java.util.Arrays;
-import java.util.Optional;
-
 /**
  * A column whose row-value will be computed based on the data in a [[RowRecord]].
  *
- * Usage: new Column(columnName).
+ * Usage: new Column(columnName, columnDataType).
+ *
+ * It is recommended that you instantiate using a table schema (StructType).
+ * e.g. schema.createColumn(columnName)
  */
 public final class Column extends LeafExpression {
     private final String name;
-    private Optional<DataType> dataTypeOpt;
+    private DataType dataType;
+    private RowRecordEvaluator evaluator;
 
-    public Column(String name) {
+    public Column(String name, DataType dataType) {
         this.name = name;
-        this.dataTypeOpt = Optional.empty();
+        this.dataType = dataType;
+
+        if (dataType instanceof IntegerType) {
+            evaluator = (record -> record.getInt(name));
+        } else if (dataType instanceof BooleanType) {
+            evaluator = (record -> record.getBoolean(name));
+        } else {
+            throw new RuntimeException("Couldn't find matching rowRecord DataType for column: " + name);
+        }
     }
 
     public String name() {
@@ -26,43 +35,21 @@ public final class Column extends LeafExpression {
 
     @Override
     public Object eval(RowRecord record) {
-        Optional<StructField> matchingField = Arrays.stream(record.getSchema().getFields())
-            .filter(x -> x.getName().equals(name))
-            .findFirst();
-
-        if (!matchingField.isPresent()) {
-            String fieldsStr = String.join(",", record.getSchema().getFieldNames());
-            throw new RuntimeException("Column '" + name + "' doesn't exist in RowRecord Schema: " + fieldsStr);
-        }
-
-        DataType columnDataType = matchingField.get().getDataType();
-
-        if (columnDataType instanceof IntegerType) {
-            dataTypeOpt = Optional.of(new IntegerType());
-            return record.getInt(name);
-        }
-        if (columnDataType instanceof BooleanType) {
-            dataTypeOpt = Optional.of(new BooleanType());
-            return record.getBoolean(name);
-        }
-
-        throw new RuntimeException("Couldn't find matching rowRecord DataType for column: " + name);
-    }
-
-    @Override
-    public boolean bound() {
-        return dataTypeOpt.isPresent();
+        return evaluator.eval(record);
     }
 
     @Override
     public DataType dataType() {
-        if (dataTypeOpt.isPresent()) return dataTypeOpt.get();
-
-        throw new RuntimeException("Can't call 'dataType' on a unevaluated Column");
+        return dataType;
     }
 
     @Override
     public String toString() {
         return "Column(" + name + ")";
+    }
+
+    @FunctionalInterface
+    private interface RowRecordEvaluator {
+        Object eval(RowRecord record);
     }
 }

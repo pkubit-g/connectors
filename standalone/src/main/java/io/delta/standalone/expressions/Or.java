@@ -10,9 +10,9 @@ public final class Or extends BinaryComparison {
     }
 
     @Override
-    public Object nullSafeBoundEval(Object leftResult, Object rightResult) {
+    public Object nullSafeEval(Object leftResult, Object rightResult) {
         if (!(leftResult instanceof Boolean) || !(rightResult instanceof Boolean)) {
-            throw new RuntimeException("'Or' expression children.eval results must be Booleans");
+            throw new RuntimeException("'Or' expression left.eval and right.eval results must be Booleans");
         }
 
         return (boolean) leftResult || (boolean) rightResult;

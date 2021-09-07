@@ -9,7 +9,7 @@ public final class LessThan extends BinaryComparison {
     }
 
     @Override
-    public Object nullSafeBoundEval(Object leftResult, Object rightResult) {
-        return Util.compare(left.dataType(), leftResult, rightResult) < 0;
+    public Object nullSafeEval(Object leftResult, Object rightResult) {
+        return compare(leftResult, rightResult) < 0;
     }
 }

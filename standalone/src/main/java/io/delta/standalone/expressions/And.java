@@ -10,7 +10,7 @@ public final class And extends BinaryComparison {
     }
 
     @Override
-    public Object nullSafeBoundEval(Object leftResult, Object rightResult) {
+    public Object nullSafeEval(Object leftResult, Object rightResult) {
         if (!(leftResult instanceof Boolean) || !(rightResult instanceof Boolean)) {
             throw new RuntimeException("'And' expression children.eval results must be Booleans");
         }

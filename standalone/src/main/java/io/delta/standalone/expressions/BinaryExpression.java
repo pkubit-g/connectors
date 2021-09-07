@@ -20,25 +20,15 @@ public abstract class BinaryExpression extends Expression {
     @Override
     public final Object eval(RowRecord record) {
         Object leftResult = left.eval(record);
-        if (null == leftResult) {
-            throw new RuntimeException("BinaryExpression can't operate on a null child");
-        }
-        if (!left.bound()) {
-            throw new RuntimeException("BinaryExpression can't operate on unbound child");
-        }
+        if (null == leftResult) return null;
 
         Object rightResult = right.eval(record);
-        if (null == rightResult) {
-            throw new RuntimeException("BinaryExpression can't operate on a null child");
-        }
-        if (!right.bound()) {
-            throw new RuntimeException("BinaryExpression can't operate on unbound child");
-        }
+        if (null == rightResult) return null;
 
-        return nullSafeBoundEval(leftResult, rightResult);
+        return nullSafeEval(leftResult, rightResult);
     }
 
-    protected abstract Object nullSafeBoundEval(Object leftResult, Object rightResult);
+    protected abstract Object nullSafeEval(Object leftResult, Object rightResult);
 
     @Override
     public List<Expression> children() {

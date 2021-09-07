@@ -40,11 +40,6 @@ public final class Literal extends LeafExpression {
         return value.toString();
     }
 
-    @Override
-    public boolean bound() {
-        return true;
-    }
-
     private static void validateLiteralValue(Object value, DataType dataType) {
         // TODO
     }

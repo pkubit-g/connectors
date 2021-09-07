@@ -4,21 +4,17 @@ import io.delta.standalone.types.BooleanType;
 import io.delta.standalone.types.DataType;
 import io.delta.standalone.types.IntegerType;
 
-import java.util.Comparator;
-
 public final class Util {
 
-    /**
-     * Returns the result of the comparison between `o1` and `o2`, based on their DataType.
-     */
-    public static int compare(DataType compareType, Object o1, Object o2) {
-        if (compareType instanceof BooleanType) {
-            return Comparator.<Boolean>naturalOrder().compare((Boolean) o1, (Boolean) o2);
-        }
-        if (compareType instanceof IntegerType) {
-            return Comparator.<Integer>naturalOrder().compare((Integer) o1, (Integer) o2);
+    public static CastingComparator<?> createCastingComparator(DataType dataType) {
+        if (dataType instanceof IntegerType) {
+            return new CastingComparator<Integer>();
         }
 
-        throw new RuntimeException("Util::compare > unrecognized compareType: " + compareType.toString());
+        if (dataType instanceof BooleanType) {
+            return new CastingComparator<Boolean>();
+        }
+
+        throw new RuntimeException("Couldn't find matching comparator for DataType: " + dataType.toString());
     }
 }
