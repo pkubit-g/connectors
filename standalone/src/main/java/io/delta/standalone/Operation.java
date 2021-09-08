@@ -11,6 +11,7 @@ import java.util.Set;
  * An operation is tracked as the first line in delta logs, and powers `DESCRIBE HISTORY` for Delta
  * tables.
  *
+ * Usage:
  * If possible, use one of the statically-defined operation names, e.g. new Operation(Operation.WRITE, ...)
  * If none of the names are applicable, then provide your own, e.g. new Operation("myEngineSpecificOperation", ...)
  */
