@@ -16,7 +16,7 @@ public interface OptimisticTransaction {
      *
      * @param actions Set of actions to commit.
      * @param op Details of operation that is performing this transactional commit.
-     * @param writerId String used to identifier the writer. It should resemble
+     * @param writerId String used to identify the writer. It should resemble
      *                 "{engineName}-{engineVersion}".
      * @return a {@link CommitResult}, wrapping the table version that was committed.
      */
