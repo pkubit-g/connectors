@@ -1,5 +1,7 @@
 package io.delta.standalone.expressions;
 
+import io.delta.standalone.data.RowRecord;
+
 import java.util.Collections;
 import java.util.List;
 
@@ -12,6 +14,19 @@ public abstract class UnaryExpression implements Expression {
 
     public UnaryExpression(Expression child) {
         this.child = child;
+    }
+
+    @Override
+    public Object eval(RowRecord record) {
+        Object childResult = child.eval(record);
+
+        if (null == childResult) return null;
+
+        return nullSafeEval(childResult);
+    }
+
+    protected Object nullSafeEval(Object childResult) {
+        throw new RuntimeException("UnaryExpressions must override either eval or nullSafeEval");
     }
 
     @Override

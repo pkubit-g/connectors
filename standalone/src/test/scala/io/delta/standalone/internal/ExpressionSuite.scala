@@ -45,6 +45,9 @@ class ExpressionSuite extends FunSuite {
     testPredicate(new Or(Literal.False, Literal.True), expectedResult = true)
     testPredicate(new Or(Literal.True, Literal.True), expectedResult = true)
 
+    testPredicate(new Not(Literal.False), expectedResult = true)
+    testPredicate(new Not(Literal.True), expectedResult = false)
+
     testPredicate(new EqualTo(Literal.of(1), Literal.of(1)), expectedResult = true)
     testPredicate(new EqualTo(Literal.of(1), Literal.of(2)), expectedResult = false)
 

@@ -7,7 +7,7 @@ import io.delta.standalone.types.DataType;
 /**
  * Usage: new IsNotNull(expr) - Returns true if `expr` is not null, else false.
  */
-public class IsNotNull extends UnaryExpression {
+public class IsNotNull extends UnaryExpression implements Predicate {
     public IsNotNull(Expression child) {
         super(child);
     }
@@ -15,11 +15,6 @@ public class IsNotNull extends UnaryExpression {
     @Override
     public Object eval(RowRecord record) {
         return child.eval(record) != null;
-    }
-
-    @Override
-    public DataType dataType() {
-        return new BooleanType();
     }
 
     @Override
