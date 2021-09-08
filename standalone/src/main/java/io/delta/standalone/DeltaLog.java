@@ -49,7 +49,7 @@ public interface DeltaLog {
      */
     Snapshot update();
 
-    Transaction startTransaction(String writerId);
+    OptimisticTransaction startTransaction();
 
     /**
      * Travel back in time to the {@link Snapshot} with the provided {@code version} number.
