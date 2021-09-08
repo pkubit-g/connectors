@@ -3,7 +3,7 @@ package io.delta.standalone.expressions;
 import java.util.Comparator;
 
 public class CastingComparator<T extends Comparable<T>> {
-    private Comparator<T> comparator;
+    private final Comparator<T> comparator;
 
     public CastingComparator() {
         comparator = Comparator.naturalOrder();

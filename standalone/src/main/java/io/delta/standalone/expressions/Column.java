@@ -13,8 +13,8 @@ import io.delta.standalone.types.*;
  */
 public final class Column extends LeafExpression {
     private final String name;
-    private DataType dataType;
-    private RowRecordEvaluator evaluator;
+    private final DataType dataType;
+    private final RowRecordEvaluator evaluator;
 
     public Column(String name, DataType dataType) {
         this.name = name;

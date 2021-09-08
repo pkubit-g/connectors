@@ -7,7 +7,7 @@ import java.util.List;
  * An expression with one input and one output. The output is by default evaluated to null
  * if the input is evaluated to null.
  */
-public abstract class UnaryExpression extends Expression {
+public abstract class UnaryExpression implements Expression {
     protected final Expression child;
 
     public UnaryExpression(Expression child) {

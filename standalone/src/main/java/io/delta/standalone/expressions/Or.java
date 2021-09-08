@@ -3,7 +3,7 @@ package io.delta.standalone.expressions;
 /**
  * Usage: new Or(expr1, expr2) - Logical OR
  */
-public final class Or extends BinaryComparison {
+public final class Or extends BinaryOperator implements Predicate {
 
     public Or(Expression left, Expression right) {
         super(left, right, "||");

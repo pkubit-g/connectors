@@ -9,7 +9,7 @@ import java.util.List;
  * An expression with two inputs and one output. The output is by default evaluated to null
  * if any input is evaluated to null.
  */
-public abstract class BinaryExpression extends Expression {
+public abstract class BinaryExpression implements Expression {
     protected final Expression left;
     protected final Expression right;
 

@@ -11,7 +11,7 @@ import java.util.stream.Stream;
 /**
  * Usage: new In(expr, exprList) - Returns true if `expr` is equal to any in `exprList`, else false.
  */
-public final class In extends Expression {
+public final class In implements Predicate {
     private final Expression value;
     private final List<? extends Expression> elems;
     private final CastingComparator<?> comparator;
@@ -54,11 +54,6 @@ public final class In extends Expression {
 
             return comparator.compare(result, setElemValue) == 0;
         });
-    }
-
-    @Override
-    public DataType dataType() {
-        return new BooleanType();
     }
 
     @Override

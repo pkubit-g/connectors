@@ -8,25 +8,25 @@ import java.util.List;
 /**
  * An expression in Delta Standalone.
  */
-public abstract class Expression {
+public interface Expression {
 
     /**
      * Returns the result of evaluating this expression on a given input RowRecord.
      */
-    public abstract Object eval(RowRecord record);
+    Object eval(RowRecord record);
 
     /**
      * Returns the [[DataType]] of the result of evaluating this expression.
      */
-    public abstract DataType dataType();
+    DataType dataType();
 
     /**
      * Returns the String representation of this expression.
      */
-    public abstract String toString();
+    String toString();
 
     /**
      * Returns a List of the children of this node. Children should not change.
      */
-    public abstract List<Expression> children();
+    List<Expression> children();
 }
