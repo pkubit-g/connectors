@@ -64,9 +64,6 @@ private[internal] class DeltaLogImpl private(
     ConversionUtils.convertCommitInfo(history.getCommitInfo(version))
   }
 
-  override def getChanges(startVersion: Long): java.util.Iterator[VersionLog] =
-    getChanges(startVersion, failOnDataLoss = false)
-
   override def getChanges(
       startVersion: Long,
       failOnDataLoss: Boolean): java.util.Iterator[VersionLog] = {
