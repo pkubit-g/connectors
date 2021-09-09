@@ -153,7 +153,8 @@ private[internal] object ConversionUtils {
       toJavaStringOptional(internal.isolationLevel),
       toJavaBooleanOptional(internal.isBlindAppend),
       toJavaMapOptional(internal.operationMetrics),
-      toJavaStringOptional(internal.userMetadata)
+      toJavaStringOptional(internal.userMetadata),
+      toJavaStringOptional(internal.writerId)
     )
   }
 
@@ -264,7 +265,8 @@ private[internal] object ConversionUtils {
       external.getIsolationLevel, // implicit check this!
       external.getIsBlindAppend, // implicit check this!
       external.getOperationMetrics, // implicit check this!
-      external.getUserMetadata // implicit check this!
+      external.getUserMetadata, // implicit check this!
+      external.getWriterId // implicit check this!
     )
   }
 

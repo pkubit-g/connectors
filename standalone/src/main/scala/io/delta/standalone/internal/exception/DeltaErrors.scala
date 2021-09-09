@@ -126,10 +126,7 @@ private[internal] object DeltaErrors {
 
   def metadataAbsentException(): Throwable = {
     new IllegalStateException(
-      s"""
-         |Couldn't find Metadata while committing the first version of the Delta table. To disable
-         |this check set ${StandaloneHadoopConf.DELTA_COMMIT_VALIDATION_ENABLED} to "false"
-       """.stripMargin)
+      "Couldn't find Metadata while committing the first version of the Delta table.")
   }
 
   def protocolDowngradeException(oldProtocol: Protocol, newProtocol: Protocol): Throwable = {
@@ -146,8 +143,6 @@ private[internal] object DeltaErrors {
          |The AddFile contains partitioning schema different from the table's partitioning schema
          |expected: ${DeltaErrors.formatColumnList(metadataPartitions)}
          |actual: ${DeltaErrors.formatColumnList(addFilePartitions)}
-         |To disable this check set ${StandaloneHadoopConf.DELTA_COMMIT_VALIDATION_ENABLED} to
-         |"false"
       """.stripMargin)
   }
 

@@ -75,6 +75,7 @@ public final class Operation {
      * @return
      */
     public Map<String, Object> getParameters() {
+        // TODO: be consistent with AddFile getter ternary
         return null == parameters ? null : Collections.unmodifiableMap(parameters);
     }
 

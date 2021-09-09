@@ -252,7 +252,8 @@ private[internal] case class CommitInfo(
     /** Whether this commit has blindly appended without caring about existing files */
     isBlindAppend: Option[Boolean],
     operationMetrics: Option[Map[String, String]],
-    userMetadata: Option[String]) extends Action with CommitMarker {
+    userMetadata: Option[String],
+    writerId: Option[String]) extends Action with CommitMarker {
   override def wrap: SingleAction = SingleAction(commitInfo = this)
 
   override def withTimestamp(timestamp: Long): CommitInfo = {
@@ -267,7 +268,7 @@ private[internal] case class CommitInfo(
 private[internal] object CommitInfo {
   def empty(version: Option[Long] = None): CommitInfo = {
     CommitInfo(version, null, None, None, null, null, None, None,
-      None, None, None, None, None, None)
+      None, None, None, None, None, None, None)
   }
 }
 

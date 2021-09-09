@@ -20,9 +20,9 @@ import java.util.ConcurrentModificationException
 
 import scala.collection.JavaConverters._
 
-import io.delta.standalone.OptimisticTransaction
-import io.delta.standalone.actions.{Action => ActionJ}
-import io.delta.standalone.operations.{Operation => OperationJ}
+import io.delta.standalone.{CommitResult, Operation, OptimisticTransaction}
+import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, Metadata => MetadataJ}
+import io.delta.standalone.expressions.Expression
 import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, Metadata, Protocol, RemoveFile}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.sources.StandaloneHadoopConf
@@ -36,63 +36,67 @@ private[internal] class OptimisticTransactionImpl(
   private var committed = false
 
   /** Stores the updated metadata (if any) that will result from this txn. */
-//  private var newMetadata: Option[Metadata] = None
-  private val newMetadata: Option[Metadata] = None // TODO: remove?
+  private var newMetadata: Option[Metadata] = None
 
   /** Stores the updated protocol (if any) that will result from this txn. */
   private var newProtocol: Option[Protocol] = None
 
   // Whether this transaction is creating a new table.
-//  private var isCreatingNewTable: Boolean = false
-  private val isCreatingNewTable: Boolean = false // TODO: remove?
+  private var isCreatingNewTable: Boolean = false
 
   /** The protocol of the snapshot that this transaction is reading at. */
   def protocol: Protocol = newProtocol.getOrElse(snapshot.protocolScala)
 
   /**
    * Returns the metadata for this transaction. The metadata refers to the metadata of the snapshot
-   * at the transaction's read version unless updated during the transaction. TODO: update comment?
+   * at the transaction's read version unless updated during the transaction.
    */
-  def metadata: Metadata = newMetadata.getOrElse(snapshot.metadataScala) // TODO: only snapshot.___?
+  def metadata: Metadata = newMetadata.getOrElse(snapshot.metadataScala)
 
   ///////////////////////////////////////////////////////////////////////////
   // Public Java API Methods
   ///////////////////////////////////////////////////////////////////////////
 
-//  override def commit(actionsJ: java.util.List[ActionJ]): Long =
-//    commit(actionsJ, Option.empty[DeltaOperations.Operation])
-
-  override def commit(actionsJ: java.util.List[ActionJ], opJ: OperationJ): Long = {
-    val op: DeltaOperations.Operation = null // TODO convert opJ to scala
-    commit(actionsJ, None)
-  }
-
-  ///////////////////////////////////////////////////////////////////////////
-  // Critical Internal-Only Methods
-  ///////////////////////////////////////////////////////////////////////////
-
-  private def commit(
-      actionsJ: java.util.List[ActionJ],
-      op: Option[DeltaOperations.Operation]): Long = {
-    val actions = actionsJ.asScala.map(ConversionUtils.convertActionJ)
+  override def commit(
+      actionsJ: java.lang.Iterable[ActionJ],
+      op: Operation,
+      writerId: String): CommitResult = {
+    val actions = actionsJ.asScala.map(ConversionUtils.convertActionJ).toSeq
 
     // Try to commit at the next version.
     var finalActions = prepareCommit(actions)
 
-    if (deltaLog.hadoopConf.getBoolean(StandaloneHadoopConf.DELTA_COMMIT_INFO_ENABLED, true)) {
-//      val isBlindAppend = false // TODO
-//      val commitInfo = CommitInfo.empty() // TODO CommitInfo(...
-//      finalActions = commitInfo +: finalActions // prepend commitInfo
-    }
+    // TODO blind append check & create commitInfo using writerId
 
     val commitVersion = doCommit(snapshot.version + 1, finalActions)
 
     postCommit(commitVersion)
 
-    // TODO: runPostCommitHooks ?
-
-    commitVersion
+    new CommitResult(commitVersion)
   }
+
+  override def markFilesAsRead(
+      readPredicates: java.lang.Iterable[Expression]): java.util.List[AddFileJ] = {
+    // TODO
+    null
+  }
+
+  override def updateMetadata(metadata: MetadataJ): Unit = {
+
+  }
+
+  override def readWholeTable(): Unit = {
+
+  }
+
+  override def txnVersion(id: String): Long = {
+    // TODO
+    0L
+  }
+
+  ///////////////////////////////////////////////////////////////////////////
+  // Critical Internal-Only Methods
+  ///////////////////////////////////////////////////////////////////////////
 
   /**
    * Prepare for a commit by doing all necessary pre-commit checks and modifications to the actions.
@@ -100,14 +104,16 @@ private[internal] class OptimisticTransactionImpl(
    */
   private def prepareCommit(actions: Seq[Action]): Seq[Action] = {
     assert(!committed, "Transaction already committed.")
-    val commitValidationEnabled =
-      deltaLog.hadoopConf.getBoolean(StandaloneHadoopConf.DELTA_COMMIT_VALIDATION_ENABLED, true)
+
+    val userCommitInfo = actions.exists(_.isInstanceOf[CommitInfo])
+    assert(!userCommitInfo,
+      "CommitInfo actions are created automatically. Users shouldn't try to commit them directly")
 
     // If the metadata has changed, add that to the set of actions
     var finalActions = newMetadata.toSeq ++ actions
     val metadataChanges = finalActions.collect { case m: Metadata => m }
-    assert(
-      metadataChanges.length <= 1, "Cannot change the metadata more than once in a transaction.")
+    assert(metadataChanges.length <= 1,
+      "Cannot change the metadata more than once in a transaction.")
 
     metadataChanges.foreach(m => verifyNewMetadata(m))
     finalActions = newProtocol.toSeq ++ finalActions
@@ -121,7 +127,7 @@ private[internal] class OptimisticTransactionImpl(
       }
 
       // If this is the first commit and no metadata is specified, throw an exception
-      if (commitValidationEnabled && !finalActions.exists(_.isInstanceOf[Metadata])) {
+      if (!finalActions.exists(_.isInstanceOf[Metadata])) {
         throw DeltaErrors.metadataAbsentException()
       }
     }
@@ -138,7 +144,7 @@ private[internal] class OptimisticTransactionImpl(
             throw DeltaErrors.protocolDowngradeException(currentVersion, newVersion)
           }
         }
-      case a: AddFile if commitValidationEnabled && partitionColumns != a.partitionValues.keySet =>
+      case a: AddFile if partitionColumns != a.partitionValues.keySet =>
         throw DeltaErrors.addFilePartitioningMismatchException(
           a.partitionValues.keySet.toSeq, partitionColumns.toSeq)
       case _ => // nothing
@@ -170,11 +176,8 @@ private[internal] class OptimisticTransactionImpl(
         actions.map(_.json).toIterator
       )
 
-      val actionsJsonStr = actions.map(_.json).toIterator // TODO remove
-
       val postCommitSnapshot = deltaLog.update()
       if (postCommitSnapshot.version < attemptVersion) {
-        // TODO: DeltaErrors... ?
         throw new IllegalStateException(
           s"The committed version is $attemptVersion " +
             s"but the current version is ${postCommitSnapshot.version}.")
@@ -201,7 +204,6 @@ private[internal] class OptimisticTransactionImpl(
   ///////////////////////////////////////////////////////////////////////////
 
   private def verifyNewMetadata(metadata: Metadata): Unit = {
-    // TODO assert(!CharVarcharUtils.hasCharVarchar...) ?
     SchemaMergingUtils.checkColumnNameDuplication(metadata.schema, "in the metadata update")
     SchemaUtils.checkFieldNames(SchemaMergingUtils.explodeNestedFieldNames(metadata.dataSchema))
     val partitionColCheckIsFatal = deltaLog.hadoopConf.getBoolean(

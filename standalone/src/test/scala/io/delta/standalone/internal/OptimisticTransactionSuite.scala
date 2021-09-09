@@ -20,7 +20,7 @@ import java.util.{Collections, Optional, UUID}
 
 import scala.collection.JavaConverters._
 
-import io.delta.standalone.DeltaLog
+import io.delta.standalone.{DeltaLog, Operation}
 import io.delta.standalone.actions.{AddFile => AddFileJ, Format => FormatJ, Metadata => MetadataJ}
 import io.delta.standalone.types.{IntegerType, StringType, StructField, StructType}
 import io.delta.standalone.internal.util.TestUtils._
@@ -42,37 +42,25 @@ class OptimisticTransactionSuite extends FunSuite {
   val add1 = new AddFileJ("fake/path/1", Collections.emptyMap(), 100, 100, true, null, null)
   val add2 = new AddFileJ("fake/path/2", Collections.emptyMap(), 100, 100, true, null, null)
 
+  val ManualUpdate = new Operation("MANUAL_UPDATE")
+
   test("basic") {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       val txn = log.startTransaction()
       val actions = Seq(metadata, add1, add2)
-      txn.commit(actions.asJava, null)
+      txn.commit(actions.asJava, ManualUpdate, "test-writer-id")
 
-      val versionLogs = log.getChanges(0).asScala.toList
+      val versionLogs = log.getChanges(0, true).asScala.toList
       val readActions = versionLogs(0).getActions.asScala
 
       assert(actions.toSet.subsetOf(readActions.toSet))
     }
   }
 
-// FAILS due to error reading, writing, then reading a CommitInfo
-//  test("basic - old") {
-//    withLogForGoldenTable("snapshot-data0") { log =>
-//      withTempDir { dir =>
-//        val versionLogsIter = log.getChanges(0, true)
-//        assert(versionLogsIter.hasNext, "versionLogsIter for snapshot-data0 should not be empty")
-//        val actions = versionLogsIter.next().getActions
-//
-//        val newTablePath = dir.getCanonicalPath
-//        val newLog = DeltaLog.forTable(new Configuration(), newTablePath)
-//        val txn = newLog.startTransaction()
-//        txn.commit(actions, null)
-//      }
-//    }
-//  }
-
   // TODO: test prepareCommit > assert not already committed
+
+  // TODO: test prepareCommit > assert user didn't commit a CommitInfo
 
   // TODO: test prepareCommit > have more than 1 Metadata in transaction
 

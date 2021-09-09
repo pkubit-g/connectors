@@ -87,8 +87,6 @@ public interface DeltaLog {
     /** @return the path of the Delta table. */
     Path getPath();
 
-    OptimisticTransaction startTransaction();
-
     /**
      * Get all actions starting from "startVersion" (inclusive).
      * If `startVersion` doesn't exist, return an empty {@code Iterator}.
@@ -100,8 +98,6 @@ public interface DeltaLog {
      * @throws IllegalStateException if data loss detected and {@code failOnDataLoss} is true
      */
     Iterator<VersionLog> getChanges(long startVersion, boolean failOnDataLoss);
-
-    Iterator<VersionLog> getChanges(long startVersion);
 
     /**
      * Create a {@link DeltaLog} instance representing the table located at the provided {@code path}.
