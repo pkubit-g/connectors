@@ -38,6 +38,8 @@
 
 package io.delta.standalone.types;
 
+import org.apache.parquet.schema.MessageType;
+
 import java.util.Arrays;
 import java.util.HashMap;
 
@@ -99,6 +101,11 @@ public final class StructType extends DataType {
         builder.append("root\n");
         Arrays.stream(fields).forEach(field -> field.buildFormattedString(prefix, builder));
         return builder.toString();
+    }
+
+    public MessageType asParquet() {
+        // TODO
+        return null;
     }
 
     /**
