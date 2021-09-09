@@ -94,7 +94,7 @@ class OptimisticTransactionSuite extends FunSuite {
 
   // TODO: test verifyNewMetadata > Protocol.checkProtocolRequirements
 
-  // TODO: test commit > DELTA_COMMIT_INFO_ENABLED
+  // TODO: test commit
   // - commitInfo is actually added to final actions
   // - isBlindAppend == true
   // - isBlindAppend == false

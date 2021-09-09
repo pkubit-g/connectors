@@ -206,15 +206,12 @@ private[internal] class OptimisticTransactionImpl(
   private def verifyNewMetadata(metadata: Metadata): Unit = {
     SchemaMergingUtils.checkColumnNameDuplication(metadata.schema, "in the metadata update")
     SchemaUtils.checkFieldNames(SchemaMergingUtils.explodeNestedFieldNames(metadata.dataSchema))
-    val partitionColCheckIsFatal = deltaLog.hadoopConf.getBoolean(
-      StandaloneHadoopConf.DELTA_PARTITION_COLUMN_CHECK_ENABLED, true)
 
     try {
       SchemaUtils.checkFieldNames(metadata.partitionColumns)
     } catch {
       // TODO: case e: AnalysisException ?
-      case e: RuntimeException if (partitionColCheckIsFatal) =>
-        throw DeltaErrors.invalidPartitionColumn(e)
+      case e: RuntimeException => throw DeltaErrors.invalidPartitionColumn(e)
     }
 
     // TODO: this function is still incomplete
