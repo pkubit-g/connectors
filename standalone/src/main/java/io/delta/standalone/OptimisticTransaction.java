@@ -55,4 +55,14 @@ public interface OptimisticTransaction {
      * @param metadata The new metadata for the delta table.
      */
     void updateMetadata(Metadata metadata);
+
+    /**
+     * Mark the entire table as tainted (i.e. read) by this transaction.
+     */
+    void readWholeTable();
+
+    /**
+     * @return the latest version that has committed for the idempotent transaction with given `id`.
+     */
+    long txnVersion(String id);
 }
