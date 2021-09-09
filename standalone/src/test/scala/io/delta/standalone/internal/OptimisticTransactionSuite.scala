@@ -78,7 +78,7 @@ class OptimisticTransactionSuite extends FunSuite {
         } else {
           Nil
         }
-        txn.commit((meta ++ delete ++ file).asJava, null)
+        txn.commit((meta ++ delete ++ file).asJava, ManualUpdate, "test-writer-id")
       }
 
       val log2 = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
