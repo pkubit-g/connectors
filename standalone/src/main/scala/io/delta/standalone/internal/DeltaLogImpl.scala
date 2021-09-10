@@ -25,10 +25,12 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import io.delta.standalone.{DeltaLog, OptimisticTransaction, VersionLog}
 import io.delta.standalone.actions.{CommitInfo => CommitInfoJ}
-import io.delta.standalone.internal.actions.{Action, Metadata, Protocol}
+import io.delta.standalone.expressions.Expression
+import io.delta.standalone.internal.actions.{Action, AddFile, Metadata, Protocol}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.storage.HDFSReadOnlyLogStore
 import io.delta.standalone.internal.util.{ConversionUtils, FileNames}
+import io.delta.standalone.types.StructType
 
 /**
  * Scala implementation of Java interface [[DeltaLog]].
@@ -146,6 +148,19 @@ private[internal] class DeltaLogImpl private(
       throw DeltaErrors.modifyAppendOnlyTableException
     }
   }
+
+  /**
+   * Filters the given [[AddFile]]s by the given `partitionFilters`, returning those that match.
+   * @param files The active files in the DeltaLog state, which contains the partition value
+   *              information
+   * @param partitionFilters Filters on the partition columns
+   */
+  def filterFileList(
+      partitionSchema: StructType,
+      files: Seq[AddFile],
+      partitionFilters: Seq[Expression]): Seq[AddFile] = {
+    // TODO
+    Nil
 }
 
 private[standalone] object DeltaLogImpl {

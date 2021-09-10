@@ -93,7 +93,14 @@ private[internal] class OptimisticTransactionImpl(
       Serializable
     }
 
-    // TODO blind append check & create commitInfo using writerId
+    val isBlindAppend = {
+      val dependsOnFiles = readPredicates.nonEmpty || readFiles.nonEmpty
+      val onlyAddFiles =
+        finalActions.collect { case f: FileAction => f }.forall(_.isInstanceOf[AddFile])
+      onlyAddFiles && !dependsOnFiles
+    }
+
+    // TODO create commitInfo using writerId
 
     commitAttemptStartTime = System.currentTimeMillis()
 
@@ -108,8 +115,14 @@ private[internal] class OptimisticTransactionImpl(
   }
 
   override def markFilesAsRead(
-      readPredicates: java.lang.Iterable[Expression]): java.util.List[AddFileJ] = {
+      _readPredicates: java.lang.Iterable[Expression]): java.util.List[AddFileJ] = {
+    // TODO: PartitionFiltering::filesForScan
     // TODO
+    //    val partitionFilters = filters.filter { f =>
+    //      DeltaTableUtils.isPredicatePartitionColumnsOnly(f, metadata.partitionColumns, spark)
+    //    }
+    // TODO readPredicates += ...
+    // TODO readFiles ++=
     null
   }
 
