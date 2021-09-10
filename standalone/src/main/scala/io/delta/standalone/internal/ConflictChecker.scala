@@ -16,12 +16,10 @@
 
 package io.delta.standalone.internal
 
-import scala.collection.JavaConverters._
-
 import io.delta.standalone.expressions.Expression
 import io.delta.standalone.internal.actions._
 import io.delta.standalone.internal.exception.DeltaErrors
-import io.delta.standalone.internal.util.{ConversionUtils, FileNames}
+import io.delta.standalone.internal.util.FileNames
 
 /**
  * A class representing different attributes of current transaction needed for conflict detection.
