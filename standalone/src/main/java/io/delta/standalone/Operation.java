@@ -31,6 +31,8 @@ public final class Operation {
     /** Recorded when converting a table into a Delta table. */
     public static final String CONVERT = "CONVERT";
 
+    public static final String MANUAL_UPDATE = "MANUAL_UPDATE";
+
     // TODO: the rest
 
     private final String name;
