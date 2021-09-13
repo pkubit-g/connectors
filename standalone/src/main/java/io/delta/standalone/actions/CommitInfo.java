@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.delta.standalone.actions;
 
 import java.sql.Timestamp;
@@ -43,7 +44,7 @@ public class CommitInfo implements Action {
     private final Optional<Boolean> isBlindAppend;
     private final Optional<Map<String, String>> operationMetrics;
     private final Optional<String> userMetadata;
-    private final Optional<String> writerId;
+    private final Optional<String> engineInfo;
 
     public CommitInfo(Optional<Long> version, Timestamp timestamp, Optional<String> userId,
                       Optional<String> userName, String operation,
@@ -52,7 +53,7 @@ public class CommitInfo implements Action {
                       Optional<Long> readVersion, Optional<String> isolationLevel,
                       Optional<Boolean> isBlindAppend,
                       Optional<Map<String, String>> operationMetrics,
-                      Optional<String> userMetadata, Optional<String> writerId) {
+                      Optional<String> userMetadata, Optional<String> engineInfo) {
         this.version = version;
         this.timestamp = timestamp;
         this.userId = userId;
@@ -67,7 +68,7 @@ public class CommitInfo implements Action {
         this.isBlindAppend = isBlindAppend;
         this.operationMetrics = operationMetrics;
         this.userMetadata = userMetadata;
-        this.writerId = writerId;
+        this.engineInfo = engineInfo;
     }
 
     /**
@@ -172,11 +173,11 @@ public class CommitInfo implements Action {
     }
 
     /**
-     * @return the writerId of the operation that performed this commit. It should be of the form
+     * @return the engineInfo of the operation that performed this commit. It should be of the form
      *         "{engineName}-{engineVersion}-deltaStandalone-{deltaStandaloneVersion}"
      */
-    public Optional<String> getWriterId() {
-        return writerId;
+    public Optional<String> getEngineInfo() {
+        return engineInfo;
     }
 
     @Override
@@ -198,13 +199,21 @@ public class CommitInfo implements Action {
                 Objects.equals(isBlindAppend, that.isBlindAppend) &&
                 Objects.equals(operationMetrics, that.operationMetrics) &&
                 Objects.equals(userMetadata, that.userMetadata) &&
+<<<<<<< HEAD
                 Objects.equals(writerId, that.writerId);
+=======
+                Objects.equals(engineInfo, that.engineInfo);
+>>>>>>> origin/dsw_prototype_1_commit
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(version, timestamp, userId, userName, operation, operationParameters,
                 jobInfo, notebookInfo, clusterId, readVersion, isolationLevel, isBlindAppend,
+<<<<<<< HEAD
                 operationMetrics, userMetadata, writerId);
+=======
+                operationMetrics, userMetadata, engineInfo);
+>>>>>>> origin/dsw_prototype_1_commit
     }
 }

@@ -38,6 +38,8 @@
 
 package io.delta.standalone.types;
 
+import io.delta.standalone.expressions.Column;
+
 import org.apache.parquet.schema.MessageType;
 
 import java.util.Arrays;
@@ -89,6 +91,11 @@ public final class StructType extends DataType {
         }
 
         return nameToField.get(fieldName);
+    }
+
+    public Column column(String fieldName) {
+        StructField field = nameToField.get(fieldName);
+        return new Column(fieldName, field.getDataType());
     }
 
     /**

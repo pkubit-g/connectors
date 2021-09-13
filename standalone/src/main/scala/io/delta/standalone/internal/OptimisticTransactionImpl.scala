@@ -25,6 +25,7 @@ import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, Meta
 import io.delta.standalone.expressions.Expression
 import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, Metadata, Protocol, RemoveFile}
 import io.delta.standalone.internal.exception.DeltaErrors
+import io.delta.standalone.internal.sources.StandaloneHadoopConf
 import io.delta.standalone.internal.util.{ConversionUtils, FileNames, SchemaMergingUtils, SchemaUtils}
 
 private[internal] class OptimisticTransactionImpl(
@@ -59,13 +60,13 @@ private[internal] class OptimisticTransactionImpl(
   override def commit(
       actionsJ: java.lang.Iterable[ActionJ],
       op: Operation,
-      writerId: String): CommitResult = {
+      engineInfo: String): CommitResult = {
     val actions = actionsJ.asScala.map(ConversionUtils.convertActionJ).toSeq
 
     // Try to commit at the next version.
     var finalActions = prepareCommit(actions)
 
-    // TODO blind append check & create commitInfo using writerId
+    // TODO blind append check & create commitInfo using engineInfo
 
     val commitVersion = doCommit(snapshot.version + 1, finalActions)
 
