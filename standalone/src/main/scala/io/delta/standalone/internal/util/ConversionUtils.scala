@@ -154,7 +154,7 @@ private[internal] object ConversionUtils {
       toJavaBooleanOptional(internal.isBlindAppend),
       toJavaMapOptional(internal.operationMetrics),
       toJavaStringOptional(internal.userMetadata),
-      toJavaStringOptional(internal.writerId)
+      toJavaStringOptional(internal.engineInfo)
     )
   }
 
@@ -266,7 +266,7 @@ private[internal] object ConversionUtils {
       external.getIsBlindAppend, // implicit check this!
       external.getOperationMetrics, // implicit check this!
       external.getUserMetadata, // implicit check this!
-      external.getWriterId // implicit check this!
+      external.getEngineInfo // implicit check this!
     )
   }
 
