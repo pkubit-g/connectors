@@ -26,7 +26,7 @@ import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, Meta
 import io.delta.standalone.expressions.Expression
 import io.delta.standalone.internal.actions.{Action, AddFile, CommitInfo, FileAction, Metadata, Protocol, RemoveFile}
 import io.delta.standalone.internal.exception.DeltaErrors
-import io.delta.standalone.internal.util.{ConversionUtils, FileNames, SchemaMergingUtils, SchemaUtils}
+import io.delta.standalone.internal.util.{ConversionUtils, FileNames, JsonUtils, SchemaMergingUtils, SchemaUtils}
 
 private[internal] class OptimisticTransactionImpl(
     deltaLog: DeltaLogImpl,
@@ -69,6 +69,9 @@ private[internal] class OptimisticTransactionImpl(
    */
   def metadata: Metadata = newMetadata.getOrElse(snapshot.metadataScala)
 
+  /** The version that this transaction is reading from. */
+  private def readVersion: Long = snapshot.version
+
   ///////////////////////////////////////////////////////////////////////////
   // Public Java API Methods
   ///////////////////////////////////////////////////////////////////////////
@@ -80,7 +83,7 @@ private[internal] class OptimisticTransactionImpl(
     val actions = actionsJ.asScala.map(ConversionUtils.convertActionJ).toSeq
 
     // Try to commit at the next version.
-    var finalActions = prepareCommit(actions)
+    var preparedActions = prepareCommit(actions)
 
     // Find the isolation level to use for this commit
     val noDataChanged = actions.collect { case f: FileAction => f.dataChange }.forall(_ == false)
@@ -96,17 +99,30 @@ private[internal] class OptimisticTransactionImpl(
     val isBlindAppend = {
       val dependsOnFiles = readPredicates.nonEmpty || readFiles.nonEmpty
       val onlyAddFiles =
-        finalActions.collect { case f: FileAction => f }.forall(_.isInstanceOf[AddFile])
+        preparedActions.collect { case f: FileAction => f }.forall(_.isInstanceOf[AddFile])
       onlyAddFiles && !dependsOnFiles
     }
 
-    // TODO create commitInfo using writerId
+    val commitInfo = CommitInfo(
+      System.currentTimeMillis(),
+      op.getName,
+      null,
+      Map.empty,
+      Some(readVersion).filter(_ >= 0),
+      Option(isolationLevelToUse.toString),
+      Some(isBlindAppend),
+      Some(op.getOperationMetrics.asScala.toMap),
+      if (op.getUserMetadata.isPresent) Some(op.getUserMetadata.get()) else None,
+      Some(writerId)
+    )
+
+    preparedActions = commitInfo +: preparedActions
 
     commitAttemptStartTime = System.currentTimeMillis()
 
     val commitVersion = doCommitRetryIteratively(
       snapshot.version + 1,
-      finalActions,
+      preparedActions,
       isolationLevelToUse)
 
     postCommit(commitVersion)
@@ -365,5 +381,10 @@ private[internal] class OptimisticTransactionImpl(
 
   private[internal] object OptimisticTransactionImpl {
     val DELTA_MAX_RETRY_COMMIT_ATTEMPTS = 10000000
+
+
+    def getOperationJsonEncodedParameters(op: Operation): Map[String, String] = {
+      op.getParameters.asScala.mapValues(JsonUtils.toJson(_)).toMap
+    }
   }
 }
