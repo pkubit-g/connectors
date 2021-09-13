@@ -253,7 +253,7 @@ private[internal] case class CommitInfo(
     isBlindAppend: Option[Boolean],
     operationMetrics: Option[Map[String, String]],
     userMetadata: Option[String],
-    writerId: Option[String]) extends Action with CommitMarker {
+    engineInfo: Option[String]) extends Action with CommitMarker {
   override def wrap: SingleAction = SingleAction(commitInfo = this)
 
   override def withTimestamp(timestamp: Long): CommitInfo = {
