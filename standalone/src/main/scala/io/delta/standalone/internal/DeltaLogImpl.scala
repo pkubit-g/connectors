@@ -161,6 +161,7 @@ private[internal] class DeltaLogImpl private(
       partitionFilters: Seq[Expression]): Seq[AddFile] = {
     // TODO
     Nil
+  }
 }
 
 private[standalone] object DeltaLogImpl {
