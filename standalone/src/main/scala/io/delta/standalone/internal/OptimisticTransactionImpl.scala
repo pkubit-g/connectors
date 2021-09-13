@@ -142,8 +142,43 @@ private[internal] class OptimisticTransactionImpl(
     null
   }
 
-  override def updateMetadata(metadata: MetadataJ): Unit = {
+  override def updateMetadata(metadataJ: MetadataJ): Unit = {
+    assert(newMetadata.isEmpty,
+      "Cannot change the metadata more than once in a transaction.")
 
+    var latestMetadata = ConversionUtils.convertMetadataJ(metadataJ)
+
+    if (readVersion == -1 || isCreatingNewTable) {
+      latestMetadata = withGlobalConfigDefaults(latestMetadata)
+      isCreatingNewTable = true
+      newProtocol = Some(Protocol())
+    }
+
+    latestMetadata = if (snapshot.metadataScala.schemaString == latestMetadata.schemaString) {
+        // Shortcut when the schema hasn't changed to avoid generating spurious schema change logs.
+        // It's fine if two different but semantically equivalent schema strings skip this special
+        // case - that indicates that something upstream attempted to do a no-op schema change, and
+        // we'll just end up doing a bit of redundant work in the else block.
+        latestMetadata
+      } else {
+        // TODO getJson()
+        //   val fixedSchema =
+        //   SchemaUtils.removeUnenforceableNotNullConstraints(metadata.schema).getJson()
+        // metadata.copy(schemaString = fixedSchema)
+
+        latestMetadata
+      }
+
+    // Remove the protocol version properties
+    val noProtocolVersionConfig = latestMetadata.configuration.filter {
+      case (Protocol.MIN_READER_VERSION_PROP, _) => false
+      case (Protocol.MIN_WRITER_VERSION_PROP, _) => false
+      case _ => true
+    }
+
+    latestMetadata = latestMetadata.copy(configuration = noProtocolVersionConfig)
+    verifyNewMetadata(latestMetadata)
+    newMetadata = Some(latestMetadata)
   }
 
   override def readWholeTable(): Unit = {
@@ -166,9 +201,8 @@ private[internal] class OptimisticTransactionImpl(
   private def prepareCommit(actions: Seq[Action]): Seq[Action] = {
     assert(!committed, "Transaction already committed.")
 
-    val userCommitInfo = actions.exists(_.isInstanceOf[CommitInfo])
-    assert(!userCommitInfo,
-      "Cannot commit a custom CommitInfo in a transaction.")
+    val customCommitInfo = actions.exists(_.isInstanceOf[CommitInfo])
+    assert(!customCommitInfo, "Cannot commit a custom CommitInfo in a transaction.")
 
     // If the metadata has changed, add that to the set of actions
     var finalActions = newMetadata.toSeq ++ actions
@@ -177,6 +211,7 @@ private[internal] class OptimisticTransactionImpl(
       "Cannot change the metadata more than once in a transaction.")
 
     metadataChanges.foreach(m => verifyNewMetadata(m))
+
     finalActions = newProtocol.toSeq ++ finalActions
 
     if (snapshot.version == -1) {
@@ -193,18 +228,14 @@ private[internal] class OptimisticTransactionImpl(
       }
     }
 
+    val protocolOpt = finalActions.collectFirst{ case p: Protocol => p }
+    if (protocolOpt.isDefined) {
+      assert(protocolOpt.get == Protocol(), s"Invalid Protocol ${protocolOpt.get.simpleString}. " +
+        s"Currently only Protocol readerVersion 1 and writerVersion 2 is supported.")
+    }
+
     val partitionColumns = metadata.partitionColumns.toSet
     finalActions.foreach {
-      case newVersion: Protocol =>
-        require(newVersion.minReaderVersion > 0, "The reader version needs to be greater than 0")
-        require(newVersion.minWriterVersion > 0, "The writer version needs to be greater than 0")
-        if (!isCreatingNewTable) {
-          val currentVersion = snapshot.protocolScala
-          if (newVersion.minReaderVersion < currentVersion.minReaderVersion ||
-              newVersion.minWriterVersion < currentVersion.minWriterVersion) {
-            throw DeltaErrors.protocolDowngradeException(currentVersion, newVersion)
-          }
-        }
       case a: AddFile if partitionColumns != a.partitionValues.keySet =>
         throw DeltaErrors.addFilePartitioningMismatchException(
           a.partitionValues.keySet.toSeq, partitionColumns.toSeq)
@@ -343,19 +374,11 @@ private[internal] class OptimisticTransactionImpl(
       case e: RuntimeException => throw DeltaErrors.invalidPartitionColumn(e)
     }
 
-    // TODO: this function is still incomplete
-    val needsProtocolUpdate = Protocol.checkProtocolRequirements(metadata, protocol)
-
-    if (needsProtocolUpdate.isDefined) {
-      newProtocol = needsProtocolUpdate
-    }
+    Protocol.checkMetadataProtocolProperties(metadata, protocol)
   }
 
   private def isCommitLockEnabled: Boolean = {
-// TODO:
-//    spark.sessionState.conf.getConf(DeltaSQLConf.DELTA_COMMIT_LOCK_ENABLED).getOrElse(
-//      deltaLog.store.isPartialWriteVisible(deltaLog.logPath))
-    true
+    deltaLog.store.isPartialWriteVisible(deltaLog.logPath)
   }
 
   private def lockCommitIfEnabled[T](body: => T): T = {
@@ -386,5 +409,11 @@ private[internal] class OptimisticTransactionImpl(
     def getOperationJsonEncodedParameters(op: Operation): Map[String, String] = {
       op.getParameters.asScala.mapValues(JsonUtils.toJson(_)).toMap
     }
+  }
+
+  /** Creates new metadata with global Delta configuration defaults. */
+  private def withGlobalConfigDefaults(metadata: Metadata): Metadata = {
+    // TODO
+    metadata
   }
 }
