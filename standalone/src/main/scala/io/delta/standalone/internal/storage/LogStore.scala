@@ -16,6 +16,13 @@
 
 package io.delta.standalone.internal.storage
 
+import io.delta.standalone.data.{CloseableIterator => ClosebleIteratorJ}
+import io.delta.standalone.storage.{LogStore => LogStoreJ}
+import io.delta.standalone.internal.sources.StandaloneHadoopConf
+
+import scala.collection.JavaConverters._
+
+import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, Path}
 
 /**
@@ -33,7 +40,7 @@ import org.apache.hadoop.fs.{FileStatus, Path}
  * 3. Consistent listing: Once a file has been written in a directory, all future listings for
  *    that directory must return that file.
  */
-private[internal] trait ReadOnlyLogStore { // TODO: rename and refactor
+private[internal] trait LogStore { // TODO: rename and refactor
 
   /** Read the given `path` */
   def read(path: String): Seq[String] = read(new Path(path))
@@ -69,6 +76,11 @@ private[internal] trait ReadOnlyLogStore { // TODO: rename and refactor
    */
   def write(path: Path, actions: Iterator[String], overwrite: Boolean = false): Unit
 
+  /** Resolve the fully qualified path for the given `path`. */
+  def resolvePathOnPhysicalStorage(path: Path): Path = {
+    throw new UnsupportedOperationException()
+  }
+
   /**
    * Whether a partial write is visible when writing to `path`.
    *
@@ -80,4 +92,68 @@ private[internal] trait ReadOnlyLogStore { // TODO: rename and refactor
    * Any LogStore implementation should override this instead of relying on the default.
    */
   def isPartialWriteVisible(path: Path): Boolean = true
+}
+
+private[internal] object LogStore extends LogStoreProvider
+
+private[internal] trait LogStoreProvider {
+
+  val defaultLogStoreClassName = classOf[HDFSLogStore].getName
+
+  def createLogStore(hadoopConf: Configuration): LogStore = {
+    val logStoreClassName =
+      hadoopConf.get(StandaloneHadoopConf.LOG_STORE_CLASS_KEY, defaultLogStoreClassName)
+
+    // scalastyle:off classforname
+    val logStoreClass =
+      Class.forName(logStoreClassName, true, Thread.currentThread().getContextClassLoader)
+    // scalastyle:on classforname
+
+    if (classOf[LogStoreJ].isAssignableFrom(logStoreClass)) {
+      val logStoreImpl = logStoreClass.getConstructor(classOf[Configuration])
+        .newInstance(hadoopConf).asInstanceOf[LogStoreJ]
+      new LogStoreAdaptor(logStoreImpl, hadoopConf)
+    } else {
+      logStoreClass.getConstructor(classOf[Configuration]).newInstance(hadoopConf)
+        .asInstanceOf[LogStore]
+    }
+  }
+}
+
+/**
+ * An adapter from external Java instances of [[LogStoreJ]] to internal Scala instances of
+ * [[LogStore]].
+ */
+private[internal] class LogStoreAdaptor(
+    logStoreImpl: LogStoreJ,
+    hadoopConf: Configuration) extends LogStore {
+
+  override def read(path: Path): Seq[String] = {
+    var iter: ClosebleIteratorJ[String] = null
+    try {
+      iter = logStoreImpl.read(path, hadoopConf)
+      val contents = iter.asScala.toArray
+      contents
+    } finally {
+      if (iter != null) {
+        iter.close()
+      }
+    }
+  }
+
+  override def write(path: Path, actions: Iterator[String], overwrite: Boolean): Unit = {
+    logStoreImpl.write(path, actions.asJava, overwrite, hadoopConf)
+  }
+
+  override def listFrom(path: Path): Iterator[FileStatus] = {
+    logStoreImpl.listFrom(path, hadoopConf).asScala
+  }
+
+  override def resolvePathOnPhysicalStorage(path: Path): Path = {
+    logStoreImpl.resolvePathOnPhysicalStorage(path, hadoopConf)
+  }
+
+  override def isPartialWriteVisible(path: Path): Boolean = {
+    logStoreImpl.isPartialWriteVisible(path, hadoopConf)
+  }
 }
