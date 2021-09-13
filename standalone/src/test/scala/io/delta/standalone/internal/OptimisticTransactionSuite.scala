@@ -23,6 +23,8 @@ import scala.collection.JavaConverters._
 import io.delta.standalone.{DeltaLog, Operation}
 import io.delta.standalone.actions.{Action => ActionJ, AddFile => AddFileJ, CommitInfo => CommitInfoJ, Format => FormatJ, Metadata => MetadataJ, Protocol => ProtocolJ, RemoveFile => RemoveFileJ}
 import io.delta.standalone.internal.actions._
+import io.delta.standalone.internal.exception.DeltaErrors
+import io.delta.standalone.internal.exception.DeltaErrors.InvalidProtocolVersionException
 import io.delta.standalone.internal.util.ConversionUtils
 import io.delta.standalone.types.{IntegerType, StringType, StructField, StructType}
 import io.delta.standalone.internal.util.TestUtils._
@@ -34,7 +36,7 @@ import org.scalatest.FunSuite
 class OptimisticTransactionSuite extends FunSuite {
   // scalastyle:on funsuite
   val writerId = "test-writer-id"
-  val manualUpdate = new Operation(Operation.MANUAL_UPDATE)
+  val manualUpdate = new Operation(Operation.Name.MANUAL_UPDATE)
 
   val A_P1 = "part=1/a"
   val B_P1 = "part=1/b"
@@ -128,7 +130,6 @@ class OptimisticTransactionSuite extends FunSuite {
     }
   }
 
-  // TODO: test prepareCommit > assert not already committed
   test("committing twice in the same transaction should fail") {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
@@ -141,27 +142,103 @@ class OptimisticTransactionSuite extends FunSuite {
     }
   }
 
-  // TODO: test prepareCommit > assert user didn't commit a CommitInfo
+  test("user cannot commit their own CommitInfo") {
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      log.startTransaction().commit(Metadata() :: Nil, manualUpdate, writerId)
+      val e = intercept[AssertionError] {
+        log.startTransaction().commit(CommitInfo.empty() :: Nil, manualUpdate, writerId)
+      }
+      assert(e.getMessage.contains("Cannot commit a custom CommitInfo in a transaction."))
+    }
+  }
 
-  // TODO: test prepareCommit > have more than 1 Metadata in transaction
+  test("commits shouldn't have more than one Metadata") {
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      val txn = log.startTransaction()
+      val e = intercept[AssertionError] {
+        txn.commit(Metadata() :: Metadata() :: Nil, manualUpdate, writerId)
+      }
+      assert(e.getMessage.contains("Cannot change the metadata more than once in a transaction."))
+    }
+  }
 
-  // TODO: test prepareCommit > 1st commit & ensureLogDirectoryExist throws
+  test("transaction should throw if it cannot read log directory during first commit ") {
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      dir.setReadOnly()
 
-  // TODO: test prepareCommit > 1st commit & commitValidationEnabled & metadataAbsentException
+      val txn = log.startTransaction()
+      val e = intercept[java.io.IOException] {
+        txn.commit(Metadata() :: Nil, manualUpdate, writerId)
+      }
+      assert(e.getMessage == s"Cannot create ${log.getLogPath.toString}")
+    }
+  }
 
-  // TODO: test prepareCommit > 1st commit & !commitValidationEnabled & no metadataAbsentException
+  test("first commit must have a Metadata") {
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      val txn = log.startTransaction()
+      val e = intercept[IllegalStateException] {
+        txn.commit(Nil, manualUpdate, writerId)
+      }
+      assert(e.getMessage == DeltaErrors.metadataAbsentException().getMessage)
+    }
+  }
 
-  // TODO: test prepareCommit > protocolDowngradeException (reader)
+  test("prevent protocol downgrades") {
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      log.startTransaction().commit(Metadata() :: Protocol(1, 2) :: Nil, manualUpdate, writerId)
+      val e = intercept[RuntimeException] {
+        log.startTransaction().commit(Protocol(1, 1) :: Nil, manualUpdate, writerId)
+      }
+      assert(e.getMessage.contains("Protocol version cannot be downgraded"))
+    }
+  }
 
-  // TODO: test prepareCommit > protocolDowngradeException (writer)
+  test("AddFile partition mismatches should fail") {
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
 
-  // TODO: test prepareCommit > commitValidationEnabled & addFilePartitioningMismatchException
+      // Note that Metadata() has no partition schema specified
+      log.startTransaction().commit(Metadata() :: Nil, manualUpdate, writerId)
+      val e = intercept[IllegalStateException] {
+        log.startTransaction().commit(addA_P1 :: Nil, manualUpdate, writerId)
+      }
+      assert(e.getMessage.contains("The AddFile contains partitioning schema different from the " +
+        "table's partitioning schema"))
+    }
+  }
 
-  // TODO: test prepareCommit > !commitValidationEnabled & no addFilePartitioningMismatchException
+  test("access with protocol too high") {
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      log.startTransaction().commit(Metadata() :: Protocol(1, 2) :: Nil, manualUpdate, writerId)
+      val txn = log.startTransaction()
+      txn.commit(Protocol(1, 3) :: Nil, manualUpdate, writerId)
 
-  // TODO: test prepareCommit > assertProtocolWrite
+      val e = intercept[InvalidProtocolVersionException] {
+        log.startTransaction().commit(Metadata() :: Nil, manualUpdate, writerId)
+      }
+      assert(e.getMessage.contains("Delta protocol version (1,3) is too new for this version"))
+    }
+  }
 
-  // TODO: test prepareCommit > assertRemovable
+  test("can't remove from an append-only table") {
+    withTempDir { dir =>
+      val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
+      val metadata = Metadata(configuration = Map("appendOnly" -> "true"))
+      log.startTransaction().commit(metadata :: Nil, manualUpdate, writerId)
+
+      val e = intercept[UnsupportedOperationException] {
+        log.startTransaction().commit(addA_P1.remove :: Nil, manualUpdate, writerId)
+      }
+      assert(e.getMessage.contains("This table is configured to only allow appends"))
+    }
+  }
 
   // TODO: test verifyNewMetadata > SchemaMergingUtils.checkColumnNameDuplication
 

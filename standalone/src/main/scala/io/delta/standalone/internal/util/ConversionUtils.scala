@@ -257,7 +257,9 @@ private[internal] object ConversionUtils {
       external.getUserId, // implicit check this!
       external.getUserName, // implicit check this!
       external.getOperation,
-      external.getOperationParameters.asScala.toMap,
+      if (external.getOperationParameters != null) {
+        external.getOperationParameters.asScala.toMap
+      } else null,
       None, // TODO: Option[JobInfo]
       None, // TODO: Option[NotebookInfo]
       external.getClusterId, // implicit check this!

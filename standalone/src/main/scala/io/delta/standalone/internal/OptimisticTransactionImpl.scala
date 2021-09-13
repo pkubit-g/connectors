@@ -105,7 +105,7 @@ private[internal] class OptimisticTransactionImpl(
 
     val commitInfo = CommitInfo(
       System.currentTimeMillis(),
-      op.getName,
+      op.getName.toString,
       null,
       Map.empty,
       Some(readVersion).filter(_ >= 0),
@@ -113,7 +113,7 @@ private[internal] class OptimisticTransactionImpl(
       Some(isBlindAppend),
       Some(op.getOperationMetrics.asScala.toMap),
       if (op.getUserMetadata.isPresent) Some(op.getUserMetadata.get()) else None,
-      Some(writerId)
+      Some(engineInfo)
     )
 
     preparedActions = commitInfo +: preparedActions
@@ -168,7 +168,7 @@ private[internal] class OptimisticTransactionImpl(
 
     val userCommitInfo = actions.exists(_.isInstanceOf[CommitInfo])
     assert(!userCommitInfo,
-      "CommitInfo actions are created automatically. Users shouldn't try to commit them directly")
+      "Cannot commit a custom CommitInfo in a transaction.")
 
     // If the metadata has changed, add that to the set of actions
     var finalActions = newMetadata.toSeq ++ actions
