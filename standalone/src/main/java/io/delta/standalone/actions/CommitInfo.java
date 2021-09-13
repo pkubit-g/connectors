@@ -199,21 +199,13 @@ public class CommitInfo implements Action {
                 Objects.equals(isBlindAppend, that.isBlindAppend) &&
                 Objects.equals(operationMetrics, that.operationMetrics) &&
                 Objects.equals(userMetadata, that.userMetadata) &&
-<<<<<<< HEAD
-                Objects.equals(writerId, that.writerId);
-=======
                 Objects.equals(engineInfo, that.engineInfo);
->>>>>>> origin/dsw_prototype_1_commit
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(version, timestamp, userId, userName, operation, operationParameters,
                 jobInfo, notebookInfo, clusterId, readVersion, isolationLevel, isBlindAppend,
-<<<<<<< HEAD
-                operationMetrics, userMetadata, writerId);
-=======
                 operationMetrics, userMetadata, engineInfo);
->>>>>>> origin/dsw_prototype_1_commit
     }
 }
