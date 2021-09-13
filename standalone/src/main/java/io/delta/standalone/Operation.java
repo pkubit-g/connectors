@@ -10,49 +10,51 @@ import java.util.Set;
  *
  * An operation is tracked as the first line in delta logs, and powers `DESCRIBE HISTORY` for Delta
  * tables.
- *
- * Usage:
- * If possible, use one of the statically-defined operation names, e.g. new Operation(Operation.WRITE, ...)
- * If none of the names are applicable, then provide your own, e.g. new Operation("myEngineSpecificOperation", ...)
  */
 public final class Operation {
-    /** Recorded during batch inserts. */
-    public static final String WRITE = "WRITE";
 
-    /** Recorded during streaming inserts. */
-    public static final String STREAMING_UPDATE = "STREAMING UPDATE";
+    /**
+     * Supported operation types.
+     */
+    public enum Name {
+        /** Recorded during batch inserts. */
+        WRITE,
 
-    /** Recorded while deleting certain partitions. */
-    public static final String DELETE = "DELETE";
+        /** Recorded during streaming inserts. */
+        STREAMING_UPDATE,
 
-    /** Recorded when truncating the table. */
-    public static final String TRUNCATE = "TRUNCATE";
+        /** Recorded while deleting certain partitions. */
+        DELETE,
 
-    /** Recorded when converting a table into a Delta table. */
-    public static final String CONVERT = "CONVERT";
+        /** Recorded when truncating the table. */
+        TRUNCATE,
 
-    public static final String MANUAL_UPDATE = "MANUAL_UPDATE";
+        /** Recorded when converting a table into a Delta table. */
+        CONVERT,
 
-    // TODO: the rest
+        // TODO: the rest
 
-    private final String name;
+        MANUAL_UPDATE
+    }
+
+    private final Name name;
     private final Map<String, Object> parameters;
     private final Map<String, String> operationMetrics;
     private final Optional<String> userMetadata;
 
-    public Operation(String name) {
+    public Operation(Name name) {
         this(name, Collections.emptyMap(), Collections.emptyMap(), Optional.empty());
     }
 
-    public Operation(String name, Map<String, Object> parameters) {
+    public Operation(Name name, Map<String, Object> parameters) {
         this(name, parameters, Collections.emptyMap(), Optional.empty());
     }
 
-    public Operation(String name, Map<String, Object> parameters, Map<String, String> operationMetrics) {
+    public Operation(Name name, Map<String, Object> parameters, Map<String, String> operationMetrics) {
         this(name, parameters, operationMetrics, Optional.empty());
     }
 
-    public Operation(String name, Map<String, Object> parameters, Map<String, String> operationMetrics,
+    public Operation(Name name, Map<String, Object> parameters, Map<String, String> operationMetrics,
                      Optional<String> userMetadata) {
         this.name = name;
         this.parameters = parameters;
@@ -60,19 +62,35 @@ public final class Operation {
         this.userMetadata = userMetadata;
     }
 
-    public String getName() {
+    /**
+     * TODO
+     * @return
+     */
+    public Name getName() {
         return name;
     }
 
+    /**
+     * TODO
+     * @return
+     */
     public Map<String, Object> getParameters() {
         // TODO: be consistent with AddFile getter ternary
         return null == parameters ? null : Collections.unmodifiableMap(parameters);
     }
 
+    /**
+     * TODO
+     * @return
+     */
     public Map<String, String> getOperationMetrics() {
         return null == operationMetrics ? null : Collections.unmodifiableMap(operationMetrics);
     }
 
+    /**
+     * TODO
+     * @return
+     */
     public Optional<String> getUserMetadata() {
         return null == userMetadata ? Optional.empty() : userMetadata;
     }

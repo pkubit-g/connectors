@@ -79,7 +79,7 @@ private[internal] class OptimisticTransactionImpl(
   override def commit(
       actionsJ: java.lang.Iterable[ActionJ],
       op: Operation,
-      writerId: String): CommitResult = {
+      engineInfo: String): CommitResult = {
     val actions = actionsJ.asScala.map(ConversionUtils.convertActionJ).toSeq
 
     // Try to commit at the next version.
