@@ -403,6 +403,12 @@ private[internal] class OptimisticTransactionImpl(
     deltaLog.snapshot.version + 1
   }
 
+  /** Creates new metadata with global Delta configuration defaults. */
+  private def withGlobalConfigDefaults(metadata: Metadata): Metadata = {
+    // TODO
+    metadata
+  }
+
   private[internal] object OptimisticTransactionImpl {
     val DELTA_MAX_RETRY_COMMIT_ATTEMPTS = 10000000
 
@@ -410,11 +416,5 @@ private[internal] class OptimisticTransactionImpl(
     def getOperationJsonEncodedParameters(op: Operation): Map[String, String] = {
       op.getParameters.asScala.mapValues(JsonUtils.toJson(_)).toMap
     }
-  }
-
-  /** Creates new metadata with global Delta configuration defaults. */
-  private def withGlobalConfigDefaults(metadata: Metadata): Metadata = {
-    // TODO
-    metadata
   }
 }
