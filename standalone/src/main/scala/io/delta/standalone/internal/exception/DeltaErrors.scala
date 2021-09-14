@@ -179,10 +179,11 @@ private[internal] object DeltaErrors {
   }
 
   def concurrentAppendException(
-      conflictingCommit: Option[CommitInfo]): ConcurrentAppendException = {
-    // TODO: include partition?
+      conflictingCommit: Option[CommitInfo],
+      partition: String): ConcurrentAppendException = {
     val message = DeltaErrors.concurrentModificationExceptionMsg(
-      s"Files were added by a concurrent update. Please try the operation again.",
+      s"Files were added to $partition by a concurrent update. " +
+        s"Please try the operation again.",
       conflictingCommit)
     new ConcurrentAppendException(message)
   }

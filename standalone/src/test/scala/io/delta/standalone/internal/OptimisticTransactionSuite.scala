@@ -16,16 +16,18 @@
 
 package io.delta.standalone.internal
 
+import java.util.Arrays
+
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 
 import io.delta.standalone.{DeltaLog, Operation}
 import io.delta.standalone.actions.{AddFile => AddFileJ, CommitInfo => CommitInfoJ, Metadata => MetadataJ, Protocol => ProtocolJ, RemoveFile => RemoveFileJ}
-import io.delta.standalone.expressions.Literal
+import io.delta.standalone.expressions.{Column, EqualTo, Literal}
 import io.delta.standalone.internal.actions._
-import io.delta.standalone.internal.exception.DeltaErrors
+import io.delta.standalone.internal.exception.{ConcurrentAppendException, DeltaErrors}
 import io.delta.standalone.internal.util.ConversionUtils
-import io.delta.standalone.types.{StringType, StructField, StructType}
+import io.delta.standalone.types.{IntegerType, StringType, StructField, StructType}
 import io.delta.standalone.internal.util.TestUtils._
 import org.apache.hadoop.conf.Configuration
 
@@ -59,10 +61,12 @@ class OptimisticTransactionSuite extends FunSuite {
       actions: Seq[Action],
       partitionCols: Seq[String] = "part" :: Nil)(
       test: DeltaLog => Unit): Unit = {
-    val schemaFields = partitionCols.map { p => new StructField(p, new StringType()) }.toArray
-    val schema = new StructType(schemaFields)
-    //  TODO  val metadata = Metadata(partitionColumns = partitionCols, schemaString = schema.json)
-    val metadata = Metadata(partitionColumns = partitionCols)
+    // TODO:
+    // val schemaFields = partitionCols.map { p => new StructField(p, new StringType()) }.toArray
+    // val schema = new StructType(schemaFields)
+    // val metadata = Metadata(partitionColumns = partitionCols, schemaString = schema.json)
+    val schemaStr = """{"type":"struct","fields":[{"name":"part","type":"string","nullable":true,"metadata":{}}]}"""
+    val metadata = Metadata(partitionColumns = partitionCols, schemaString = schemaStr)
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       log.startTransaction().commit(metadata :: Nil, manualUpdate, engineInfo)
@@ -390,9 +394,33 @@ class OptimisticTransactionSuite extends FunSuite {
     }
   }
 
+  // TODO: readWholeTable tests
+
   ///////////////////////////////////////////////////////////////////////////
   // checkForConflicts() tests
   ///////////////////////////////////////////////////////////////////////////
+
+  test("block concurrent commit when read partition was appended to by concurrent write") {
+    withLog(addA_P1 :: addD_P2 :: addE_P3 :: Nil) { log =>
+      val schema = log.update().getMetadata.getSchema
+
+      val tx1 = log.startTransaction()
+      // TX1 reads only P1
+      val filterExpr = new EqualTo(schema.column("part"), Literal.of("1"))
+      val tx1Read = tx1.markFilesAsRead(Arrays.asList(filterExpr))
+      assert(tx1Read.asScala.map(_.getPath) == A_P1 :: Nil)
+
+      val tx2 = log.startTransaction()
+      tx2.readWholeTable()
+      // TX2 modifies only P1
+      tx2.commit(addB_P1 :: Nil, manualUpdate, engineInfo)
+
+      intercept[ConcurrentAppendException] {
+        // P1 was modified
+        tx1.commit(addC_P2 :: addE_P3 :: Nil, manualUpdate, engineInfo)
+      }
+    }
+  }
 
   // TODO multiple concurrent commits, not just one (i.e. 1st doesn't conflict, 2nd does)
 

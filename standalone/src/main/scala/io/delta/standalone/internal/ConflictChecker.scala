@@ -109,7 +109,20 @@ private[internal] class ConflictChecker(
         Seq.empty
     }
 
-    // TODO
+    val predicatesMatchingAddedFiles = currentTransactionInfo.readPredicates.flatMap { p =>
+      val conflictingFile = DeltaLogImpl.filterFileList(
+        currentTransactionInfo.metadata.partitionSchema,
+        addedFilesToCheckForConflicts,
+        p :: Nil
+      ).headOption
+
+      conflictingFile.map(f => getPrettyPartitionMessage(f.partitionValues))
+    }.headOption
+
+    if (predicatesMatchingAddedFiles.isDefined) {
+      throw DeltaErrors.concurrentAppendException(
+          winningCommitSummary.commitInfo, predicatesMatchingAddedFiles.get)
+    }
   }
 
   /**

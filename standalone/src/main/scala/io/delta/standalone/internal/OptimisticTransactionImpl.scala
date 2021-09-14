@@ -42,6 +42,9 @@ private[internal] class OptimisticTransactionImpl(
   /** Tracks specific files that have been seen by this transaction. */
   protected val readFiles = new scala.collection.mutable.HashSet[AddFile]
 
+  /** Whether the whole table was read during the transaction. */
+  protected var readTheWholeTable = false
+
   /** Tracks if this transaction has already committed. */
   private var committed = false
 
@@ -190,7 +193,8 @@ private[internal] class OptimisticTransactionImpl(
   }
 
   override def readWholeTable(): Unit = {
-
+    readPredicates += Literal.True
+    readTheWholeTable = true
   }
 
   override def txnVersion(id: String): Long = {
@@ -350,7 +354,7 @@ private[internal] class OptimisticTransactionImpl(
     val currentTransactionInfo = CurrentTransactionInfo(
       readPredicates = readPredicates,
       readFiles = readFiles.toSet,
-      readWholeTable = false, // TODO readTheWholeTable
+      readWholeTable = readTheWholeTable,
       readAppIds = Nil.toSet, // TODO: readTxn.toSet,
       metadata = metadata,
       actions = actions,
