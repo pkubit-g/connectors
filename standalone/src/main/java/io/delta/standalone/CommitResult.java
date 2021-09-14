@@ -1,7 +1,7 @@
 package io.delta.standalone;
 
 /**
- * Wrapper around the result of {@link OptimisticTransaction.commit}.
+ * Wrapper around the result of {@link OptimisticTransaction}.commit.
  */
 public class CommitResult {
     private final long version;

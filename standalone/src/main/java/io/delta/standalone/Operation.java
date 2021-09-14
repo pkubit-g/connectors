@@ -64,7 +64,7 @@ public final class Operation {
 
     /**
      * TODO
-     * @return
+     * @return TODO
      */
     public Name getName() {
         return name;
@@ -72,7 +72,7 @@ public final class Operation {
 
     /**
      * TODO
-     * @return
+     * @return TODO
      */
     public Map<String, Object> getParameters() {
         // TODO: be consistent with AddFile getter ternary
@@ -81,7 +81,7 @@ public final class Operation {
 
     /**
      * TODO
-     * @return
+     * @return TODO
      */
     public Map<String, String> getOperationMetrics() {
         return null == operationMetrics ? null : Collections.unmodifiableMap(operationMetrics);
@@ -89,7 +89,7 @@ public final class Operation {
 
     /**
      * TODO
-     * @return
+     * @return TODO
      */
     public Optional<String> getUserMetadata() {
         return null == userMetadata ? Optional.empty() : userMetadata;
