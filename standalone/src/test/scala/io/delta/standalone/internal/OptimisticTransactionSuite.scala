@@ -239,16 +239,20 @@ class OptimisticTransactionSuite extends FunSuite {
     }
   }
 
-  test("can't remove from an append-only table") {
+  test("Removing from an append-only table") {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       val metadata = Metadata(configuration = Map("appendOnly" -> "true"))
       log.startTransaction().commit(metadata :: Nil, manualUpdate, engineInfo)
 
+      val removeWithDataChange = addA_P1.remove.copy(dataChange = true)
       val e = intercept[UnsupportedOperationException] {
-        log.startTransaction().commit(addA_P1.remove :: Nil, manualUpdate, engineInfo)
+        log.startTransaction().commit(removeWithDataChange :: Nil, manualUpdate, engineInfo)
       }
       assert(e.getMessage.contains("This table is configured to only allow appends"))
+
+      val removeWithoutDataChange = addA_P1.remove.copy(dataChange = false)
+      log.startTransaction().commit(removeWithoutDataChange :: Nil, manualUpdate, engineInfo)
     }
   }
 
