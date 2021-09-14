@@ -206,6 +206,7 @@ private[internal] class OptimisticTransactionImpl(
 
     // If the metadata has changed, add that to the set of actions
     var finalActions = newMetadata.toSeq ++ actions
+
     val metadataChanges = finalActions.collect { case m: Metadata => m }
     assert(metadataChanges.length <= 1,
       "Cannot change the metadata more than once in a transaction.")

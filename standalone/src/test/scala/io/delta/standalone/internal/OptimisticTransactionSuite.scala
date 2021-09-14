@@ -134,6 +134,10 @@ class OptimisticTransactionSuite extends FunSuite {
     }
   }
 
+  ///////////////////////////////////////////////////////////////////////////
+  // prepareCommit() tests
+  ///////////////////////////////////////////////////////////////////////////
+
   test("committing twice in the same transaction should fail") {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
@@ -168,6 +172,7 @@ class OptimisticTransactionSuite extends FunSuite {
     }
   }
 
+  // DeltaLog::ensureLogDirectoryExists
   test("transaction should throw if it cannot read log directory during first commit") {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
@@ -206,7 +211,6 @@ class OptimisticTransactionSuite extends FunSuite {
     }
   }
 
-  // TODO test create a table with protocol too high
   test("Can't create table with invalid protocol version") {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
@@ -234,6 +238,11 @@ class OptimisticTransactionSuite extends FunSuite {
     }
   }
 
+  // TODO: test deltaLog.assertProtocolWrite.
+  // - using DeltaOSS, create a table with protocol > (1, 2)
+  // - the try and commit to that table (just a standard, normal Metadata() commit)
+  // - deltaLog.assertProtocolWrite should throw
+
   test("can't remove from an append-only table") {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
@@ -246,6 +255,10 @@ class OptimisticTransactionSuite extends FunSuite {
       assert(e.getMessage.contains("This table is configured to only allow appends"))
     }
   }
+
+  ///////////////////////////////////////////////////////////////////////////
+  // updateMetadata() tests
+  ///////////////////////////////////////////////////////////////////////////
 
   test("can't update metadata more than once in a transaction") {
     withTempDir { dir =>
@@ -288,7 +301,7 @@ class OptimisticTransactionSuite extends FunSuite {
     }
   }
 
-  test("commit new metadataa with Protocol properties should fail") {
+  test("commit new metadata with Protocol properties should fail") {
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
       log.startTransaction().commit(Metadata() :: Nil, manualUpdate, writerId)
@@ -304,6 +317,10 @@ class OptimisticTransactionSuite extends FunSuite {
         s"(${Protocol.MIN_READER_VERSION_PROP}) as part of table properties"))
     }
   }
+
+  ///////////////////////////////////////////////////////////////////////////
+  // verifyNewMetadata() tests
+  ///////////////////////////////////////////////////////////////////////////
 
   test("can't have duplicate column names") {
     // TODO: just call myStruct.getJson()
@@ -331,15 +348,20 @@ class OptimisticTransactionSuite extends FunSuite {
 
   // TODO: test updateMetadata > withGlobalConfigDefaults
 
-  // TODO: test commit
-  // - commitInfo is actually added to final actions
-  // - isBlindAppend == true
-  // - isBlindAppend == false
-  // - different operation names
+  ///////////////////////////////////////////////////////////////////////////
+  // commit() tests
+  ///////////////////////////////////////////////////////////////////////////
 
-  // TODO: test doCommit > IllegalStateException
+  // - TODO commitInfo is actually added to final actions (with correct engineInfo)
+  // - TODO isBlindAppend == true cases
+  // - TODO isBlindAppend == false case
+  // - TODO different operation names
 
-  // TODO: test doCommit > DeltaConcurrentModificationException
+  ///////////////////////////////////////////////////////////////////////////
+  // checkForConflicts() tests
+  ///////////////////////////////////////////////////////////////////////////
+
+  // TODO multiple concurrent commits, not just one (i.e. 1st doesn't conflict, 2nd does)
 
   // TODO: test more ConcurrentAppendException
 
