@@ -104,7 +104,7 @@ private[internal] class OptimisticTransactionImpl(
     }
 
     val commitInfo = CommitInfo(
-      System.currentTimeMillis(),
+      deltaLog.clock.getTimeMillis(),
       op.getName.toString,
       null,
       Map.empty,
@@ -118,7 +118,7 @@ private[internal] class OptimisticTransactionImpl(
 
     preparedActions = commitInfo +: preparedActions
 
-    commitAttemptStartTime = System.currentTimeMillis()
+    commitAttemptStartTime = deltaLog.clock.getTimeMillis()
 
     val commitVersion = doCommitRetryIteratively(
       snapshot.version + 1,
@@ -270,7 +270,7 @@ private[internal] class OptimisticTransactionImpl(
         if (attemptNumber == 0) {
           doCommit(commitVersion, actions)
         } else if (attemptNumber > DELTA_MAX_RETRY_COMMIT_ATTEMPTS) {
-          val totalCommitAttemptTime = System.currentTimeMillis() - commitAttemptStartTime
+          val totalCommitAttemptTime = deltaLog.clock.getTimeMillis() - commitAttemptStartTime
           throw DeltaErrors.maxCommitRetriesExceededException(
             attemptNumber,
             commitVersion,
