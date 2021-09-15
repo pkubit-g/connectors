@@ -23,7 +23,7 @@ import io.delta.standalone.{DeltaLog, Operation}
 import io.delta.standalone.actions.{AddFile => AddFileJ, CommitInfo => CommitInfoJ, Metadata => MetadataJ, Protocol => ProtocolJ, RemoveFile => RemoveFileJ}
 import io.delta.standalone.expressions.{EqualTo, Expression, Literal}
 import io.delta.standalone.internal.actions._
-import io.delta.standalone.internal.exception.{ConcurrentAppendException, ConcurrentDeleteReadException, DeltaErrors}
+import io.delta.standalone.internal.exception.{ConcurrentAppendException, ConcurrentDeleteReadException, DeltaErrors, ProtocolChangedException}
 import io.delta.standalone.internal.util.ConversionUtils
 import io.delta.standalone.internal.util.TestUtils._
 import org.apache.hadoop.conf.Configuration
@@ -401,6 +401,34 @@ class OptimisticTransactionSuite extends FunSuite {
   // checkForConflicts() tests
   ///////////////////////////////////////////////////////////////////////////
 
+  private def setDataChangeFalse(fileActions: Seq[FileAction]): Seq[FileAction] = {
+    fileActions.map {
+      case a: AddFile => a.copy(dataChange = false)
+      case r: RemoveFile => r.copy(dataChange = false)
+      case cdc: AddCDCFile => cdc // change files are always dataChange = false
+    }
+  }
+
+  //////////////////////////////////
+  // protocolChangedException tests
+  //////////////////////////////////
+
+  test("concurrent protocol update should fail") {
+    withLog(Nil) { log =>
+      val tx1 = log.startTransaction()
+      val tx2 = log.startTransaction()
+      tx2.commit(Protocol(1, 2) :: Nil, manualUpdate, engineInfo)
+
+      assertThrows[ProtocolChangedException] {
+        tx1.commit(Protocol(1, 2) :: Nil, manualUpdate, engineInfo)
+      }
+    }
+  }
+
+  //////////////////////////////////
+  // concurrentAppend tests
+  //////////////////////////////////
+
   test("block concurrent commit when read partition was appended to by concurrent write") {
     withLog(addA_P1 :: addD_P2 :: addE_P3 :: Nil) { log =>
       val schema = log.update().getMetadata.getSchema
@@ -438,6 +466,29 @@ class OptimisticTransactionSuite extends FunSuite {
       }
     }
   }
+
+  test("no data change: allow data rearrange when new files concurrently added") {
+    // This tests the case when isolationLevel == SnapshotIsolation
+    withLog(addA_P1 :: addB_P1 :: Nil) { log =>
+      val tx1 = log.startTransaction()
+      tx1.markFilesAsRead(Literal.True :: Nil)
+
+      val tx2 = log.startTransaction()
+      tx1.markFilesAsRead(Literal.True :: Nil)
+      tx2.commit(addE_P3 :: Nil, manualUpdate, engineInfo)
+
+      // tx1 rearranges files (dataChange = false)
+      tx1.commit(
+        setDataChangeFalse(addA_P1.remove :: addB_P1.remove :: addC_P1 :: Nil),
+        manualUpdate, engineInfo)
+
+      assert(log.update().getAllFiles.asScala.map(_.getPath) == C_P1 :: E_P3 :: Nil)
+    }
+  }
+
+  //////////////////////////////////
+  // concurrentDeleteRead tests
+  //////////////////////////////////
 
   test("block concurrent commit on read & delete conflicting partitions") {
     // txn.readFiles will be non-empty, so this covers the first ConcurrentDeleteReadException
@@ -479,8 +530,6 @@ class OptimisticTransactionSuite extends FunSuite {
   }
 
   // TODO multiple concurrent commits, not just one (i.e. 1st doesn't conflict, 2nd does)
-
-  // TODO: test more ConcurrentDeleteReadException (including readWholeTable)
 
   // TODO: readWholeTable tests
 

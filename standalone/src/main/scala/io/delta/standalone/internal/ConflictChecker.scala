@@ -74,10 +74,11 @@ private[internal] class ConflictChecker(
     winningCommitVersion: Long,
     isolationLevel: IsolationLevel) {
 
+  private val deltaLog = currentTransactionInfo.deltaLog
   private val winningCommitSummary: WinningCommitSummary = createWinningCommitSummary()
 
   def checkConflicts(): Unit = {
-    //    TODO checkProtocolCompatibility()
+    checkProtocolCompatibility()
     //    TODO checkNoMetadataUpdates()
     checkForAddedFilesThatShouldHaveBeenReadByCurrentTxn()
     checkForDeletedFilesAgainstCurrentTxnReadFiles()
@@ -94,6 +95,24 @@ private[internal] class ConflictChecker(
     val winningCommitActions = deltaLog.store.read(
       FileNames.deltaFile(deltaLog.logPath, winningCommitVersion)).map(Action.fromJson)
     WinningCommitSummary(winningCommitActions, winningCommitVersion)
+  }
+
+  /**
+   * Asserts that the client is up to date with the protocol and is allowed to read and write
+   * against the protocol set by the committed transaction.
+   */
+  protected def checkProtocolCompatibility(): Unit = {
+    if (winningCommitSummary.protocol.nonEmpty) {
+      winningCommitSummary.protocol.foreach { p =>
+        deltaLog.assertProtocolRead(p)
+        deltaLog.assertProtocolWrite(p)
+      }
+      currentTransactionInfo.actions.foreach {
+        case Protocol(_, _) =>
+          throw DeltaErrors.protocolChangedException(winningCommitSummary.commitInfo)
+        case _ =>
+      }
+    }
   }
 
   /**

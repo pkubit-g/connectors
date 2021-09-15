@@ -19,6 +19,7 @@ package io.delta.standalone.internal.exception
 import java.io.{FileNotFoundException, IOException}
 
 import io.delta.standalone.internal.actions.{CommitInfo, Protocol}
+import io.delta.standalone.internal.util.JsonUtils
 import org.apache.hadoop.fs.Path
 import io.delta.standalone.types.StructType
 
@@ -174,8 +175,26 @@ private[internal] object DeltaErrors {
   def concurrentModificationExceptionMsg(
       baseMessage: String,
       commit: Option[CommitInfo]): String = {
-    // TODO
-    ""
+    baseMessage +
+      commit.map(ci => s"\nConflicting commit: ${JsonUtils.toJson(ci)}").getOrElse("") +
+      s"\nRefer to https://docs.delta.io/latest/concurrency-control.html for more details."
+  }
+
+  def protocolChangedException(conflictingCommit: Option[CommitInfo]): ProtocolChangedException = {
+    val additionalInfo = conflictingCommit.map { v =>
+      if (v.version.getOrElse(-1) == 0) {
+        "This happens when multiple writers are writing to an empty directory. " +
+          "Creating the table ahead of time will avoid this conflict. "
+      } else {
+        ""
+      }
+    }.getOrElse("")
+
+    val message = DeltaErrors.concurrentModificationExceptionMsg(
+      "The protocol version of the Delta table has been changed by a concurrent update. " +
+        additionalInfo + "Please try the operation again.",
+      conflictingCommit)
+    new ProtocolChangedException(message)
   }
 
   def concurrentAppendException(
