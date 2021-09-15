@@ -21,6 +21,9 @@ import java.util.ConcurrentModificationException
 class DeltaConcurrentModificationException(message: String)
   extends ConcurrentModificationException(message)
 
+class MetadataChangedException(message: String)
+  extends DeltaConcurrentModificationException(message)
+
 class ProtocolChangedException(message: String)
   extends DeltaConcurrentModificationException(message)
 

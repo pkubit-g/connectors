@@ -79,7 +79,7 @@ private[internal] class ConflictChecker(
 
   def checkConflicts(): Unit = {
     checkProtocolCompatibility()
-    //    TODO checkNoMetadataUpdates()
+    checkNoMetadataUpdates()
     checkForAddedFilesThatShouldHaveBeenReadByCurrentTxn()
     checkForDeletedFilesAgainstCurrentTxnReadFiles()
     //    TODO checkForDeletedFilesAgainstCurrentTxnDeletedFiles()
@@ -101,7 +101,7 @@ private[internal] class ConflictChecker(
    * Asserts that the client is up to date with the protocol and is allowed to read and write
    * against the protocol set by the committed transaction.
    */
-  protected def checkProtocolCompatibility(): Unit = {
+  private def checkProtocolCompatibility(): Unit = {
     if (winningCommitSummary.protocol.nonEmpty) {
       winningCommitSummary.protocol.foreach { p =>
         deltaLog.assertProtocolRead(p)
@@ -112,6 +112,16 @@ private[internal] class ConflictChecker(
           throw DeltaErrors.protocolChangedException(winningCommitSummary.commitInfo)
         case _ =>
       }
+    }
+  }
+
+  /**
+   * Check if the committed transaction has changed metadata.
+   */
+  private def checkNoMetadataUpdates(): Unit = {
+    // Fail if the metadata is different than what the txn read.
+    if (winningCommitSummary.metadataUpdates.nonEmpty) {
+      throw DeltaErrors.metadataChangedException(winningCommitSummary.commitInfo)
     }
   }
 

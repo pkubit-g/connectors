@@ -23,7 +23,7 @@ import io.delta.standalone.{DeltaLog, Operation}
 import io.delta.standalone.actions.{AddFile => AddFileJ, CommitInfo => CommitInfoJ, Metadata => MetadataJ, Protocol => ProtocolJ, RemoveFile => RemoveFileJ}
 import io.delta.standalone.expressions.{EqualTo, Expression, Literal}
 import io.delta.standalone.internal.actions._
-import io.delta.standalone.internal.exception.{ConcurrentAppendException, ConcurrentDeleteReadException, DeltaErrors, ProtocolChangedException}
+import io.delta.standalone.internal.exception._
 import io.delta.standalone.internal.util.ConversionUtils
 import io.delta.standalone.internal.util.TestUtils._
 import org.apache.hadoop.conf.Configuration
@@ -421,6 +421,24 @@ class OptimisticTransactionSuite extends FunSuite {
 
       assertThrows[ProtocolChangedException] {
         tx1.commit(Protocol(1, 2) :: Nil, manualUpdate, engineInfo)
+      }
+    }
+  }
+
+  //////////////////////////////////
+  // metadataChangedException tests
+  //////////////////////////////////
+
+  test("concurrent metadata update should fail") {
+    withLog(Nil) { log =>
+      val tx1 = log.startTransaction()
+      val tx2 = log.startTransaction()
+      tx2.updateMetadata(ConversionUtils.convertMetadata(Metadata(name = "foo")))
+      tx2.commit(Nil, manualUpdate, engineInfo)
+
+      assertThrows[MetadataChangedException] {
+        tx1.updateMetadata(ConversionUtils.convertMetadata(Metadata(name = "bar")))
+        tx1.commit(Nil, manualUpdate, engineInfo)
       }
     }
   }

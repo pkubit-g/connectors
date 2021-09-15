@@ -180,6 +180,15 @@ private[internal] object DeltaErrors {
       s"\nRefer to https://docs.delta.io/latest/concurrency-control.html for more details."
   }
 
+  def metadataChangedException(
+      conflictingCommit: Option[CommitInfo]): MetadataChangedException = {
+    val message = DeltaErrors.concurrentModificationExceptionMsg(
+      "The metadata of the Delta table has been changed by a concurrent update. " +
+        "Please try the operation again.",
+      conflictingCommit)
+    new MetadataChangedException(message)
+  }
+
   def protocolChangedException(conflictingCommit: Option[CommitInfo]): ProtocolChangedException = {
     val additionalInfo = conflictingCommit.map { v =>
       if (v.version.getOrElse(-1) == 0) {
