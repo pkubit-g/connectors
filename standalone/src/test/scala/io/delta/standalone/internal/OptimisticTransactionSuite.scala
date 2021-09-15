@@ -16,18 +16,15 @@
 
 package io.delta.standalone.internal
 
-import java.util.Arrays
-
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 
 import io.delta.standalone.{DeltaLog, Operation}
 import io.delta.standalone.actions.{AddFile => AddFileJ, CommitInfo => CommitInfoJ, Metadata => MetadataJ, Protocol => ProtocolJ, RemoveFile => RemoveFileJ}
-import io.delta.standalone.expressions.{Column, EqualTo, Literal}
+import io.delta.standalone.expressions.{EqualTo, Expression, Literal}
 import io.delta.standalone.internal.actions._
-import io.delta.standalone.internal.exception.{ConcurrentAppendException, DeltaErrors}
+import io.delta.standalone.internal.exception.{ConcurrentAppendException, ConcurrentDeleteReadException, DeltaErrors}
 import io.delta.standalone.internal.util.ConversionUtils
-import io.delta.standalone.types.{IntegerType, StringType, StructField, StructType}
 import io.delta.standalone.internal.util.TestUtils._
 import org.apache.hadoop.conf.Configuration
 
@@ -36,6 +33,10 @@ import org.scalatest.FunSuite
 
 class OptimisticTransactionSuite extends FunSuite {
   // scalastyle:on funsuite
+
+  implicit def exprSeqToList[T <: Expression](seq: Seq[T]): java.util.List[Expression] =
+    seq.asInstanceOf[Seq[Expression]].asJava
+
   val engineInfo = "test-engine-info"
   val manualUpdate = new Operation(Operation.Name.MANUAL_UPDATE)
 
@@ -65,7 +66,9 @@ class OptimisticTransactionSuite extends FunSuite {
     // val schemaFields = partitionCols.map { p => new StructField(p, new StringType()) }.toArray
     // val schema = new StructType(schemaFields)
     // val metadata = Metadata(partitionColumns = partitionCols, schemaString = schema.json)
+    // scalastyle:off line.size.limit
     val schemaStr = """{"type":"struct","fields":[{"name":"part","type":"string","nullable":true,"metadata":{}}]}"""
+    // scalastyle:on line.size.limit
     val metadata = Metadata(partitionColumns = partitionCols, schemaString = schemaStr)
     withTempDir { dir =>
       val log = DeltaLog.forTable(new Configuration(), dir.getCanonicalPath)
@@ -394,8 +397,6 @@ class OptimisticTransactionSuite extends FunSuite {
     }
   }
 
-  // TODO: readWholeTable tests
-
   ///////////////////////////////////////////////////////////////////////////
   // checkForConflicts() tests
   ///////////////////////////////////////////////////////////////////////////
@@ -403,15 +404,13 @@ class OptimisticTransactionSuite extends FunSuite {
   test("block concurrent commit when read partition was appended to by concurrent write") {
     withLog(addA_P1 :: addD_P2 :: addE_P3 :: Nil) { log =>
       val schema = log.update().getMetadata.getSchema
-
       val tx1 = log.startTransaction()
       // TX1 reads only P1
-      val filterExpr = new EqualTo(schema.column("part"), Literal.of("1"))
-      val tx1Read = tx1.markFilesAsRead(Arrays.asList(filterExpr))
+      val tx1Read = tx1.markFilesAsRead(new EqualTo(schema.column("part"), Literal.of("1")) :: Nil)
       assert(tx1Read.asScala.map(_.getPath) == A_P1 :: Nil)
 
       val tx2 = log.startTransaction()
-      tx2.readWholeTable()
+      tx2.markFilesAsRead(Literal.True :: Nil)
       // TX2 modifies only P1
       tx2.commit(addB_P1 :: Nil, manualUpdate, engineInfo)
 
@@ -422,11 +421,68 @@ class OptimisticTransactionSuite extends FunSuite {
     }
   }
 
+  test("block concurrent commit on full table scan") {
+    withLog(addA_P1 :: addD_P2 :: Nil) { log =>
+      val schema = log.update().getMetadata.getSchema
+      val tx1 = log.startTransaction()
+      // TX1 full table scan
+      tx1.markFilesAsRead(Literal.True :: Nil)
+      tx1.markFilesAsRead(new EqualTo(schema.column("part"), Literal.of("1")) :: Nil)
+
+      val tx2 = log.startTransaction()
+      tx2.markFilesAsRead(Literal.True :: Nil)
+      tx2.commit(addC_P2 :: addD_P2.remove :: Nil, manualUpdate, engineInfo)
+
+      intercept[ConcurrentAppendException] {
+        tx1.commit(addE_P3 :: addF_P3 :: Nil, manualUpdate, engineInfo)
+      }
+    }
+  }
+
+  test("block concurrent commit on read & delete conflicting partitions") {
+    // txn.readFiles will be non-empty, so this covers the first ConcurrentDeleteReadException
+    // case in checkForDeletedFilesAgainstCurrentTxnReadFiles
+    withLog(addA_P1 :: addB_P1 :: Nil) { log =>
+      val schema = log.update().getMetadata.getSchema
+      val tx1 = log.startTransaction()
+      // read P1
+      tx1.markFilesAsRead(new EqualTo(schema.column("part"), Literal.of("1")) :: Nil)
+
+      // tx2 commits before tx1
+      val tx2 = log.startTransaction()
+      tx2.markFilesAsRead(Literal.True :: Nil)
+      tx2.commit(addA_P1.remove :: Nil, manualUpdate, engineInfo)
+
+      intercept[ConcurrentDeleteReadException] {
+        // P1 read by TX1 was removed by TX2
+        tx1.commit(addE_P3 :: Nil, manualUpdate, engineInfo)
+      }
+    }
+  }
+
+  test("readWholeTable should block concurrent delete") {
+    // txn.readFiles will be empty, so this covers the second ConcurrentDeleteReadException
+    // case in checkForDeletedFilesAgainstCurrentTxnReadFiles
+    withLog(addA_P1 :: Nil) { log =>
+      val tx1 = log.startTransaction()
+      tx1.readWholeTable()
+
+      // tx2 removes file
+      val tx2 = log.startTransaction()
+      tx2.commit(addA_P1.remove :: Nil, manualUpdate, engineInfo)
+
+      intercept[ConcurrentDeleteReadException] {
+        // tx1 reads the whole table but tx2 removes files before tx1 commits
+        tx1.commit(addB_P1 :: Nil, manualUpdate, engineInfo)
+      }
+    }
+  }
+
   // TODO multiple concurrent commits, not just one (i.e. 1st doesn't conflict, 2nd does)
 
-  // TODO: test more ConcurrentAppendException
-
   // TODO: test more ConcurrentDeleteReadException (including readWholeTable)
+
+  // TODO: readWholeTable tests
 
   // TODO: test checkForAddedFilesThatShouldHaveBeenReadByCurrentTxn with SnapshotIsolation
   // i.e. datachange = false

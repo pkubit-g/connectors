@@ -116,7 +116,7 @@ private[internal] class OptimisticTransactionImpl(
       Some(isBlindAppend),
       Some(op.getOperationMetrics.asScala.toMap),
       if (op.getUserMetadata.isPresent) Some(op.getUserMetadata.get()) else None,
-      Some(engineInfo)
+      Some(engineInfo) // TODO: engineInfo-standalone-standaloneVersion
     )
 
     preparedActions = commitInfo +: preparedActions
