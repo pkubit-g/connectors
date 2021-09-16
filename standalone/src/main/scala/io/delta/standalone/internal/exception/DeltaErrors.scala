@@ -236,6 +236,16 @@ private[internal] object DeltaErrors {
     new ConcurrentDeleteDeleteException(message)
   }
 
+  def concurrentTransactionException(
+      conflictingCommit: Option[CommitInfo]): ConcurrentTransactionException = {
+    val message = DeltaErrors.concurrentModificationExceptionMsg(
+      s"This error occurs when multiple streaming queries are using the same checkpoint to write " +
+        "into this table. Did you run multiple instances of the same streaming query" +
+        " at the same time?",
+      conflictingCommit)
+    new ConcurrentTransactionException(message)
+  }
+
   def maxCommitRetriesExceededException(
       attemptNumber: Int,
       attemptVersion: Long,

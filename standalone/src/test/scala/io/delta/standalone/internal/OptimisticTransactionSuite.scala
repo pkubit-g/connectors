@@ -566,12 +566,28 @@ class OptimisticTransactionSuite extends FunSuite {
     }
   }
 
+  //////////////////////////////////
+  // concurrentTransaction tests
+  //////////////////////////////////
+
+  test("block concurrent set-txns with the same app id") {
+    withLog(Nil) { log =>
+      val tx1 = log.startTransaction()
+      tx1.txnVersion("t1")
+
+      val winningTxn = log.startTransaction()
+      winningTxn.txnVersion("t1")
+      winningTxn.commit(SetTransaction("t1", 1, Some(1234L)) :: Nil, manualUpdate, engineInfo)
+
+      intercept[ConcurrentTransactionException] {
+        tx1.commit(Nil, manualUpdate, engineInfo)
+      }
+    }
+  }
+
   // TODO multiple concurrent commits, not just one (i.e. 1st doesn't conflict, 2nd does)
 
   // TODO: readWholeTable tests
-
-  // TODO: test checkForAddedFilesThatShouldHaveBeenReadByCurrentTxn with SnapshotIsolation
-  // i.e. datachange = false
 
   // TODO: test Checkpoint > partialWriteVisible (==> useRename)
 

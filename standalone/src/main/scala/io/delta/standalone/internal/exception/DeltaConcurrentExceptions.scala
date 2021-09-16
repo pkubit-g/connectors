@@ -35,3 +35,6 @@ class ConcurrentDeleteReadException(message: String)
 
 class ConcurrentDeleteDeleteException(message: String)
   extends DeltaConcurrentModificationException(message)
+
+class ConcurrentTransactionException(message: String)
+  extends DeltaConcurrentModificationException(message)

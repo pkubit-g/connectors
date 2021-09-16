@@ -33,17 +33,20 @@ private[internal] class OptimisticTransactionImpl(
     snapshot: SnapshotImpl) extends OptimisticTransaction {
   import OptimisticTransactionImpl._
 
+  /** Tracks the appIds that have been seen by this transaction. */
+  private val readTxn = new ArrayBuffer[String]
+
   /**
    * Tracks the data that could have been seen by recording the partition
    * predicates by which files have been queried by this transaction.
    */
-  protected val readPredicates = new ArrayBuffer[Expression]
+  private val readPredicates = new ArrayBuffer[Expression]
 
   /** Tracks specific files that have been seen by this transaction. */
-  protected val readFiles = new scala.collection.mutable.HashSet[AddFile]
+  private val readFiles = new scala.collection.mutable.HashSet[AddFile]
 
   /** Whether the whole table was read during the transaction. */
-  protected var readTheWholeTable = false
+  private var readTheWholeTable = false
 
   /** Tracks if this transaction has already committed. */
   private var committed = false
@@ -198,8 +201,8 @@ private[internal] class OptimisticTransactionImpl(
   }
 
   override def txnVersion(id: String): Long = {
-    // TODO
-    0L
+    readTxn += id
+    snapshot.transactions.getOrElse(id, -1L)
   }
 
   ///////////////////////////////////////////////////////////////////////////
@@ -355,7 +358,7 @@ private[internal] class OptimisticTransactionImpl(
       readPredicates = readPredicates,
       readFiles = readFiles.toSet,
       readWholeTable = readTheWholeTable,
-      readAppIds = Nil.toSet, // TODO: readTxn.toSet,
+      readAppIds = readTxn.toSet,
       metadata = metadata,
       actions = actions,
       deltaLog = deltaLog)

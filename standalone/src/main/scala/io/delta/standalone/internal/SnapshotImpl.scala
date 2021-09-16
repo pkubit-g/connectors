@@ -66,7 +66,7 @@ private[internal] class SnapshotImpl(
   // Public API Methods
   ///////////////////////////////////////////////////////////////////////////
 
-  override def getAllFiles: java.util.List[AddFileJ] = activeFiles
+  override def getAllFiles: java.util.List[AddFileJ] = activeFilesJ
 
   override def getMetadata: MetadataJ = ConversionUtils.convertMetadata(state.metadata)
 
@@ -152,7 +152,11 @@ private[internal] class SnapshotImpl(
     )
   }
 
-  private lazy val activeFiles = state.activeFiles.map(ConversionUtils.convertAddFile).toList.asJava
+  private lazy val activeFilesJ =
+    state.activeFiles.map(ConversionUtils.convertAddFile).toList.asJava
+
+  /** A map to look up transaction version by appId. */
+  lazy val transactions: Map[String, Long] = setTransactions.map(t => t.appId -> t.version).toMap
 
   /** Complete initialization by checking protocol version. */
   deltaLog.assertProtocolRead(protocolScala)
