@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package io.delta.standalone;
 
 import java.util.List;
@@ -35,6 +36,20 @@ public interface Snapshot {
      * @return all of the files present in this snapshot
      */
     List<AddFile> getAllFiles();
+
+    /**
+     * :: DeveloperApi ::
+     *
+     * Dummy API. Will be replaced in a later version with a proper implementation.
+     *
+     * Creates a {@link CloseableIterator} which can iterate over all of the files present in this
+     * snapshot.
+     *
+     * TODO: document ordering (i.e. forwards or reverse)
+     *
+     * @return a {@link CloseableIterator} to iterate over files
+     */
+    CloseableIterator<AddFile> getAllFilesIter();
 
     /**
      * @return the table metadata for this snapshot

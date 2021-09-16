@@ -65,6 +65,10 @@ private[internal] class SnapshotImpl(
 
   override def getAllFiles: java.util.List[AddFileJ] = activeFiles
 
+  /** Dummy API. Will be replaced in a later version with a proper implementation. */
+  override def getAllFilesIter: CloseableIterator[AddFileJ] =
+    new MemoryOptimizedAddFileReplayIterator(activeFiles.iterator().asScala)
+
   override def getMetadata: MetadataJ = ConversionUtils.convertMetadata(state.metadata)
 
   override def getVersion: Long = version
