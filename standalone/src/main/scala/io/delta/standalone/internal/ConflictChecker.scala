@@ -82,7 +82,7 @@ private[internal] class ConflictChecker(
     checkNoMetadataUpdates()
     checkForAddedFilesThatShouldHaveBeenReadByCurrentTxn()
     checkForDeletedFilesAgainstCurrentTxnReadFiles()
-    //    TODO checkForDeletedFilesAgainstCurrentTxnDeletedFiles()
+    checkForDeletedFilesAgainstCurrentTxnDeletedFiles()
     //    TODO checkForUpdatedApplicationTransactionIdsThatCurrentTxnDependsOn()
   }
 
@@ -174,6 +174,22 @@ private[internal] class ConflictChecker(
       val filePath = winningCommitSummary.removedFiles.head.path
       throw DeltaErrors.concurrentDeleteReadException(
         winningCommitSummary.commitInfo, s"$filePath")
+    }
+  }
+
+  /**
+   * Check if [[RemoveFile]] actions added by already committed transactions conflicts with
+   * [[RemoveFile]] actions this transaction is trying to add.
+   */
+  protected def checkForDeletedFilesAgainstCurrentTxnDeletedFiles(): Unit = {
+    // Fail if a file is deleted twice.
+    val txnDeletes = currentTransactionInfo.actions
+      .collect { case r: RemoveFile => r }
+      .map(_.path).toSet
+    val deleteOverlap = winningCommitSummary.removedFiles.map(_.path).toSet intersect txnDeletes
+    if (deleteOverlap.nonEmpty) {
+      throw DeltaErrors.concurrentDeleteDeleteException(
+        winningCommitSummary.commitInfo, deleteOverlap.head)
     }
   }
 

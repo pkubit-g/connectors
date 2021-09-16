@@ -547,6 +547,25 @@ class OptimisticTransactionSuite extends FunSuite {
     }
   }
 
+  //////////////////////////////////
+  // concurrentDeleteDelete tests
+  //////////////////////////////////
+
+  test("block commit with concurrent removes on same file") {
+    withLog(addA_P1 :: Nil) { log =>
+      val tx1 = log.startTransaction()
+
+      // tx2 removes file
+      val tx2 = log.startTransaction()
+      tx2.commit(addA_P1.remove :: Nil, manualUpdate, engineInfo)
+
+      intercept[ConcurrentDeleteDeleteException] {
+        // tx1 tries to remove the same file
+        tx1.commit(addA_P1.remove :: Nil, manualUpdate, engineInfo)
+      }
+    }
+  }
+
   // TODO multiple concurrent commits, not just one (i.e. 1st doesn't conflict, 2nd does)
 
   // TODO: readWholeTable tests

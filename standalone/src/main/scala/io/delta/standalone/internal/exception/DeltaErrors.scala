@@ -226,6 +226,16 @@ private[internal] object DeltaErrors {
     new ConcurrentDeleteReadException(message)
   }
 
+  def concurrentDeleteDeleteException(
+      conflictingCommit: Option[CommitInfo],
+      file: String): ConcurrentDeleteDeleteException = {
+    val message = DeltaErrors.concurrentModificationExceptionMsg(
+      "This transaction attempted to delete one or more files that were deleted " +
+        s"(for example $file) by a concurrent update. Please try the operation again.",
+      conflictingCommit)
+    new ConcurrentDeleteDeleteException(message)
+  }
+
   def maxCommitRetriesExceededException(
       attemptNumber: Int,
       attemptVersion: Long,

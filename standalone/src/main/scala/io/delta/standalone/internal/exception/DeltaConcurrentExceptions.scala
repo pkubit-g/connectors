@@ -32,3 +32,6 @@ class ConcurrentAppendException(message: String)
 
 class ConcurrentDeleteReadException(message: String)
   extends DeltaConcurrentModificationException(message)
+
+class ConcurrentDeleteDeleteException(message: String)
+  extends DeltaConcurrentModificationException(message)
