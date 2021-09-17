@@ -168,20 +168,9 @@ private[internal] class OptimisticTransactionImpl(
       newProtocol = Some(Protocol())
     }
 
-    latestMetadata = if (snapshot.metadataScala.schemaString == latestMetadata.schemaString) {
-        // Shortcut when the schema hasn't changed to avoid generating spurious schema change logs.
-        // It's fine if two different but semantically equivalent schema strings skip this special
-        // case - that indicates that something upstream attempted to do a no-op schema change, and
-        // we'll just end up doing a bit of redundant work in the else block.
-        latestMetadata
-      } else {
-        // TODO getJson()
-        //   val fixedSchema =
-        //   SchemaUtils.removeUnenforceableNotNullConstraints(metadata.schema).getJson()
-        // metadata.copy(schemaString = fixedSchema)
-
-        latestMetadata
-      }
+    if (snapshot.metadataScala.schemaString != latestMetadata.schemaString) {
+      SchemaUtils.checkUnenforceableNotNullConstraints(latestMetadata.schema)
+    }
 
     // Remove the protocol version properties
     val noProtocolVersionConfig = latestMetadata.configuration.filter {

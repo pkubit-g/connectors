@@ -24,8 +24,9 @@ import io.delta.standalone.actions.{AddFile => AddFileJ, CommitInfo => CommitInf
 import io.delta.standalone.expressions.{EqualTo, Expression, Literal}
 import io.delta.standalone.internal.actions._
 import io.delta.standalone.internal.exception._
-import io.delta.standalone.internal.util.ConversionUtils
+import io.delta.standalone.internal.util.{ConversionUtils, SchemaUtils}
 import io.delta.standalone.internal.util.TestUtils._
+import io.delta.standalone.types._
 import org.apache.hadoop.conf.Configuration
 
 // scalastyle:off funsuite
@@ -349,6 +350,99 @@ class OptimisticTransactionSuite extends FunSuite {
     // test PARTITION columns
     testMetadata[RuntimeException](Metadata(partitionColumns = "bad;column,name" :: Nil),
       "Found partition columns having invalid character(s)")
+  }
+
+  test("unenforceable not null constraints") {
+    val validSchema = new StructType(Array(
+      new StructField(
+        "col1",
+        new MapType(new ArrayType(new StringType(), true), new IntegerType(), true),
+        true
+      ),
+      new StructField(
+        "col2",
+        new MapType(new IntegerType(), new ArrayType(new StringType(), true), true),
+        true
+      ),
+      new StructField(
+        "col3",
+        new ArrayType(new MapType(new StringType(), new IntegerType(), true),
+        true)
+      ),
+    ))
+
+    // should not throw
+    SchemaUtils.checkUnenforceableNotNullConstraints(validSchema)
+
+    // col1.key.dataType.nullable is false
+    val inValidSchema1 = new StructType(Array(
+      new StructField(
+        "col1",
+        new MapType(new ArrayType(new StringType(), false), new IntegerType(), true),
+        true
+      ),
+      new StructField(
+        "col2",
+        new MapType(new IntegerType(), new ArrayType(new StringType(), true), true),
+        true
+      ),
+      new StructField(
+        "col3",
+        new ArrayType(new MapType(new StringType(), new IntegerType(), true),
+        true)
+      ),
+    ))
+
+    val e1 = intercept[RuntimeException] {
+      SchemaUtils.checkUnenforceableNotNullConstraints(inValidSchema1)
+    }
+
+    // col2.value.dataType.nullable is false
+    val inValidSchema2 = new StructType(Array(
+      new StructField(
+        "col1",
+        new MapType(new ArrayType(new StringType(), true), new IntegerType(), true),
+        true
+      ),
+      new StructField(
+        "col2",
+        new MapType(new IntegerType(), new ArrayType(new StringType(), false), true),
+        true
+      ),
+      new StructField(
+        "col3",
+        new ArrayType(new MapType(new StringType(), new IntegerType(), true),
+        true)
+      ),
+    ))
+
+    val e2 = intercept[RuntimeException] {
+      SchemaUtils.checkUnenforceableNotNullConstraints(inValidSchema2)
+    }
+
+    // should this fail? TODO
+    // col3.elementType.key.dataType.nullable is false
+    val inValidSchema3 = new StructType(Array(
+      new StructField(
+        "col1",
+        new MapType(new ArrayType(new StringType(), true), new IntegerType(), true),
+        true
+      ),
+      new StructField(
+        "col2",
+        new MapType(new IntegerType(), new ArrayType(new StringType(), true), true),
+        true
+      ),
+      new StructField(
+        "col3",
+        new ArrayType(new MapType(new ArrayType(new StringType(), false), new IntegerType(), true),
+        true)
+      ),
+    ))
+
+//    val e3 = intercept[RuntimeException] {
+      SchemaUtils.checkUnenforceableNotNullConstraints(inValidSchema3)
+//    }
   }
 
   // TODO: test updateMetadata > unenforceable not null constraints removed from metadata schemaStr
