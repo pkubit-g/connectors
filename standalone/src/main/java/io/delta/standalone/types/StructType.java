@@ -108,11 +108,6 @@ public final class StructType extends DataType {
         return builder.toString();
     }
 
-    public MessageType asParquet() {
-        // TODO
-        return null;
-    }
-
     /**
      * Builds a readable {@code String} representation of this {@code StructType}
      * and all of its nested elements.
