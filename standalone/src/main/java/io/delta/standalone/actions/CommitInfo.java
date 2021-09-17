@@ -234,6 +234,7 @@ public class CommitInfo implements Action {
         private Optional<Boolean> isBlindAppend = Optional.empty();
         private Optional<Map<String, String>> operationMetrics = Optional.empty();
         private Optional<String> userMetadata = Optional.empty();
+        private Optional<String> engineInfo = Optional.empty();
 
         public Builder version(Long version) {
             this.version = Optional.of(version);
@@ -305,6 +306,11 @@ public class CommitInfo implements Action {
             return this;
         }
 
+        public Builder engineInfo(String engineInfo) {
+            this.engineInfo = Optional.of(engineInfo);
+            return this;
+        }
+
         /**
          * @return a new {@code CommitInfo} with the same properties as {@code this}
          */
@@ -312,7 +318,7 @@ public class CommitInfo implements Action {
             CommitInfo commitInfo = new CommitInfo(this.version, this.timestamp, this.userId,
                     this.userName, this.operation, this.operationParameters, this.jobInfo,
                     this.notebookInfo, this.clusterId, this.readVersion, this.isolationLevel,
-                    this.isBlindAppend, this.operationMetrics, this.userMetadata);
+                    this.isBlindAppend, this.operationMetrics, this.userMetadata, this.engineInfo);
             return commitInfo;
         }
     }

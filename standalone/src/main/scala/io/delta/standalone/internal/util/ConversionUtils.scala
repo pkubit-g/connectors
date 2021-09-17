@@ -109,7 +109,6 @@ private[internal] object ConversionUtils {
       internal.name,
       internal.description,
       convertFormat(internal.format),
-      internal.schemaString,
       internal.partitionColumns.toList.asJava,
       internal.configuration.asJava,
       toJavaLongOptional(internal.createdTime),
@@ -276,7 +275,7 @@ private[internal] object ConversionUtils {
       external.getName,
       external.getDescription,
       convertFormatJ(external.getFormat),
-      external.getSchemaString,
+      external.getSchema.toJson,
       external.getPartitionColumns.asScala,
       external.getConfiguration.asScala.toMap,
       external.getCreatedTime // implicit check this!

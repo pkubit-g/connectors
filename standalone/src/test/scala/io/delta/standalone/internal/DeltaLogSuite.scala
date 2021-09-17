@@ -495,6 +495,7 @@ class DeltaLogSuite extends FunSuite {
       Optional.empty(),
       Optional.empty(),
       Optional.empty(),
+      Optional.empty(),
       Optional.empty())
     assert(commitInfoFromBuilderDefaults == commitInfoFromConstructorDefaults)
 
@@ -513,6 +514,7 @@ class DeltaLogSuite extends FunSuite {
       .isBlindAppend(true)
       .operationMetrics(Map("test"->"metric").asJava)
       .userMetadata("user_metadata")
+      .engineInfo("engine_info")
       .build()
     val commitInfoFromConstructor = new CommitInfoJ(
       Optional.of(0L),
@@ -528,7 +530,8 @@ class DeltaLogSuite extends FunSuite {
       Optional.of("test_level"),
       Optional.of(true),
       Optional.of(Map("test"->"metric").asJava),
-      Optional.of("user_metadata"))
+      Optional.of("user_metadata"),
+      Optional.of("engine_info"))
     assert(commitInfoFromBuilder == commitInfoFromConstructor)
   }
 }

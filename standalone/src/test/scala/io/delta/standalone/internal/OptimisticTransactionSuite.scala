@@ -36,13 +36,13 @@ class OptimisticTransactionSuite extends FunSuite {
 //    new StructField("col1", new IntegerType(), true),
 //    new StructField("col2", new StringType(), true)))
 
-  val metadata = new MetadataJ(UUID.randomUUID().toString, null, null, new FormatJ(), null,
+  val metadata = new MetadataJ(UUID.randomUUID().toString, null, null, new FormatJ(),
     Collections.emptyList(), Collections.emptyMap(), Optional.of(100L), new StructType(Array.empty))
 
   val add1 = new AddFileJ("fake/path/1", Collections.emptyMap(), 100, 100, true, null, null)
   val add2 = new AddFileJ("fake/path/2", Collections.emptyMap(), 100, 100, true, null, null)
 
-  val ManualUpdate = new Operation("MANUAL_UPDATE")
+  val ManualUpdate = new Operation(Operation.Name.MANUAL_UPDATE)
 
   test("basic") {
     withTempDir { dir =>
