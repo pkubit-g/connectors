@@ -40,8 +40,6 @@ package io.delta.standalone.types;
 
 import io.delta.standalone.expressions.Column;
 
-import org.apache.parquet.schema.MessageType;
-
 import java.util.Arrays;
 import java.util.HashMap;
 

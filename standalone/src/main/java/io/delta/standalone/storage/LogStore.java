@@ -48,7 +48,7 @@ import java.util.Iterator;
  * LogStore and its implementations are not meant for direct access but for configuration based
  * on storage system. See [[https://docs.delta.io/latest/delta-storage.html]] for details.
  *
- * @since 1.0.0
+ * @since 0.3.0 // TODO: double check this will be the new DSW version
  */
 public abstract class LogStore {
 
@@ -73,7 +73,7 @@ public abstract class LogStore {
      * Load the given file and return an `Iterator` of lines, with line breaks removed from each line.
      * Callers of this function are responsible to close the iterator if they are done with it.
      *
-     * @since 1.0.0
+     * @since 0.3.0 // TODO: double check this will be the new DSW version
      */
     public abstract CloseableIterator<String> read(Path path, Configuration hadoopConf);
 
@@ -86,7 +86,7 @@ public abstract class LogStore {
      * implementation must ensure that the entire file is made visible atomically, that is,
      * it should not generate partial files.
      *
-     * @since 1.0.0
+     * @since 0.3.0 // TODO: double check this will be the new DSW version
      */
     public abstract void write(
         Path path,
@@ -100,7 +100,7 @@ public abstract class LogStore {
      * List the paths in the same directory that are lexicographically greater or equal to
      * (UTF-8 sorting) the given `path`. The result should also be sorted by the file name.
      *
-     * @since 1.0.0
+     * @since 0.3.0 // TODO: double check this will be the new DSW version
      */
     public abstract Iterator<FileStatus> listFrom(
         Path path,
@@ -111,7 +111,7 @@ public abstract class LogStore {
      *
      * Resolve the fully qualified path for the given `path`.
      *
-     * @since 1.0.0
+     * @since 0.3.0 // TODO: double check this will be the new DSW version
      */
     public abstract Path resolvePathOnPhysicalStorage(Path path, Configuration hadoopConf);
 
@@ -120,7 +120,7 @@ public abstract class LogStore {
      *
      * Whether a partial write is visible for the underlying file system of `path`.
      *
-     * @since 1.0.0
+     * @since 0.3.0 // TODO: double check this will be the new DSW version
      */
     public abstract Boolean isPartialWriteVisible(Path path, Configuration hadoopConf);
 }
