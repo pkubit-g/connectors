@@ -368,7 +368,7 @@ class OptimisticTransactionSuite extends FunSuite {
         "col3",
         new ArrayType(new MapType(new StringType(), new IntegerType(), true),
         true)
-      ),
+      )
     ))
 
     // should not throw
@@ -423,7 +423,8 @@ class OptimisticTransactionSuite extends FunSuite {
         "col1",
         new ArrayType(
           new MapType(
-            new StructType(Array(new StructField("col1_nested", new ArrayType(new IntegerType(), false), true))),
+            new StructType(
+              Array(new StructField("col1_nested", new ArrayType(new IntegerType(), false), true))),
             new IntegerType(), true
           ),
           true)
@@ -435,7 +436,20 @@ class OptimisticTransactionSuite extends FunSuite {
     }
   }
 
-  // TODO: test updateMetadata > withGlobalConfigDefaults
+  test("updateMetadata withGlobalConfigDefaults") {
+    // TODO: use DeltaConfigs...
+    withTempDir { dir =>
+      // note that the default for logRetentionDuration is 2592000000
+      val hadoopConf = new Configuration()
+      hadoopConf.set("logRetentionDuration", "1000")
+      val metadata = Metadata(configuration = Map("logRetentionDuration" -> "2000"))
+
+      val log = DeltaLogImpl.forTable(hadoopConf, dir.getCanonicalPath)
+      log.startTransaction().commit(metadata :: Nil, manualUpdate, engineInfo)
+
+      assert(log.deltaRetentionMillis == 2000)
+    }
+  }
 
   ///////////////////////////////////////////////////////////////////////////
   // commit() tests
