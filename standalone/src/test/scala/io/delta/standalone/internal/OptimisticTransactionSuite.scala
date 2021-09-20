@@ -374,75 +374,65 @@ class OptimisticTransactionSuite extends FunSuite {
     // should not throw
     SchemaUtils.checkUnenforceableNotNullConstraints(validSchema)
 
-    // col1.key.dataType.nullable is false
+    // should throw; col1.key.dataType.nullable is false
     val inValidSchema1 = new StructType(Array(
       new StructField(
         "col1",
         new MapType(new ArrayType(new StringType(), false), new IntegerType(), true),
         true
-      ),
-      new StructField(
-        "col2",
-        new MapType(new IntegerType(), new ArrayType(new StringType(), true), true),
-        true
-      ),
-      new StructField(
-        "col3",
-        new ArrayType(new MapType(new StringType(), new IntegerType(), true),
-        true)
-      ),
+      )
     ))
 
     val e1 = intercept[RuntimeException] {
       SchemaUtils.checkUnenforceableNotNullConstraints(inValidSchema1)
     }
 
-    // col2.value.dataType.nullable is false
+    // should throw; col2.value.dataType.nullable is false
     val inValidSchema2 = new StructType(Array(
       new StructField(
         "col1",
-        new MapType(new ArrayType(new StringType(), true), new IntegerType(), true),
-        true
-      ),
-      new StructField(
-        "col2",
         new MapType(new IntegerType(), new ArrayType(new StringType(), false), true),
         true
-      ),
-      new StructField(
-        "col3",
-        new ArrayType(new MapType(new StringType(), new IntegerType(), true),
-        true)
-      ),
+      )
     ))
 
     val e2 = intercept[RuntimeException] {
       SchemaUtils.checkUnenforceableNotNullConstraints(inValidSchema2)
     }
 
-    // should this fail? TODO
-    // col3.elementType.key.dataType.nullable is false
+    // should fail; col1.elementType.valueContainsNull = true
     val inValidSchema3 = new StructType(Array(
       new StructField(
         "col1",
-        new MapType(new ArrayType(new StringType(), true), new IntegerType(), true),
-        true
-      ),
-      new StructField(
-        "col2",
-        new MapType(new IntegerType(), new ArrayType(new StringType(), true), true),
-        true
-      ),
-      new StructField(
-        "col3",
-        new ArrayType(new MapType(new ArrayType(new StringType(), false), new IntegerType(), true),
+        new ArrayType(
+          new MapType(
+            new StructType(Array(new StructField("col1_nested", new IntegerType(), true))),
+            new IntegerType(), false
+          ),
         true)
-      ),
+      )
     ))
 
-//    val e3 = intercept[RuntimeException] {
+    val e3 = intercept[RuntimeException] {
       SchemaUtils.checkUnenforceableNotNullConstraints(inValidSchema3)
-//    }
+    }
+
+    // should fail; col1.elementType.value.fields[0].dataType.containsNull = true
+    val inValidSchema4 = new StructType(Array(
+      new StructField(
+        "col1",
+        new ArrayType(
+          new MapType(
+            new StructType(Array(new StructField("col1_nested", new ArrayType(new IntegerType(), false), true))),
+            new IntegerType(), true
+          ),
+          true)
+      )
+    ))
+
+    val e4 = intercept[RuntimeException] {
+      SchemaUtils.checkUnenforceableNotNullConstraints(inValidSchema4)
+    }
   }
 
   // TODO: test updateMetadata > unenforceable not null constraints removed from metadata schemaStr
