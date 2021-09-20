@@ -26,13 +26,9 @@ import java.util.UUID
 import scala.collection.JavaConverters._
 
 import io.delta.standalone.{DeltaLog, Snapshot}
-<<<<<<< HEAD
-import io.delta.standalone.actions.{JobInfo => JobInfoJ, NotebookInfo => NotebookInfoJ}
-=======
 import io.delta.standalone.actions.{AddFile => AddFileJ, CommitInfo => CommitInfoJ,
   Format => FormatJ, JobInfo => JobInfoJ, Metadata => MetadataJ, NotebookInfo => NotebookInfoJ,
  RemoveFile => RemoveFileJ}
->>>>>>> delta_standalone_writer_feature
 import io.delta.standalone.internal.actions.{Action, Protocol}
 import io.delta.standalone.internal.exception.DeltaErrors
 import io.delta.standalone.internal.util.GoldenTableUtils._

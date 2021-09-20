@@ -54,7 +54,7 @@ public class CommitInfo implements Action {
                       Optional<Long> readVersion, Optional<String> isolationLevel,
                       Optional<Boolean> isBlindAppend,
                       Optional<Map<String, String>> operationMetrics,
-                      Optional<String> userMetadata, Optional<String> engineInfo) {
+                      Optional<String> userMetadata) {
         this.version = version;
         this.timestamp = timestamp;
         this.userId = userId;

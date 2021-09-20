@@ -36,12 +36,6 @@ private[internal] object DeltaErrors {
        |Delta protocol version ${tableProtocol.simpleString} is too new for this version of Delta
        |Standalone Reader/Writer ${clientProtocol.simpleString}. Please upgrade to a newer release.
        |""".stripMargin)
-<<<<<<< HEAD
-=======
-
-  class DeltaConcurrentModificationException(message: String)
-    extends ConcurrentModificationException(message)
->>>>>>> delta_standalone_writer_feature
 
   def deltaVersionsNotContiguousException(deltaVersions: Seq[Long]): Throwable = {
     new IllegalStateException(s"Versions ($deltaVersions) are not contiguous.")

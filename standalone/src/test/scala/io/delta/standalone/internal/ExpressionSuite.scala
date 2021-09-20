@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 /*
  * Copyright (2021) The Delta Lake Project Authors.
  *
@@ -16,7 +14,6 @@
  * limitations under the License.
  */
 
->>>>>>> delta_standalone_writer_feature
 package io.delta.standalone.internal
 
 import scala.collection.JavaConverters._
