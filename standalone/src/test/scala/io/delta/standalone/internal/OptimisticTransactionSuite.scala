@@ -435,8 +435,6 @@ class OptimisticTransactionSuite extends FunSuite {
     }
   }
 
-  // TODO: test updateMetadata > unenforceable not null constraints removed from metadata schemaStr
-
   // TODO: test updateMetadata > withGlobalConfigDefaults
 
   ///////////////////////////////////////////////////////////////////////////
