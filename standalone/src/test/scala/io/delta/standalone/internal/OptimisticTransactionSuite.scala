@@ -326,6 +326,155 @@ class OptimisticTransactionSuite extends FunSuite {
     }
   }
 
+  test("unenforceable not null constraints") {
+    val validSchema = new StructType(Array(
+      new StructField(
+        "col1",
+        new MapType(new ArrayType(new StringType(), true), new IntegerType(), true),
+        true
+      ),
+      new StructField(
+        "col2",
+        new MapType(new IntegerType(), new ArrayType(new StringType(), true), true),
+        true
+      ),
+      new StructField(
+        "col3",
+        new ArrayType(new MapType(new StringType(), new IntegerType(), true),
+          true)
+      )
+    ))
+
+    SchemaUtils.checkUnenforceableNotNullConstraints(validSchema) // should not throw
+
+    // case 1: not null within array
+    val inValidSchema1 = new StructType(
+      Array(
+        new StructField(
+          "arr",
+          new ArrayType(
+            new StructType(
+              Array(
+                new StructField("name", new StringType(), true),
+                new StructField("mailbox", new StringType(), false)
+              )
+            ),
+            false
+          )
+        )
+      )
+    )
+
+    val e1 = intercept[RuntimeException] {
+      SchemaUtils.checkUnenforceableNotNullConstraints(inValidSchema1)
+    }.getMessage
+
+    assert(e1.contains("The element type of the field arr contains a NOT NULL constraint."))
+
+    // case 2: null within map key
+    val inValidSchema2 = new StructType(
+      Array(
+        new StructField(
+          "m",
+          new MapType(
+            // m.key
+            new StructType(
+              Array(
+                new StructField("name", new StringType(), true),
+                new StructField("mailbox", new StringType(), false)
+              )
+            ),
+            // m.value
+            new IntegerType(),
+            false
+          )
+        )
+      )
+    )
+
+    val e2 = intercept[RuntimeException] {
+      SchemaUtils.checkUnenforceableNotNullConstraints(inValidSchema2)
+    }.getMessage
+
+    assert(e2.contains("The key type of the field m contains a NOT NULL constraint."))
+
+    // case 3: null within map key
+    val inValidSchema3 = new StructType(
+      Array(
+        new StructField(
+          "m",
+          new MapType(
+            // m.key
+            new IntegerType(),
+            // m.value
+            new StructType(
+              Array(
+                new StructField("name", new StringType(), true),
+                new StructField("mailbox", new StringType(), false)
+              )
+            ),
+            false
+          )
+        )
+      )
+    )
+
+    val e3 = intercept[RuntimeException] {
+      SchemaUtils.checkUnenforceableNotNullConstraints(inValidSchema3)
+    }.getMessage
+
+    assert(e3.contains("The value type of the field m contains a NOT NULL constraint."))
+
+    // case 4: not null within nested array
+    val inValidSchema4 = new StructType(
+      Array(
+        new StructField(
+          "s",
+          new StructType(
+            Array(
+              new StructField("n", new IntegerType, false),
+              new StructField(
+                "arr",
+                new ArrayType(
+                  new StructType(
+                    Array(
+                      new StructField("name", new StringType(), true),
+                      new StructField("mailbox", new StringType(), false)
+                    )
+                  ),
+                  true
+                ),
+                false
+              )
+            )
+          ),
+          true
+        )
+      )
+    )
+
+    val e4 = intercept[RuntimeException] {
+      SchemaUtils.checkUnenforceableNotNullConstraints(inValidSchema4)
+    }.getMessage
+
+    assert(e4.contains("The element type of the field s.arr contains a NOT NULL constraint."))
+  }
+
+  test("updateMetadata withGlobalConfigDefaults") {
+    // TODO: use DeltaConfigs...
+    withTempDir { dir =>
+      // note that the default for logRetentionDuration is 2592000000
+      val hadoopConf = new Configuration()
+      hadoopConf.set("logRetentionDuration", "1000")
+      val metadata = Metadata(configuration = Map("logRetentionDuration" -> "2000"))
+
+      val log = DeltaLogImpl.forTable(hadoopConf, dir.getCanonicalPath)
+      log.startTransaction().commit(metadata :: Nil, manualUpdate, engineInfo)
+
+      assert(log.deltaRetentionMillis == 2000)
+    }
+  }
+
   ///////////////////////////////////////////////////////////////////////////
   // verifyNewMetadata() tests
   ///////////////////////////////////////////////////////////////////////////
@@ -350,105 +499,6 @@ class OptimisticTransactionSuite extends FunSuite {
     // test PARTITION columns
     testMetadata[RuntimeException](Metadata(partitionColumns = "bad;column,name" :: Nil),
       "Found partition columns having invalid character(s)")
-  }
-
-  test("unenforceable not null constraints") {
-    val validSchema = new StructType(Array(
-      new StructField(
-        "col1",
-        new MapType(new ArrayType(new StringType(), true), new IntegerType(), true),
-        true
-      ),
-      new StructField(
-        "col2",
-        new MapType(new IntegerType(), new ArrayType(new StringType(), true), true),
-        true
-      ),
-      new StructField(
-        "col3",
-        new ArrayType(new MapType(new StringType(), new IntegerType(), true),
-        true)
-      )
-    ))
-
-    // should not throw
-    SchemaUtils.checkUnenforceableNotNullConstraints(validSchema)
-
-    // should throw; col1.key.dataType.nullable is false
-    val inValidSchema1 = new StructType(Array(
-      new StructField(
-        "col1",
-        new MapType(new ArrayType(new StringType(), false), new IntegerType(), true),
-        true
-      )
-    ))
-
-    val e1 = intercept[RuntimeException] {
-      SchemaUtils.checkUnenforceableNotNullConstraints(inValidSchema1)
-    }
-
-    // should throw; col2.value.dataType.nullable is false
-    val inValidSchema2 = new StructType(Array(
-      new StructField(
-        "col1",
-        new MapType(new IntegerType(), new ArrayType(new StringType(), false), true),
-        true
-      )
-    ))
-
-    val e2 = intercept[RuntimeException] {
-      SchemaUtils.checkUnenforceableNotNullConstraints(inValidSchema2)
-    }
-
-    // should fail; col1.elementType.valueContainsNull = true
-    val inValidSchema3 = new StructType(Array(
-      new StructField(
-        "col1",
-        new ArrayType(
-          new MapType(
-            new StructType(Array(new StructField("col1_nested", new IntegerType(), true))),
-            new IntegerType(), false
-          ),
-        true)
-      )
-    ))
-
-    val e3 = intercept[RuntimeException] {
-      SchemaUtils.checkUnenforceableNotNullConstraints(inValidSchema3)
-    }
-
-    // should fail; col1.elementType.value.fields[0].dataType.containsNull = true
-    val inValidSchema4 = new StructType(Array(
-      new StructField(
-        "col1",
-        new ArrayType(
-          new MapType(
-            new StructType(
-              Array(new StructField("col1_nested", new ArrayType(new IntegerType(), false), true))),
-            new IntegerType(), true
-          ),
-          true)
-      )
-    ))
-
-    val e4 = intercept[RuntimeException] {
-      SchemaUtils.checkUnenforceableNotNullConstraints(inValidSchema4)
-    }
-  }
-
-  test("updateMetadata withGlobalConfigDefaults") {
-    // TODO: use DeltaConfigs...
-    withTempDir { dir =>
-      // note that the default for logRetentionDuration is 2592000000
-      val hadoopConf = new Configuration()
-      hadoopConf.set("logRetentionDuration", "1000")
-      val metadata = Metadata(configuration = Map("logRetentionDuration" -> "2000"))
-
-      val log = DeltaLogImpl.forTable(hadoopConf, dir.getCanonicalPath)
-      log.startTransaction().commit(metadata :: Nil, manualUpdate, engineInfo)
-
-      assert(log.deltaRetentionMillis == 2000)
-    }
   }
 
   ///////////////////////////////////////////////////////////////////////////
