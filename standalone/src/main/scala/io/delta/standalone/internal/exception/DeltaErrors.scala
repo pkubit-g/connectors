@@ -17,6 +17,7 @@
 package io.delta.standalone.internal.exception
 
 import java.io.{FileNotFoundException, IOException}
+import java.util.ConcurrentModificationException
 
 import io.delta.standalone.internal.actions.{CommitInfo, Protocol}
 import org.apache.hadoop.fs.Path
@@ -35,6 +36,12 @@ private[internal] object DeltaErrors {
        |Delta protocol version ${tableProtocol.simpleString} is too new for this version of Delta
        |Standalone Reader/Writer ${clientProtocol.simpleString}. Please upgrade to a newer release.
        |""".stripMargin)
+<<<<<<< HEAD
+=======
+
+  class DeltaConcurrentModificationException(message: String)
+    extends ConcurrentModificationException(message)
+>>>>>>> delta_standalone_writer_feature
 
   def deltaVersionsNotContiguousException(deltaVersions: Seq[Long]): Throwable = {
     new IllegalStateException(s"Versions ($deltaVersions) are not contiguous.")

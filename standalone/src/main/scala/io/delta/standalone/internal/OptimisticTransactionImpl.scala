@@ -17,6 +17,7 @@
 package io.delta.standalone.internal
 
 import java.nio.file.FileAlreadyExistsException
+import java.util.ConcurrentModificationException
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
@@ -363,8 +364,8 @@ private[internal] class OptimisticTransactionImpl(
     deltaLog.update()
     deltaLog.snapshot.version + 1
   }
+}
 
-  private[internal] object OptimisticTransactionImpl {
-    val DELTA_MAX_RETRY_COMMIT_ATTEMPTS = 10000000
-  }
+private[internal] object OptimisticTransactionImpl {
+  val DELTA_MAX_RETRY_COMMIT_ATTEMPTS = 10000000
 }
