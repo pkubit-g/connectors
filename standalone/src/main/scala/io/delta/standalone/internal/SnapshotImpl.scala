@@ -91,7 +91,7 @@ private[internal] class SnapshotImpl(
       } else if (path.endsWith("parquet")) {
         ParquetReader.read[Parquet4sSingleActionWrapper](
           path, ParquetReader.Options(
-          timeZone = readTimeZone, hadoopConf = hadoopConf)
+          timeZone = deltaLog.timezone, hadoopConf = hadoopConf)
         ).toSeq.map(_.unwrap)
       } else Seq.empty[SingleAction]
     }.toList
