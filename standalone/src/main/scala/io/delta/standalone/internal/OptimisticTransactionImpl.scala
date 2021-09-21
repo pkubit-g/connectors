@@ -378,13 +378,12 @@ private[internal] class OptimisticTransactionImpl(
     deltaLog.update()
     deltaLog.snapshot.version + 1
   }
+}
 
-  private[internal] object OptimisticTransactionImpl {
-    val DELTA_MAX_RETRY_COMMIT_ATTEMPTS = 10000000
+private[internal] object OptimisticTransactionImpl {
+  val DELTA_MAX_RETRY_COMMIT_ATTEMPTS = 10000000
 
-
-    def getOperationJsonEncodedParameters(op: Operation): Map[String, String] = {
+  def getOperationJsonEncodedParameters(op: Operation): Map[String, String] = {
       op.getParameters.asScala.mapValues(JsonUtils.toJson(_)).toMap
     }
-  }
 }
