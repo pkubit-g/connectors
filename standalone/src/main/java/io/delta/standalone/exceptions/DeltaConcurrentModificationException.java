@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
-package io.delta.standalone.internal.exception
+package io.delta.standalone.exceptions;
 
-import java.util.ConcurrentModificationException
+import java.util.ConcurrentModificationException;
 
-class DeltaConcurrentModificationException(message: String)
-  extends ConcurrentModificationException(message)
-
-class ConcurrentAppendException(message: String)
-  extends DeltaConcurrentModificationException(message)
-
-class ConcurrentDeleteReadException(message: String)
-  extends DeltaConcurrentModificationException(message)
+public class DeltaConcurrentModificationException extends ConcurrentModificationException {
+    public DeltaConcurrentModificationException(String message) {
+        super(message);
+    }
+}
