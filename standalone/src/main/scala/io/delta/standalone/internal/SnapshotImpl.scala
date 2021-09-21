@@ -51,17 +51,6 @@ private[internal] class SnapshotImpl(
 
   import SnapshotImpl._
 
-  /** Convert the timeZoneId to an actual timeZone that can be used for decoding. */
-  // TODO: this should be at the log level
-  // TODO: rename to timeZone
-  val readTimeZone = {
-    if (hadoopConf.get(StandaloneHadoopConf.PARQUET_DATA_TIME_ZONE_ID) == null) {
-      TimeZone.getDefault
-    } else {
-      TimeZone.getTimeZone(hadoopConf.get(StandaloneHadoopConf.PARQUET_DATA_TIME_ZONE_ID))
-    }
-  }
-
   ///////////////////////////////////////////////////////////////////////////
   // Public API Methods
   ///////////////////////////////////////////////////////////////////////////
@@ -79,7 +68,7 @@ private[internal] class SnapshotImpl(
         .map(FileNames.absolutePath(deltaLog.dataPath, _).toString),
       getMetadata.getSchema,
       // the time zone ID if it exists, else null
-      readTimeZone,
+      deltaLog.timezone,
       hadoopConf)
 
   ///////////////////////////////////////////////////////////////////////////
