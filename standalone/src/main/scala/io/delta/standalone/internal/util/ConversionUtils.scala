@@ -144,7 +144,7 @@ private[internal] object ConversionUtils {
       toJavaStringOptional(internal.userId),
       toJavaStringOptional(internal.userName),
       internal.operation,
-      internal.operationParameters.asJava,
+      nullableMapAsJava(internal.operationParameters),
       jobInfoOpt,
       notebookInfoOpt,
       toJavaStringOptional(internal.clusterId),
