@@ -19,8 +19,10 @@ package io.delta.standalone.internal.exception
 import java.io.{FileNotFoundException, IOException}
 
 import io.delta.standalone.internal.actions.{CommitInfo, Protocol}
-import org.apache.hadoop.fs.Path
 import io.delta.standalone.types.StructType
+import io.delta.standalone.exceptions._
+
+import org.apache.hadoop.fs.Path
 
 /** A holder object for Delta errors. */
 private[internal] object DeltaErrors {
@@ -122,6 +124,12 @@ private[internal] object DeltaErrors {
   def metadataAbsentException(): Throwable = {
     new IllegalStateException(
       "Couldn't find Metadata while committing the first version of the Delta table.")
+  }
+
+  def protocolDowngradeException(oldProtocol: Protocol, newProtocol: Protocol): Throwable = {
+    // TODO: class ProtocolDowngradeException ?
+    new RuntimeException("Protocol version cannot be downgraded from " +
+      s"${oldProtocol.simpleString} to ${newProtocol.simpleString}")
   }
 
   def addFilePartitioningMismatchException(

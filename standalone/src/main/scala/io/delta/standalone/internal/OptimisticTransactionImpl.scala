@@ -211,7 +211,6 @@ private[internal] class OptimisticTransactionImpl(
       "Cannot change the metadata more than once in a transaction.")
 
     metadataChanges.foreach(m => verifyNewMetadata(m))
-
     finalActions = newProtocol.toSeq ++ finalActions
 
     if (snapshot.version == -1) {
@@ -402,18 +401,17 @@ private[internal] class OptimisticTransactionImpl(
     deltaLog.snapshot.version + 1
   }
 
-  private[internal] object OptimisticTransactionImpl {
-    val DELTA_MAX_RETRY_COMMIT_ATTEMPTS = 10000000
-
-
-    def getOperationJsonEncodedParameters(op: Operation): Map[String, String] = {
-      op.getParameters.asScala.mapValues(JsonUtils.toJson(_)).toMap
-    }
-  }
-
   /** Creates new metadata with global Delta configuration defaults. */
   private def withGlobalConfigDefaults(metadata: Metadata): Metadata = {
     // TODO
     metadata
+  }
+}
+
+private[internal] object OptimisticTransactionImpl {
+  val DELTA_MAX_RETRY_COMMIT_ATTEMPTS = 10000000
+
+  def getOperationJsonEncodedParameters(op: Operation): Map[String, String] = {
+      op.getParameters.asScala.mapValues(JsonUtils.toJson(_)).toMap
   }
 }
