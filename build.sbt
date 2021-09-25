@@ -324,3 +324,19 @@ lazy val sqlDeltaImport = (project in file("sql-delta-import"))
     )
   )
   .settings(releaseSettings)
+
+val flinkVersion = "1.13.0"
+lazy val flinkConnector = (project in file("flink-connector"))
+  .settings (
+    name := "flink-connector",
+    commonSettings,
+    publishArtifact := scalaBinaryVersion.value == "2.12",
+    publishArtifact in Test := false,
+    libraryDependencies ++= Seq(
+      "org.apache.flink" % "flink-core" % flinkVersion,
+      "org.apache.flink" % "flink-connector-files" % flinkVersion,
+      "org.scalatest" %% "scalatest" % "3.1.1" % "test"
+    )
+  )
+  .settings(releaseSettings)
+  .dependsOn(standalone)
