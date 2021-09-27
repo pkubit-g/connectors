@@ -335,7 +335,13 @@ lazy val flinkConnector = (project in file("flink-connector"))
     libraryDependencies ++= Seq(
       "org.apache.flink" % "flink-core" % flinkVersion,
       "org.apache.flink" % "flink-connector-files" % flinkVersion,
-      "org.scalatest" %% "scalatest" % "3.1.1" % "test"
+      "org.apache.flink" % "flink-table-common" % flinkVersion,
+      "org.apache.flink" %% "flink-parquet" % flinkVersion,
+      "org.apache.hadoop" % "hadoop-client" % hadoopVersion,
+      "org.apache.flink" %% "flink-streaming-java" % flinkVersion % "test",
+      "org.apache.flink" % "flink-connector-test-utils" % flinkVersion % "test",
+      "org.apache.flink" %% "flink-runtime" % flinkVersion % "test",
+      "org.apache.flink" %% "flink-table-runtime-blink" % flinkVersion % "test"
     )
   )
   .settings(releaseSettings)

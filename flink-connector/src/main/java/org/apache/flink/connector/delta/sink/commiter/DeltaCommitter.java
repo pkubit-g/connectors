@@ -1,5 +1,6 @@
 package org.apache.flink.connector.delta.sink.commiter;
 
+import io.delta.standalone.OptimisticTransaction;
 import org.apache.flink.api.connector.sink.Committer;
 import org.apache.flink.connector.delta.sink.DeltaSinkCommittable;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketWriter;
@@ -26,6 +27,7 @@ public class DeltaCommitter implements Committer<DeltaSinkCommittable> {
                 // We should always use commitAfterRecovery which contains additional checks.
                 assert committable.getDeltaPendingFile() != null;
                 bucketWriter.recoverPendingFile(committable.getDeltaPendingFile().getPendingFile()).commitAfterRecovery();
+//                OptimisticTransaction
             }
 
             if (committable.hasInProgressFileToCleanup()) {
