@@ -30,19 +30,27 @@ public class DeltaWriterBucketState {
     private final InProgressFileWriter.InProgressFileRecoverable inProgressFileRecoverable;
 
     @Nullable
-    private final Path inProgressPartFilePath;
+    private final String inProgressPartFileName;
+
+    private final long recordCount;
+
+    private final long inProgressPartFileSize;
 
     public DeltaWriterBucketState(
             String bucketId,
             Path bucketPath,
             long inProgressFileCreationTime,
             @Nullable InProgressFileWriter.InProgressFileRecoverable inProgressFileRecoverable,
-            @Nullable Path inProgressPartFilePath) {
+            @Nullable String inProgressPartFileName,
+            long recordCount,
+            long inProgressPartFileSize) {
         this.bucketId = bucketId;
         this.bucketPath = bucketPath;
         this.inProgressFileCreationTime = inProgressFileCreationTime;
         this.inProgressFileRecoverable = inProgressFileRecoverable;
-        this.inProgressPartFilePath = inProgressPartFilePath;
+        this.inProgressPartFileName = inProgressPartFileName;
+        this.recordCount = recordCount;
+        this.inProgressPartFileSize = inProgressPartFileSize;
     }
 
     public String getBucketId() {
@@ -63,8 +71,8 @@ public class DeltaWriterBucketState {
     }
 
     @Nullable
-    Path getInProgressPartFilePath() {
-        return inProgressPartFilePath;
+    String getInProgressPartFileName() {
+        return inProgressPartFileName;
     }
 
 
@@ -90,4 +98,11 @@ public class DeltaWriterBucketState {
         return strBuilder.toString();
     }
 
+    public long getRecordCount() {
+        return recordCount;
+    }
+
+    public long getInProgressPartFileSize() {
+        return inProgressPartFileSize;
+    }
 }

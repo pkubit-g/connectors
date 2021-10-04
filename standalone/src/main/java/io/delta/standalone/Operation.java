@@ -94,4 +94,5 @@ public final class Operation {
     public Optional<String> getUserMetadata() {
         return null == userMetadata ? Optional.empty() : userMetadata;
     }
+
 }

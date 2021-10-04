@@ -20,11 +20,12 @@ package org.apache.flink.connector.delta.sink.writer;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.connector.delta.sink.DeltaSinkCommittable;
+import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.core.fs.Path;
-import org.apache.flink.streaming.api.functions.sink.filesystem.BucketWriter;
+import org.apache.flink.streaming.api.functions.sink.filesystem.BulkBucketWriter;
 import org.apache.flink.streaming.api.functions.sink.filesystem.InProgressFileWriter;
 import org.apache.flink.streaming.api.functions.sink.filesystem.OutputFileConfig;
+import org.apache.flink.streaming.api.functions.sink.filesystem.OutputStreamBasedPartFileWriter;
 import org.apache.flink.streaming.api.functions.sink.filesystem.RollingPolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,7 +51,7 @@ class DeltaWriterBucket<IN> {
 
     private final Path bucketPath;
 
-    private final BucketWriter<IN, String> bucketWriter;
+    private final BulkBucketWriter<IN, String> bucketWriter;
 
     private final RollingPolicy<IN, String> rollingPolicy;
 
@@ -61,6 +62,8 @@ class DeltaWriterBucket<IN> {
     private final List<DeltaPendingFile> pendingFiles = new ArrayList<>();
 
     private long partCounter;
+
+    private long inProgressPartRecordCount;
 
     @Nullable
     private InProgressFileRecoverable inProgressFileToCleanup;
@@ -74,7 +77,7 @@ class DeltaWriterBucket<IN> {
     private DeltaWriterBucket(
             String bucketId,
             Path bucketPath,
-            BucketWriter<IN, String> bucketWriter,
+            BulkBucketWriter<IN, String> bucketWriter,
             RollingPolicy<IN, String> rollingPolicy,
             OutputFileConfig outputFileConfig) {
         this.bucketId = checkNotNull(bucketId);
@@ -85,13 +88,14 @@ class DeltaWriterBucket<IN> {
 
         this.uniqueId = UUID.randomUUID().toString();
         this.partCounter = 0;
+        this.inProgressPartRecordCount = 0;
     }
 
     /**
      * Constructor to restore a bucket from checkpointed state.
      */
     private DeltaWriterBucket(
-            BucketWriter<IN, String> partFileFactory,
+            BulkBucketWriter<IN, String> partFileFactory,
             RollingPolicy<IN, String> rollingPolicy,
             DeltaWriterBucketState bucketState,
             OutputFileConfig outputFileConfig)
@@ -118,19 +122,21 @@ class DeltaWriterBucket<IN> {
                 state.getInProgressFileRecoverable();
 
         if (bucketWriter.getProperties().supportsResume()) {
-            InProgressFileWriter<IN, String> inProgressPart =
+            OutputStreamBasedPartFileWriter<IN, String> inProgressPart = (OutputStreamBasedPartFileWriter<IN, String>)
                     bucketWriter.resumeInProgressFileFrom(
                             bucketId,
                             inProgressFileRecoverable,
                             state.getInProgressFileCreationTime());
-            deltaInProgressPart = new DeltaInProgressPart<>(
-                    state.getInProgressPartFilePath(),
+            deltaInProgressPart = new DeltaInProgressPart<IN>(
+                    state.getInProgressPartFileName(),
                     inProgressPart
             );
         } else {
             DeltaPendingFile deltaPendingFile = new DeltaPendingFile(
-                    state.getInProgressPartFilePath(),
-                    inProgressFileRecoverable
+                    state.getInProgressPartFileName(),
+                    inProgressFileRecoverable,
+                    state.getRecordCount(),
+                    state.getInProgressPartFileSize()
             );
             pendingFiles.add(deltaPendingFile);
         }
@@ -176,10 +182,11 @@ class DeltaWriterBucket<IN> {
         }
 
         deltaInProgressPart.getInProgressPart().write(element, currentTime);
+        ++inProgressPartRecordCount;
     }
 
 
-    List<DeltaSinkCommittable> prepareCommit(boolean flush) throws IOException {
+    List<DeltaCommittable> prepareCommit(boolean flush) throws IOException {
         if (deltaInProgressPart != null
                 && (rollingPolicy.shouldRollOnCheckpoint(deltaInProgressPart.getInProgressPart()) || flush)) {
             if (LOG.isDebugEnabled()) {
@@ -189,14 +196,15 @@ class DeltaWriterBucket<IN> {
             closePartFile();
         }
 
-        List<DeltaSinkCommittable> committables = new ArrayList<>();
-        pendingFiles.forEach(pendingFile -> committables.add(new DeltaSinkCommittable(pendingFile)));
+        List<DeltaCommittable> committables = new ArrayList<>();
+        pendingFiles.forEach(pendingFile -> committables.add(new DeltaCommittable(pendingFile)));
         pendingFiles.clear();
 
         if (inProgressFileToCleanup != null) {
-            committables.add(new DeltaSinkCommittable(inProgressFileToCleanup));
+            committables.add(new DeltaCommittable(inProgressFileToCleanup));
             inProgressFileToCleanup = null;
         }
+
 
         return committables;
     }
@@ -204,18 +212,28 @@ class DeltaWriterBucket<IN> {
     DeltaWriterBucketState snapshotState() throws IOException {
         InProgressFileRecoverable inProgressFileRecoverable = null;
         long inProgressFileCreationTime = Long.MAX_VALUE;
-        Path inProgressPartPath = null;
+        String inProgressPartFileName = null;
+        long recordCount = 0;
+        long inProgressPartFileSize = 0;
 
         if (deltaInProgressPart != null) {
             InProgressFileWriter<IN, String> inProgressPart = deltaInProgressPart.getInProgressPart();
             inProgressFileRecoverable = inProgressPart.persist();
             inProgressFileToCleanup = inProgressFileRecoverable;
             inProgressFileCreationTime = inProgressPart.getCreationTime();
-            inProgressPartPath = deltaInProgressPart.getPath();
+            inProgressPartFileName = deltaInProgressPart.getFileName();
+            recordCount = this.inProgressPartRecordCount;
+            inProgressPartFileSize = inProgressPart.getSize();
         }
 
         return new DeltaWriterBucketState(
-                bucketId, bucketPath, inProgressFileCreationTime, inProgressFileRecoverable, inProgressPartPath
+                bucketId,
+                bucketPath,
+                inProgressFileCreationTime,
+                inProgressFileRecoverable,
+                inProgressPartFileName,
+                recordCount,
+                inProgressPartFileSize
         );
     }
 
@@ -250,13 +268,15 @@ class DeltaWriterBucket<IN> {
                     bucketId);
         }
 
-        InProgressFileWriter<IN, String> fileWriter = bucketWriter.openNewInProgressFile(bucketId, partFilePath, currentTime);
+        OutputStreamBasedPartFileWriter<IN, String> fileWriter = (OutputStreamBasedPartFileWriter<IN, String>) bucketWriter.openNewInProgressFile(bucketId, partFilePath, currentTime);
+
         LOG.debug(
                 "Successfully opened new part file \"{}\" for bucket id={}.",
                 partFilePath.getName(),
                 bucketId);
 
-        return new DeltaInProgressPart<IN>(partFilePath, fileWriter);
+
+        return new DeltaInProgressPart<IN>(partFilePath.getName(), fileWriter);
     }
 
     /**
@@ -276,11 +296,19 @@ class DeltaWriterBucket<IN> {
 
     private void closePartFile() throws IOException {
         if (deltaInProgressPart != null) {
+            long fileSize = deltaInProgressPart.getInProgressPart().getSize(); //TODO this doesn't work
             InProgressFileWriter.PendingFileRecoverable pendingFileRecoverable =
                     deltaInProgressPart.getInProgressPart().closeForCommit();
-            DeltaPendingFile pendingFile = new DeltaPendingFile(deltaInProgressPart.getPath(), pendingFileRecoverable);
+
+            DeltaPendingFile pendingFile = new DeltaPendingFile(
+                    deltaInProgressPart.getFileName(),
+                    pendingFileRecoverable,
+                    this.inProgressPartRecordCount,
+                    fileSize
+            );
             pendingFiles.add(pendingFile);
             deltaInProgressPart = null;
+            inProgressPartRecordCount = 0;
         }
     }
 
@@ -315,20 +343,25 @@ class DeltaWriterBucket<IN> {
     static <IN> DeltaWriterBucket<IN> getNew(
             final String bucketId,
             final Path bucketPath,
-            final BucketWriter<IN, String> bucketWriter,
+            final BulkBucketWriter<IN, String> bucketWriter,
             final RollingPolicy<IN, String> rollingPolicy,
             final OutputFileConfig outputFileConfig) {
-        return new DeltaWriterBucket<>(
+        return new DeltaWriterBucket<IN>(
                 bucketId, bucketPath, bucketWriter, rollingPolicy, outputFileConfig);
     }
 
 
     static <IN> DeltaWriterBucket<IN> restore(
-            final BucketWriter<IN, String> bucketWriter,
+            final BulkBucketWriter<IN, String> bucketWriter,
             final RollingPolicy<IN, String> rollingPolicy,
             final DeltaWriterBucketState bucketState,
             final OutputFileConfig outputFileConfig)
             throws IOException {
-        return new DeltaWriterBucket<>(bucketWriter, rollingPolicy, bucketState, outputFileConfig);
+        return new DeltaWriterBucket<IN>(bucketWriter, rollingPolicy, bucketState, outputFileConfig);
     }
+
+    public long getInProgressPartRecordCount() {
+        return inProgressPartRecordCount;
+    }
+
 }

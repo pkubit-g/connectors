@@ -22,10 +22,10 @@ import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.api.connector.sink.SinkWriter;
-import org.apache.flink.connector.delta.sink.DeltaSinkCommittable;
+import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
-import org.apache.flink.streaming.api.functions.sink.filesystem.BucketWriter;
+import org.apache.flink.streaming.api.functions.sink.filesystem.BulkBucketWriter;
 import org.apache.flink.streaming.api.functions.sink.filesystem.OutputFileConfig;
 import org.apache.flink.streaming.api.functions.sink.filesystem.RollingPolicy;
 import org.slf4j.Logger;
@@ -33,13 +33,19 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
-import static org.apache.flink.util.Preconditions.*;
+import static org.apache.flink.util.Preconditions.checkArgument;
+import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.util.Preconditions.checkState;
 
 @Internal
 public class DeltaWriter<IN>
-        implements SinkWriter<IN, DeltaSinkCommittable, DeltaWriterBucketState>,
+        implements SinkWriter<IN, DeltaCommittable, DeltaWriterBucketState>,
         Sink.ProcessingTimeService.ProcessingTimeCallback {
 
     private static final Logger LOG = LoggerFactory.getLogger(DeltaWriter.class);
@@ -52,7 +58,7 @@ public class DeltaWriter<IN>
 
     private final BucketAssigner<IN, String> bucketAssigner;
 
-    private final BucketWriter<IN, String> bucketWriter;
+    private final BulkBucketWriter<IN, String> bucketWriter;
 
     private final RollingPolicy<IN, String> rollingPolicy;
 
@@ -73,12 +79,11 @@ public class DeltaWriter<IN>
             final Path basePath,
             final BucketAssigner<IN, String> bucketAssigner,
             final DeltaWriterBucketFactory<IN> bucketFactory,
-            final BucketWriter<IN, String> bucketWriter,
+            final BulkBucketWriter<IN, String> bucketWriter,
             final RollingPolicy<IN, String> rollingPolicy,
             final OutputFileConfig outputFileConfig,
             final Sink.ProcessingTimeService processingTimeService,
             final long bucketCheckInterval) {
-
         this.basePath = checkNotNull(basePath);
         this.bucketAssigner = checkNotNull(bucketAssigner);
         this.bucketFactory = checkNotNull(bucketFactory);
@@ -159,8 +164,8 @@ public class DeltaWriter<IN>
     }
 
     @Override
-    public List<DeltaSinkCommittable> prepareCommit(boolean flush) throws IOException {
-        List<DeltaSinkCommittable> committables = new ArrayList<>();
+    public List<DeltaCommittable> prepareCommit(boolean flush) throws IOException {
+        List<DeltaCommittable> committables = new ArrayList<>();
 
         // Every time before we prepare commit, we first check and remove the inactive
         // buckets. Checking the activeness right before pre-committing avoid re-creating

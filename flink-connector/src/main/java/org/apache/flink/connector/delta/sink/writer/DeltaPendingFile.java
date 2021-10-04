@@ -1,6 +1,5 @@
 package org.apache.flink.connector.delta.sink.writer;
 
-import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.functions.sink.filesystem.InProgressFileWriter;
 
 import javax.annotation.Nullable;
@@ -9,20 +8,31 @@ import javax.annotation.Nullable;
 public class DeltaPendingFile {
 
     @Nullable
-    private final Path path;
+    private final String fileName;
 
     @Nullable
     private final InProgressFileWriter.PendingFileRecoverable pendingFile;
 
-    public DeltaPendingFile(@Nullable Path path,
-                            @Nullable InProgressFileWriter.PendingFileRecoverable pendingFile) {
-        this.path = path;
+    @Nullable
+    private final long recordCount;
+
+    @Nullable
+    private final long fileSize;
+
+
+    public DeltaPendingFile(@Nullable String fileName,
+                            @Nullable InProgressFileWriter.PendingFileRecoverable pendingFile,
+                            long recordCount,
+                            long fileSize) {
+        this.fileName = fileName;
         this.pendingFile = pendingFile;
+        this.fileSize = fileSize;
+        this.recordCount = recordCount;
     }
 
     @Nullable
-    public Path getPath() {
-        return path;
+    public String getFileName() {
+        return fileName;
     }
 
     @Nullable
@@ -30,4 +40,11 @@ public class DeltaPendingFile {
         return pendingFile;
     }
 
+    public long getFileSize() {
+        return fileSize;
+    }
+
+    public long getRecordCount() {
+        return recordCount;
+    }
 }

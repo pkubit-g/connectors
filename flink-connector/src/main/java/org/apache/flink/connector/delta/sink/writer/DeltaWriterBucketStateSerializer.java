@@ -30,7 +30,6 @@ import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.
 import org.apache.flink.util.function.FunctionWithException;
 
 import java.io.IOException;
-import java.util.Objects;
 
 import static org.apache.flink.streaming.api.functions.sink.filesystem.InProgressFileWriter.InProgressFileRecoverable;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -46,7 +45,7 @@ public class DeltaWriterBucketStateSerializer
 
 
     public DeltaWriterBucketStateSerializer(
-            SimpleVersionedSerializer<InProgressFileRecoverable>  inProgressFileRecoverableSerializer
+            SimpleVersionedSerializer<InProgressFileRecoverable> inProgressFileRecoverableSerializer
     ) {
         this.inProgressFileRecoverableSerializer = checkNotNull(inProgressFileRecoverableSerializer);
     }
@@ -87,9 +86,11 @@ public class DeltaWriterBucketStateSerializer
         if (state.hasInProgressFileRecoverable()) {
             InProgressFileRecoverable inProgressFileRecoverable = state.getInProgressFileRecoverable();
             assert inProgressFileRecoverable != null;
-            assert state.getInProgressPartFilePath() != null;
+            assert state.getInProgressPartFileName() != null;
             dataOutputView.writeBoolean(true);
-            dataOutputView.writeUTF(state.getInProgressPartFilePath().toString());
+            dataOutputView.writeUTF(state.getInProgressPartFileName());
+            dataOutputView.writeLong(state.getRecordCount());
+            dataOutputView.writeLong(state.getInProgressPartFileSize());
             SimpleVersionedSerialization.writeVersionAndSerialize(
                     inProgressFileRecoverableSerializer,
                     inProgressFileRecoverable,
@@ -122,9 +123,13 @@ public class DeltaWriterBucketStateSerializer
 
         // then get the current resumable stream
         InProgressFileRecoverable current = null;
-        Path inprogressFilePath = null;
+        String inprogressFileName = null;
+        long recordCount = 0;
+        long inProgressPartFileSize = 0;
         if (dataInputView.readBoolean()) {
-            inprogressFilePath = new Path(dataInputView.readUTF());
+            inprogressFileName = dataInputView.readUTF();
+            recordCount = dataInputView.readLong();
+            inProgressPartFileSize = dataInputView.readLong();
             current = inProgressFileParser.apply(dataInputView);
         }
 
@@ -133,7 +138,9 @@ public class DeltaWriterBucketStateSerializer
                 new Path(bucketPathStr),
                 creationTime,
                 current,
-                inprogressFilePath
+                inprogressFileName,
+                recordCount,
+                inProgressPartFileSize
         );
     }
 

@@ -16,11 +16,10 @@
  * limitations under the License.
  */
 
-package org.apache.flink.connector.delta.sink;
+package org.apache.flink.connector.delta.sink.committables;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.connector.delta.sink.writer.DeltaPendingFile;
-import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.io.SimpleVersionedSerialization;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.core.memory.DataInputDeserializer;
@@ -35,8 +34,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 
 
 @Internal
-public class DeltaSinkCommittableSerializer
-        implements SimpleVersionedSerializer<DeltaSinkCommittable> {
+public class DeltaCommittableSerializer
+        implements SimpleVersionedSerializer<DeltaCommittable> {
 
     private static final int MAGIC_NUMBER = 0x1e765c80;
 
@@ -46,7 +45,7 @@ public class DeltaSinkCommittableSerializer
     private final SimpleVersionedSerializer<InProgressFileWriter.InProgressFileRecoverable>
             inProgressFileSerializer;
 
-    public DeltaSinkCommittableSerializer(
+    public DeltaCommittableSerializer(
             SimpleVersionedSerializer<InProgressFileWriter.PendingFileRecoverable>
                     pendingFileSerializer,
             SimpleVersionedSerializer<InProgressFileWriter.InProgressFileRecoverable>
@@ -61,7 +60,7 @@ public class DeltaSinkCommittableSerializer
     }
 
     @Override
-    public byte[] serialize(DeltaSinkCommittable committable) throws IOException {
+    public byte[] serialize(DeltaCommittable committable) throws IOException {
         DataOutputSerializer out = new DataOutputSerializer(256);
         out.writeInt(MAGIC_NUMBER);
         serializeV1(committable, out);
@@ -69,7 +68,7 @@ public class DeltaSinkCommittableSerializer
     }
 
     @Override
-    public DeltaSinkCommittable deserialize(int version, byte[] serialized) throws IOException {
+    public DeltaCommittable deserialize(int version, byte[] serialized) throws IOException {
         DataInputDeserializer in = new DataInputDeserializer(serialized);
 
         if (version == 1) {
@@ -79,22 +78,16 @@ public class DeltaSinkCommittableSerializer
         throw new IOException("Unrecognized version or corrupt state: " + version);
     }
 
-    private void serializeV1(DeltaSinkCommittable committable, DataOutputView dataOutputView)
+    private void serializeV1(DeltaCommittable committable, DataOutputView dataOutputView)
             throws IOException {
 
         if (committable.hasDeltaPendingFile()) {
             dataOutputView.writeBoolean(true);
 
             assert committable.getDeltaPendingFile() != null;
-            assert committable.getDeltaPendingFile().getPath() != null;
             assert committable.getDeltaPendingFile().getPendingFile() != null;
 
-            dataOutputView.writeUTF(committable.getDeltaPendingFile().getPath().toString());
-            SimpleVersionedSerialization.writeVersionAndSerialize(
-                    pendingFileSerializer,
-                    committable.getDeltaPendingFile().getPendingFile(),
-                    dataOutputView
-            );
+            DeltaPendingFileSerdeUtil.serialize(committable.getDeltaPendingFile(), dataOutputView, pendingFileSerializer);
         } else {
             dataOutputView.writeBoolean(false);
         }
@@ -112,14 +105,10 @@ public class DeltaSinkCommittableSerializer
         }
     }
 
-    private DeltaSinkCommittable deserializeV1(DataInputView dataInputView) throws IOException {
-        InProgressFileWriter.PendingFileRecoverable pendingFile = null;
-        Path pendingFilePath = null;
+    private DeltaCommittable deserializeV1(DataInputView dataInputView) throws IOException {
+        DeltaPendingFile deltaPendingFile = null;
         if (dataInputView.readBoolean()) {
-            pendingFilePath = new Path(dataInputView.readUTF());
-            pendingFile =
-                    SimpleVersionedSerialization.readVersionAndDeSerialize(
-                            pendingFileSerializer, dataInputView);
+            deltaPendingFile = DeltaPendingFileSerdeUtil.deserialize(dataInputView, pendingFileSerializer);
         }
 
         InProgressFileWriter.InProgressFileRecoverable inProgressFileToCleanup = null;
@@ -129,9 +118,7 @@ public class DeltaSinkCommittableSerializer
                             inProgressFileSerializer, dataInputView);
         }
 
-        DeltaPendingFile deltaPendingFile = new DeltaPendingFile(pendingFilePath, pendingFile);
-
-        return new DeltaSinkCommittable(deltaPendingFile, inProgressFileToCleanup);
+        return new DeltaCommittable(deltaPendingFile, inProgressFileToCleanup);
     }
 
     private static void validateMagicNumber(DataInputView in) throws IOException {

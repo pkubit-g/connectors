@@ -25,11 +25,17 @@ import org.apache.flink.api.connector.sink.GlobalCommitter;
 import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.api.connector.sink.SinkWriter;
 import org.apache.flink.connector.delta.sink.commiter.DeltaCommitter;
+import org.apache.flink.connector.delta.sink.commiter.DeltaGlobalCommitter;
+import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
+import org.apache.flink.connector.delta.sink.committables.DeltaCommittableSerializer;
+import org.apache.flink.connector.delta.sink.committables.DeltaGlobalCommittable;
+import org.apache.flink.connector.delta.sink.committables.DeltaGlobalCommittableSerializer;
 import org.apache.flink.connector.delta.sink.writer.DefaultDeltaWriterBucketFactory;
 import org.apache.flink.connector.delta.sink.writer.DeltaWriter;
 import org.apache.flink.connector.delta.sink.writer.DeltaWriterBucketFactory;
 import org.apache.flink.connector.delta.sink.writer.DeltaWriterBucketState;
 import org.apache.flink.connector.delta.sink.writer.DeltaWriterBucketStateSerializer;
+import org.apache.flink.connector.delta.sink.writer.parquet.DeltaParquetWriterBuilder;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
@@ -44,6 +50,7 @@ import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.
 import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.OnCheckpointRollingPolicy;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.parquet.hadoop.api.WriteSupport;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -54,16 +61,16 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 
-public class DeltaSink<IN> implements Sink<IN, DeltaSinkCommittable, DeltaWriterBucketState, Void> {
+public class DeltaSink<IN> implements Sink<IN, DeltaCommittable, DeltaWriterBucketState, DeltaGlobalCommittable> {
 
-    private final BulkFormatBuilder<IN, ? extends BulkFormatBuilder<IN, ?>> bucketsBuilder;
+    private final DeltaFormatBuilder<IN, ? extends DeltaFormatBuilder<IN, ?>> bucketsBuilder;
 
-    private DeltaSink(BulkFormatBuilder<IN, ? extends BulkFormatBuilder<IN, ?>> bucketsBuilder) {
+    private DeltaSink(DeltaFormatBuilder<IN, ? extends DeltaFormatBuilder<IN, ?>> bucketsBuilder) {
         this.bucketsBuilder = checkNotNull(bucketsBuilder);
     }
 
     @Override
-    public SinkWriter<IN, DeltaSinkCommittable, DeltaWriterBucketState> createWriter(
+    public SinkWriter<IN, DeltaCommittable, DeltaWriterBucketState> createWriter(
             InitContext context,
             List<DeltaWriterBucketState> states
     ) throws IOException {
@@ -85,12 +92,12 @@ public class DeltaSink<IN> implements Sink<IN, DeltaSinkCommittable, DeltaWriter
     }
 
     @Override
-    public Optional<Committer<DeltaSinkCommittable>> createCommitter() throws IOException {
+    public Optional<Committer<DeltaCommittable>> createCommitter() throws IOException {
         return Optional.of(bucketsBuilder.createCommitter());
     }
 
     @Override
-    public Optional<SimpleVersionedSerializer<DeltaSinkCommittable>> getCommittableSerializer() {
+    public Optional<SimpleVersionedSerializer<DeltaCommittable>> getCommittableSerializer() {
         try {
             return Optional.of(bucketsBuilder.getCommittableSerializer());
         } catch (IOException e) {
@@ -102,22 +109,60 @@ public class DeltaSink<IN> implements Sink<IN, DeltaSinkCommittable, DeltaWriter
     }
 
     @Override
-    public Optional<GlobalCommitter<DeltaSinkCommittable, Void>> createGlobalCommitter() {
-        return Optional.empty();
+    public Optional<GlobalCommitter<DeltaCommittable, DeltaGlobalCommittable>> createGlobalCommitter() throws IOException {
+
+        return Optional.of(bucketsBuilder.createGlobalCommitter());
     }
 
     @Override
-    public Optional<SimpleVersionedSerializer<Void>> getGlobalCommittableSerializer() {
-        return Optional.empty();
+    public Optional<SimpleVersionedSerializer<DeltaGlobalCommittable>> getGlobalCommittableSerializer() {
+        try {
+            return Optional.of(bucketsBuilder.getGlobalCommittableSerializer());
+        } catch (IOException e) {
+            // it's not optimal that we have to do this but creating the serializers for the
+            // FileSink requires (among other things) a call to FileSystem.get() which declares
+            // IOException.
+            throw new FlinkRuntimeException("Could not create committable serializer.", e);
+        }
     }
 
 
-    public static <IN> DefaultBulkFormatBuilder<IN> forBulkFormat(
+    /**
+     * Convenience method that will create builder configured to use SNAPPY compression codec.
+     * @param basePath
+     * @param conf
+     * @param writeSupport
+     * @param <IN>
+     * @return
+     */
+    public static <IN> DefaultDeltaFormatBuilder<IN> forDeltaFormat(
+            final Path basePath,
+            final Configuration conf,
+            WriteSupport<IN> writeSupport
+    ) {
+        return new DefaultDeltaFormatBuilder<>(
+                basePath,
+                conf,
+                DeltaParquetWriterBuilder.createWriterFactory(conf, writeSupport),
+                new BasePathBucketAssigner<>()
+        );
+    }
+
+    /**
+     * Convenience method where developer must ensure that bulkWriterFactory is configured to use SNAPPY
+     * compression codec.
+     * @param basePath
+     * @param conf
+     * @param bulkWriterFactory
+     * @param <IN>
+     * @return
+     */
+    public static <IN> DefaultDeltaFormatBuilder<IN> forDeltaFormat(
             final Path basePath,
             final Configuration conf,
             final ParquetWriterFactory<IN> bulkWriterFactory
     ) {
-        return new DefaultBulkFormatBuilder<>(
+        return new DefaultDeltaFormatBuilder<>(
                 basePath,
                 conf,
                 bulkWriterFactory,
@@ -125,16 +170,17 @@ public class DeltaSink<IN> implements Sink<IN, DeltaSinkCommittable, DeltaWriter
         );
     }
 
+
     /**
      * A builder for configuring the sink for bulk-encoding formats, e.g. Parquet/ORC.
      */
 
-    public static final class DefaultBulkFormatBuilder<IN>
-            extends BulkFormatBuilder<IN, DefaultBulkFormatBuilder<IN>> {
+    public static final class DefaultDeltaFormatBuilder<IN>
+            extends DeltaFormatBuilder<IN, DefaultDeltaFormatBuilder<IN>> {
 
         private static final long serialVersionUID = 7493169281036370228L;
 
-        private DefaultBulkFormatBuilder(
+        private DefaultDeltaFormatBuilder(
                 Path basePath,
                 final Configuration conf,
                 ParquetWriterFactory<IN> writerFactory,
@@ -144,7 +190,7 @@ public class DeltaSink<IN> implements Sink<IN, DeltaSinkCommittable, DeltaWriter
     }
 
     @PublicEvolving
-    public static class BulkFormatBuilder<IN, T extends BulkFormatBuilder<IN, T>>
+    public static class DeltaFormatBuilder<IN, T extends DeltaFormatBuilder<IN, T>>
             implements Serializable {
 
         private static final long serialVersionUID = 7493169281036370228L;
@@ -167,11 +213,12 @@ public class DeltaSink<IN> implements Sink<IN, DeltaSinkCommittable, DeltaWriter
 
         private final SerializableConfiguration configuration;
 
+        @SuppressWarnings("unchecked")
         protected T self() {
             return (T) this;
         }
 
-        protected BulkFormatBuilder(
+        protected DeltaFormatBuilder(
                 Path basePath,
                 Configuration conf,
                 ParquetWriterFactory<IN> writerFactory,
@@ -184,10 +231,10 @@ public class DeltaSink<IN> implements Sink<IN, DeltaSinkCommittable, DeltaWriter
                     assigner,
                     OnCheckpointRollingPolicy.build(),
                     new DefaultDeltaWriterBucketFactory<>(),
-                    OutputFileConfig.builder().build());
+                    OutputFileConfig.builder().withPartSuffix(".snappy.parquet").build());
         }
 
-        protected BulkFormatBuilder(
+        protected DeltaFormatBuilder(
                 Path basePath,
                 Configuration conf,
                 long bucketCheckInterval,
@@ -226,13 +273,13 @@ public class DeltaSink<IN> implements Sink<IN, DeltaSinkCommittable, DeltaWriter
             return self();
         }
 
-        public BulkFormatBuilder<IN, ? extends BulkFormatBuilder<IN, ?>> withNewBucketAssigner(
+        public DeltaFormatBuilder<IN, ? extends DeltaFormatBuilder<IN, ?>> withNewBucketAssigner(
                 BucketAssigner<IN, String> assigner) {
             checkState(
                     bucketFactory.getClass() == DefaultDeltaWriterBucketFactory.class,
                     "newBuilderWithBucketAssigner() cannot be called "
                             + "after specifying a customized bucket factory");
-            return new BulkFormatBuilder<>(
+            return new DeltaFormatBuilder<>(
                     basePath,
                     configuration.conf(),
                     bucketCheckInterval,
@@ -266,6 +313,10 @@ public class DeltaSink<IN> implements Sink<IN, DeltaSinkCommittable, DeltaWriter
             return new DeltaCommitter(createBucketWriter());
         }
 
+        DeltaGlobalCommitter createGlobalCommitter() throws IOException {
+            return new DeltaGlobalCommitter(configuration.conf(), basePath);
+        }
+
         SimpleVersionedSerializer<DeltaWriterBucketState> getWriterStateSerializer()
                 throws IOException {
             BucketWriter<IN, String> bucketWriter = createBucketWriter();
@@ -275,16 +326,23 @@ public class DeltaSink<IN> implements Sink<IN, DeltaSinkCommittable, DeltaWriter
             );
         }
 
-        SimpleVersionedSerializer<DeltaSinkCommittable> getCommittableSerializer()
+        SimpleVersionedSerializer<DeltaCommittable> getCommittableSerializer()
                 throws IOException {
             BucketWriter<IN, String> bucketWriter = createBucketWriter();
 
-            return new DeltaSinkCommittableSerializer(
+            return new DeltaCommittableSerializer(
                     bucketWriter.getProperties().getPendingFileRecoverableSerializer(),
                     bucketWriter.getProperties().getInProgressFileRecoverableSerializer());
         }
 
-        private BucketWriter<IN, String> createBucketWriter() throws IOException {
+        SimpleVersionedSerializer<DeltaGlobalCommittable> getGlobalCommittableSerializer()
+                throws IOException {
+            BucketWriter<IN, String> bucketWriter = createBucketWriter();
+
+            return new DeltaGlobalCommittableSerializer(bucketWriter.getProperties().getPendingFileRecoverableSerializer());
+        }
+
+        private BulkBucketWriter<IN, String> createBucketWriter() throws IOException {
             return new BulkBucketWriter<>(
                     FileSystem.get(basePath.toUri()).createRecoverableWriter(), writerFactory);
         }

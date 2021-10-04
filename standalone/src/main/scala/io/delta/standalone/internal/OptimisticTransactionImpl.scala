@@ -110,16 +110,16 @@ private[internal] class OptimisticTransactionImpl(
     }
 
     val commitInfo = CommitInfo(
-      deltaLog.clock.getTimeMillis(),
-      op.getName.toString,
-      null,
-      Map.empty,
-      Some(readVersion).filter(_ >= 0),
-      Option(isolationLevelToUse.toString),
-      Some(isBlindAppend),
-      Some(op.getOperationMetrics.asScala.toMap),
-      if (op.getUserMetadata.isPresent) Some(op.getUserMetadata.get()) else None,
-      Some(engineInfo) // TODO: engineInfo-standalone-standaloneVersion
+      time = deltaLog.clock.getTimeMillis(),
+      operation = op.getName.toString,
+      operationParameters = null,
+      commandContext = Map.empty,
+      readVersion = Some(readVersion).filter(_ >= 0),
+      isolationLevel = Option(isolationLevelToUse.toString),
+      isBlindAppend = Some(isBlindAppend),
+      operationMetrics = Some(op.getOperationMetrics.asScala.toMap),
+      userMetadata = if (op.getUserMetadata.isPresent) Some(op.getUserMetadata.get()) else None,
+      writerId = Some(engineInfo) // TODO: engineInfo-standalone-standaloneVersion
     )
 
     preparedActions = commitInfo +: preparedActions

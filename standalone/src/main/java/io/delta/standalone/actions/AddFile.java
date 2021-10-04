@@ -37,8 +37,12 @@ public final class AddFile implements FileAction {
     private final String stats;
     private final Map<String, String> tags;
 
-    public AddFile(String path, Map<String, String> partitionValues, long size,
-                   long modificationTime, boolean dataChange, String stats,
+    public AddFile(String path,
+                   Map<String, String> partitionValues,
+                   long size,
+                   long modificationTime,
+                   boolean dataChange,
+                   String stats,
                    Map<String, String> tags) {
         this.path = path;
         this.partitionValues = partitionValues;

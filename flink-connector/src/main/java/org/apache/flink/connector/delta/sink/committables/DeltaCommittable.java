@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.connector.delta.sink;
+package org.apache.flink.connector.delta.sink.committables;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.connector.delta.sink.writer.DeltaPendingFile;
@@ -29,7 +29,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 
 
 @Internal
-public class DeltaSinkCommittable implements Serializable {
+public class DeltaCommittable implements Serializable {
 
     @Nullable
     private final DeltaPendingFile deltaPendingFile;
@@ -39,18 +39,18 @@ public class DeltaSinkCommittable implements Serializable {
     private final InProgressFileWriter.InProgressFileRecoverable inProgressFileToCleanup;
 
 
-    public DeltaSinkCommittable(DeltaPendingFile deltaPendingFile) {
+    public DeltaCommittable(DeltaPendingFile deltaPendingFile) {
         this.deltaPendingFile = checkNotNull(deltaPendingFile);
         this.inProgressFileToCleanup = null;
     }
 
-    public DeltaSinkCommittable(
+    public DeltaCommittable(
             InProgressFileWriter.InProgressFileRecoverable inProgressFileToCleanup) {
         this.deltaPendingFile = null;
         this.inProgressFileToCleanup = checkNotNull(inProgressFileToCleanup);
     }
 
-    DeltaSinkCommittable(
+    DeltaCommittable(
             @Nullable DeltaPendingFile deltaPendingFile,
             @Nullable InProgressFileWriter.InProgressFileRecoverable inProgressFileToCleanup) {
         this.deltaPendingFile = deltaPendingFile;
