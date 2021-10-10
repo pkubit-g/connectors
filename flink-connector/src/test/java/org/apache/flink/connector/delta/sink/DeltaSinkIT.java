@@ -98,6 +98,11 @@ public class DeltaSinkIT {
                 .forDeltaFormat(new Path(testDeltaTablePath), conf, factory)
                 .build();
 
+//
+//        DeltaSink<RowData> deltaSink = DeltaSink
+//                .forDeltaFormat(new Path(testDeltaTablePath), conf, writeSupport)
+//                .build();
+
         env.fromCollection(getTestRows())
                 .setParallelism(1)
                 .map((MapFunction<RowData, RowData>) value -> {

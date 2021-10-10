@@ -10,7 +10,7 @@ import io.delta.standalone.actions.Metadata;
 import org.apache.flink.api.connector.sink.GlobalCommitter;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.connector.delta.sink.committables.DeltaGlobalCommittable;
-import org.apache.flink.connector.delta.sink.writer.DeltaPendingFile;
+import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
 import org.apache.flink.core.fs.Path;
 import org.apache.hadoop.conf.Configuration;
 
@@ -23,7 +23,7 @@ import java.util.Map;
 
 public class DeltaGlobalCommitter implements GlobalCommitter<DeltaCommittable, DeltaGlobalCommittable> {
 
-    private final String engineInfo = "flink.1.12"; // parametrize
+    private final String engineInfo = "flink.1.12"; // TODO parametrize
 
     private final Configuration conf;
 

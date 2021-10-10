@@ -1,6 +1,6 @@
 package org.apache.flink.connector.delta.sink.committables;
 
-import org.apache.flink.connector.delta.sink.writer.DeltaPendingFile;
+import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
 import org.apache.flink.core.io.SimpleVersionedSerialization;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.core.memory.DataInputView;

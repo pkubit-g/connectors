@@ -35,7 +35,7 @@ import org.apache.flink.connector.delta.sink.writer.DeltaWriter;
 import org.apache.flink.connector.delta.sink.writer.DeltaWriterBucketFactory;
 import org.apache.flink.connector.delta.sink.writer.DeltaWriterBucketState;
 import org.apache.flink.connector.delta.sink.writer.DeltaWriterBucketStateSerializer;
-import org.apache.flink.connector.delta.sink.writer.parquet.DeltaParquetWriterBuilder;
+//import org.apache.flink.connector.delta.sink.writer.parquet.DeltaParquetWriterBuilder;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
@@ -43,7 +43,7 @@ import org.apache.flink.formats.parquet.ParquetWriterFactory;
 import org.apache.flink.formats.parquet.utils.SerializableConfiguration;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketWriter;
-import org.apache.flink.streaming.api.functions.sink.filesystem.BulkBucketWriter;
+import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaBulkBucketWriter;
 import org.apache.flink.streaming.api.functions.sink.filesystem.OutputFileConfig;
 import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.BasePathBucketAssigner;
 import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.CheckpointRollingPolicy;
@@ -129,28 +129,30 @@ public class DeltaSink<IN> implements Sink<IN, DeltaCommittable, DeltaWriterBuck
 
     /**
      * Convenience method that will create builder configured to use SNAPPY compression codec.
+     *
      * @param basePath
      * @param conf
      * @param writeSupport
      * @param <IN>
      * @return
      */
-    public static <IN> DefaultDeltaFormatBuilder<IN> forDeltaFormat(
-            final Path basePath,
-            final Configuration conf,
-            WriteSupport<IN> writeSupport
-    ) {
-        return new DefaultDeltaFormatBuilder<>(
-                basePath,
-                conf,
-                DeltaParquetWriterBuilder.createWriterFactory(conf, writeSupport),
-                new BasePathBucketAssigner<>()
-        );
-    }
+//    public static <IN> DefaultDeltaFormatBuilder<IN> forDeltaFormat(
+//            final Path basePath,
+//            final Configuration conf,
+//            WriteSupport<IN> writeSupport
+//    ) {
+//        return new DefaultDeltaFormatBuilder<>(
+//                basePath,
+//                conf,
+//                DeltaParquetWriterBuilder.createWriterFactory(conf, writeSupport),
+//                new BasePathBucketAssigner<>()
+//        );
+//    }
 
     /**
      * Convenience method where developer must ensure that bulkWriterFactory is configured to use SNAPPY
      * compression codec.
+     *
      * @param basePath
      * @param conf
      * @param bulkWriterFactory
@@ -342,8 +344,8 @@ public class DeltaSink<IN> implements Sink<IN, DeltaCommittable, DeltaWriterBuck
             return new DeltaGlobalCommittableSerializer(bucketWriter.getProperties().getPendingFileRecoverableSerializer());
         }
 
-        private BulkBucketWriter<IN, String> createBucketWriter() throws IOException {
-            return new BulkBucketWriter<>(
+        private DeltaBulkBucketWriter<IN, String> createBucketWriter() throws IOException {
+            return new DeltaBulkBucketWriter<>(
                     FileSystem.get(basePath.toUri()).createRecoverableWriter(), writerFactory);
         }
     }

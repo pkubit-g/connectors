@@ -1,4 +1,4 @@
-package org.apache.flink.connector.delta.sink.writer;
+package org.apache.flink.streaming.api.functions.sink.filesystem;
 
 import org.apache.flink.streaming.api.functions.sink.filesystem.InProgressFileWriter;
 

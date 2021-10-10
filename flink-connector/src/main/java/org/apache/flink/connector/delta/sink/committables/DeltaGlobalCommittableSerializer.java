@@ -19,7 +19,7 @@
 package org.apache.flink.connector.delta.sink.committables;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.connector.delta.sink.writer.DeltaPendingFile;
+import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.core.memory.DataInputDeserializer;
 import org.apache.flink.core.memory.DataInputView;
@@ -82,6 +82,7 @@ public class DeltaGlobalCommittableSerializer
             DeltaPendingFileSerdeUtil.serialize(deltaPendingFile, dataOutputView, pendingFileSerializer);
         }
 
+
     }
 
     private DeltaGlobalCommittable deserializeV1(DataInputView dataInputView) throws IOException {
@@ -90,7 +91,6 @@ public class DeltaGlobalCommittableSerializer
         for (int i = 0; i < pendingFilesSize; i++) {
             pendingFiles.add(DeltaPendingFileSerdeUtil.deserialize(dataInputView, pendingFileSerializer));
         }
-
         return new DeltaGlobalCommittable(pendingFiles);
     }
 

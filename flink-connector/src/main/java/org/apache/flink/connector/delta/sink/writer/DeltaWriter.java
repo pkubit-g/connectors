@@ -23,9 +23,11 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.api.connector.sink.SinkWriter;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
+import org.apache.flink.connector.file.sink.writer.FileWriter;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BulkBucketWriter;
+import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaBulkBucketWriter;
 import org.apache.flink.streaming.api.functions.sink.filesystem.OutputFileConfig;
 import org.apache.flink.streaming.api.functions.sink.filesystem.RollingPolicy;
 import org.slf4j.Logger;
@@ -58,7 +60,7 @@ public class DeltaWriter<IN>
 
     private final BucketAssigner<IN, String> bucketAssigner;
 
-    private final BulkBucketWriter<IN, String> bucketWriter;
+    private final DeltaBulkBucketWriter<IN, String> bucketWriter;
 
     private final RollingPolicy<IN, String> rollingPolicy;
 
@@ -79,7 +81,7 @@ public class DeltaWriter<IN>
             final Path basePath,
             final BucketAssigner<IN, String> bucketAssigner,
             final DeltaWriterBucketFactory<IN> bucketFactory,
-            final BulkBucketWriter<IN, String> bucketWriter,
+            final DeltaBulkBucketWriter<IN, String> bucketWriter,
             final RollingPolicy<IN, String> rollingPolicy,
             final OutputFileConfig outputFileConfig,
             final Sink.ProcessingTimeService processingTimeService,
