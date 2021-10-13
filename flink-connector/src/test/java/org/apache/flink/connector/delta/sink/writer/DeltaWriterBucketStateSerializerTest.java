@@ -16,27 +16,25 @@
  * limitations under the License.
  */
 
-package org.apache.flink.streaming.api.functions.sink.filesystem;
+package org.apache.flink.connector.delta.sink.writer;
 
-public class DeltaInProgressPart<IN> {
+import org.junit.Test;
 
-    // TODO extend with bucket prefix
-    private final String fileName;
+import java.io.IOException;
 
-    private final DeltaBulkPartWriter<IN, String> inProgressPart;
+/**
+ * Tests the serialization and deserialization for {@link DeltaWriterBucketState}.
+ */
+public class DeltaWriterBucketStateSerializerTest {
 
-    public DeltaInProgressPart(String fileName,
-                               DeltaBulkPartWriter<IN, String> inProgressPart) {
-        this.fileName = fileName;
-        this.inProgressPart = inProgressPart;
+    @Test
+    public void testWithoutInProgressFile() throws IOException {
+
     }
 
-    public String getFileName() {
-        return fileName;
-    }
+    @Test
+    public void testWithInProgressFile() throws IOException {
 
-    public DeltaBulkPartWriter<IN, String> getInProgressPart() {
-        return inProgressPart;
     }
 
 }

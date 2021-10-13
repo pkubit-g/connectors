@@ -20,55 +20,59 @@ package org.apache.flink.connector.delta.sink.writer;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.core.fs.Path;
+import org.apache.flink.streaming.api.functions.sink.filesystem.InProgressFileWriter;
 
-/**
- * State of a {@link DeltaWriterBucket} that will become part of each application's
- * snapshot created during pre-commit phase of a checkpoint process or manually on demand
- * by the user.
- * see `Fault Tolerance via State Snapshots` section on
- *
- * @see <a href="https://nightlies.apache.org/flink/flink-docs-master/docs/learn-flink/overview/#fault-tolerance-via-state-snapshots" target="_blank">this page</a>
- *
- * <p>
- * This class is partially inspired by
- * {@link org.apache.flink.connector.file.sink.writer.FileWriterBucketState}
- * but with some modifications like:
- * <ol>
- *   <li>removed snapshotting in-progress file's state because
- *       {@link org.apache.flink.connector.delta.sink.DeltaSink} is supposed to always roll part
- *       files on checkpoint so there is no need to recover any in-progress files' states</li>
- *   <li>extends the state by adding application's unique identifier to guarantee the idempotent
- *       file writes and commits to the {@link io.delta.standalone.DeltaLog}
- * </ol>
- * <p>
- * Lifecycle of instances of this class is as follows:
- * <ol>
- *     <li>Every instance is being created via {@link DeltaWriter#snapshotState()} method at the
- *     finish phase of each checkpoint interval and serialized as a part of snapshotted app's state.
- *     <li>It can be also created by the Flink framework itself during failure/snapshot recovery
- *         when it's deserialized from the snapshotted state and provided as input param collection
- *         to {@link org.apache.flink.connector.delta.sink.DeltaSink#createWriter}</li>
- * </ol>
- */
+import javax.annotation.Nullable;
+
 @Internal
 public class DeltaWriterBucketState {
 
     private final String bucketId;
 
+    /**
+     * The directory where all the part files of the bucket are stored.
+     */
     private final Path bucketPath;
 
+    /**
+     * The creation time of the currently open part file, or {@code Long.MAX_VALUE} if there is no
+     * open part file.
+     */
+    private final long inProgressFileCreationTime;
+
+    /**
+     * A {@link InProgressFileWriter.InProgressFileRecoverable} for the currently open part file, or null if there is no
+     * currently open part file.
+     */
+    @Nullable
+    private final InProgressFileWriter.InProgressFileRecoverable inProgressFileRecoverable;
+
+    @Nullable
+    private final String inProgressPartFileName;
+
+    private final long recordCount;
+
+    private final long inProgressPartFileSize;
+
     private final String appId;
-    private final long checkpointId;
 
     public DeltaWriterBucketState(
-        String bucketId,
-        Path bucketPath,
-        String appId,
-        long checkpointId) {
+            String bucketId,
+            Path bucketPath,
+            long inProgressFileCreationTime,
+            @Nullable InProgressFileWriter.InProgressFileRecoverable inProgressFileRecoverable,
+            @Nullable String inProgressPartFileName,
+            long recordCount,
+            long inProgressPartFileSize,
+            String appId) {
         this.bucketId = bucketId;
         this.bucketPath = bucketPath;
+        this.inProgressFileCreationTime = inProgressFileCreationTime;
+        this.inProgressFileRecoverable = inProgressFileRecoverable;
+        this.inProgressPartFileName = inProgressPartFileName;
+        this.recordCount = recordCount;
+        this.inProgressPartFileSize = inProgressPartFileSize;
         this.appId = appId;
-        this.checkpointId = checkpointId;
     }
 
     public String getBucketId() {
@@ -79,23 +83,52 @@ public class DeltaWriterBucketState {
         return bucketPath;
     }
 
+    public long getInProgressFileCreationTime() {
+        return inProgressFileCreationTime;
+    }
+
+    @Nullable
+    InProgressFileWriter.InProgressFileRecoverable getInProgressFileRecoverable() {
+        return inProgressFileRecoverable;
+    }
+
+    @Nullable
+    String getInProgressPartFileName() {
+        return inProgressPartFileName;
+    }
+
+
+    boolean hasInProgressFileRecoverable() {
+        return inProgressFileRecoverable != null;
+    }
+
+
     @Override
     public String toString() {
-        return "BucketState for bucketId=" +
-            bucketId +
-            " and bucketPath=" +
-            bucketPath +
-            " and appId=" +
-            appId +
-            " and checkpointId=" +
-            checkpointId;
+        final StringBuilder strBuilder = new StringBuilder();
+
+        strBuilder
+                .append("BucketState for bucketId=")
+                .append(bucketId)
+                .append(" and bucketPath=")
+                .append(bucketPath);
+
+        if (hasInProgressFileRecoverable()) {
+            strBuilder.append(", has open part file created @ ").append(inProgressFileCreationTime);
+        }
+
+        return strBuilder.toString();
+    }
+
+    public long getRecordCount() {
+        return recordCount;
+    }
+
+    public long getInProgressPartFileSize() {
+        return inProgressPartFileSize;
     }
 
     public String getAppId() {
         return appId;
-    }
-
-    public long getCheckpointId() {
-        return checkpointId;
     }
 }

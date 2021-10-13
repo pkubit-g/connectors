@@ -18,8 +18,6 @@
 
 package org.apache.flink.connector.delta.sink.writer;
 
-import java.io.IOException;
-
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.io.SimpleVersionedSerialization;
@@ -29,18 +27,28 @@ import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputSerializer;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.SimpleVersionedStringSerializer;
+import org.apache.flink.util.function.FunctionWithException;
 
-/**
- * Versioned serializer for {@link DeltaWriterBucketState}.
- */
+import java.io.IOException;
+
+import static org.apache.flink.streaming.api.functions.sink.filesystem.InProgressFileWriter.InProgressFileRecoverable;
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
 @Internal
 public class DeltaWriterBucketStateSerializer
-    implements SimpleVersionedSerializer<DeltaWriterBucketState> {
+        implements SimpleVersionedSerializer<DeltaWriterBucketState> {
 
-    /**
-     * Magic number value for sanity check whether the provided bytes where not corrupted
-     */
     private static final int MAGIC_NUMBER = 0x1e764b79;
+
+    private final SimpleVersionedSerializer<InProgressFileRecoverable>
+            inProgressFileRecoverableSerializer;
+
+
+    public DeltaWriterBucketStateSerializer(
+            SimpleVersionedSerializer<InProgressFileRecoverable> inProgressFileRecoverableSerializer
+    ) {
+        this.inProgressFileRecoverableSerializer = checkNotNull(inProgressFileRecoverableSerializer);
+    }
 
     @Override
     public int getVersion() {
@@ -67,36 +75,75 @@ public class DeltaWriterBucketStateSerializer
     }
 
     private void serializeV1(DeltaWriterBucketState state, DataOutputView dataOutputView)
-        throws IOException {
+            throws IOException {
         SimpleVersionedSerialization.writeVersionAndSerialize(
-            SimpleVersionedStringSerializer.INSTANCE, state.getBucketId(), dataOutputView);
+                SimpleVersionedStringSerializer.INSTANCE, state.getBucketId(), dataOutputView);
         dataOutputView.writeUTF(state.getBucketPath().toString());
+        dataOutputView.writeLong(state.getInProgressFileCreationTime());
         dataOutputView.writeUTF(state.getAppId());
-        dataOutputView.writeLong(state.getCheckpointId());
+
+
+        // put the current open part file
+        if (state.hasInProgressFileRecoverable()) {
+            InProgressFileRecoverable inProgressFileRecoverable = state.getInProgressFileRecoverable();
+            assert inProgressFileRecoverable != null;
+            assert state.getInProgressPartFileName() != null;
+            dataOutputView.writeBoolean(true);
+            dataOutputView.writeUTF(state.getInProgressPartFileName());
+            dataOutputView.writeLong(state.getRecordCount());
+            dataOutputView.writeLong(state.getInProgressPartFileSize());
+            SimpleVersionedSerialization.writeVersionAndSerialize(
+                    inProgressFileRecoverableSerializer,
+                    inProgressFileRecoverable,
+                    dataOutputView
+            );
+        } else {
+            dataOutputView.writeBoolean(false);
+        }
     }
 
     private DeltaWriterBucketState deserializeV1(DataInputView in) throws IOException {
-        return internalDeserialize(in);
+        return internalDeserialize(
+                in,
+                dataInputView -> SimpleVersionedSerialization.readVersionAndDeSerialize(inProgressFileRecoverableSerializer, dataInputView)
+        );
     }
 
     private DeltaWriterBucketState internalDeserialize(
-        DataInputView dataInputView
+            DataInputView dataInputView,
+            FunctionWithException<DataInputView, InProgressFileRecoverable, IOException> inProgressFileParser
     ) throws IOException {
 
         String bucketId = SimpleVersionedSerialization.readVersionAndDeSerialize(
-            SimpleVersionedStringSerializer.INSTANCE,
-            dataInputView
+                SimpleVersionedStringSerializer.INSTANCE,
+                dataInputView
         );
 
         String bucketPathStr = dataInputView.readUTF();
+        long creationTime = dataInputView.readLong();
         String appId = dataInputView.readUTF();
-        long checkpointId = dataInputView.readLong();
+
+        // then get the current resumable stream
+        InProgressFileRecoverable current = null;
+        String inprogressFileName = null;
+        long recordCount = 0;
+        long inProgressPartFileSize = 0;
+        if (dataInputView.readBoolean()) {
+            inprogressFileName = dataInputView.readUTF();
+            recordCount = dataInputView.readLong();
+            inProgressPartFileSize = dataInputView.readLong();
+            current = inProgressFileParser.apply(dataInputView);
+        }
 
         return new DeltaWriterBucketState(
-            bucketId,
-            new Path(bucketPathStr),
-            appId,
-            checkpointId
+                bucketId,
+                new Path(bucketPathStr),
+                creationTime,
+                current,
+                inprogressFileName,
+                recordCount,
+                inProgressPartFileSize,
+                appId
         );
     }
 
@@ -104,7 +151,8 @@ public class DeltaWriterBucketStateSerializer
         int magicNumber = in.readInt();
         if (magicNumber != MAGIC_NUMBER) {
             throw new IOException(
-                String.format("Corrupt data: Unexpected magic number %08X", magicNumber));
+                    String.format("Corrupt data: Unexpected magic number %08X", magicNumber));
         }
     }
+
 }

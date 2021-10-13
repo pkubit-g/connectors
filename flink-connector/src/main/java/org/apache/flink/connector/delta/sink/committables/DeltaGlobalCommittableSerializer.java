@@ -18,38 +18,36 @@
 
 package org.apache.flink.connector.delta.sink.committables;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.core.memory.DataInputDeserializer;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputSerializer;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.streaming.api.functions.sink.filesystem.InProgressFileWriter;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
-/**
- * Versioned serializer for {@link DeltaGlobalCommittable}.
- */
+
 @Internal
 public class DeltaGlobalCommittableSerializer
-    implements SimpleVersionedSerializer<DeltaGlobalCommittable> {
+        implements SimpleVersionedSerializer<DeltaGlobalCommittable> {
 
-    /**
-     * Magic number value for sanity check whether the provided bytes where not corrupted
-     */
     private static final int MAGIC_NUMBER = 0x1e765c80;
 
-    private final DeltaCommittableSerializer deltaCommittableSerializer;
+    private final SimpleVersionedSerializer<InProgressFileWriter.PendingFileRecoverable>
+            pendingFileSerializer;
+
 
     public DeltaGlobalCommittableSerializer(
-        SimpleVersionedSerializer<InProgressFileWriter.PendingFileRecoverable>
-            pendingFileSerializer) {
-        checkNotNull(pendingFileSerializer);
-        deltaCommittableSerializer = new DeltaCommittableSerializer(pendingFileSerializer);
+            SimpleVersionedSerializer<InProgressFileWriter.PendingFileRecoverable>
+                    pendingFileSerializer) {
+        this.pendingFileSerializer = checkNotNull(pendingFileSerializer);
     }
 
     @Override
@@ -77,29 +75,31 @@ public class DeltaGlobalCommittableSerializer
     }
 
     private void serializeV1(DeltaGlobalCommittable committable, DataOutputView dataOutputView)
-        throws IOException {
-        dataOutputView.writeInt(committable.getDeltaCommittables().size());
-        for (DeltaCommittable deltaCommittable : committable.getDeltaCommittables()) {
-            deltaCommittableSerializer.serializeV1(deltaCommittable, dataOutputView);
+            throws IOException {
+
+        dataOutputView.writeInt(committable.getPendingFiles().size());
+        for (DeltaPendingFile deltaPendingFile : committable.getPendingFiles()) {
+            DeltaPendingFileSerdeUtil.serialize(deltaPendingFile, dataOutputView, pendingFileSerializer);
         }
+
+
     }
 
     private DeltaGlobalCommittable deserializeV1(DataInputView dataInputView) throws IOException {
-        int deltaCommittablesSize = dataInputView.readInt();
-        List<DeltaCommittable> deltaCommittables = new ArrayList<>(deltaCommittablesSize);
-        for (int i = 0; i < deltaCommittablesSize; i++) {
-            DeltaCommittable deserializedCommittable =
-                deltaCommittableSerializer.deserializeV1(dataInputView);
-            deltaCommittables.add(deserializedCommittable);
+        int pendingFilesSize = dataInputView.readInt();
+        List<DeltaPendingFile> pendingFiles = new ArrayList<>(pendingFilesSize);
+        for (int i = 0; i < pendingFilesSize; i++) {
+            pendingFiles.add(DeltaPendingFileSerdeUtil.deserialize(dataInputView, pendingFileSerializer));
         }
-        return new DeltaGlobalCommittable(deltaCommittables);
+        return new DeltaGlobalCommittable(pendingFiles);
     }
 
     private static void validateMagicNumber(DataInputView in) throws IOException {
         int magicNumber = in.readInt();
         if (magicNumber != MAGIC_NUMBER) {
             throw new IOException(
-                String.format("Corrupt data: Unexpected magic number %08X", magicNumber));
+                    String.format("Corrupt data: Unexpected magic number %08X", magicNumber));
         }
     }
+
 }
