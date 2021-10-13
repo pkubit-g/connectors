@@ -19,9 +19,10 @@ public class DefaultDeltaWriterBucketFactory<IN> implements DeltaWriterBucketFac
             Path bucketPath,
             DeltaBulkBucketWriter<IN, String> bucketWriter,
             RollingPolicy<IN, String> rollingPolicy,
-            OutputFileConfig outputFileConfig)
+            OutputFileConfig outputFileConfig,
+            String appId)
             throws IOException {
-        return DeltaWriterBucket.getNew(bucketId, bucketPath, bucketWriter, rollingPolicy, outputFileConfig);
+        return DeltaWriterBucket.getNew(bucketId, bucketPath, bucketWriter, rollingPolicy, outputFileConfig, appId);
     }
 
     @Override
@@ -29,8 +30,9 @@ public class DefaultDeltaWriterBucketFactory<IN> implements DeltaWriterBucketFac
             DeltaBulkBucketWriter<IN, String> bucketWriter,
             RollingPolicy<IN, String> rollingPolicy,
             DeltaWriterBucketState bucketState,
-            OutputFileConfig outputFileConfig)
+            OutputFileConfig outputFileConfig,
+            String appId)
             throws IOException {
-        return DeltaWriterBucket.restore(bucketWriter, rollingPolicy, bucketState, outputFileConfig);
+        return DeltaWriterBucket.restore(bucketWriter, rollingPolicy, bucketState, outputFileConfig, appId);
     }
 }

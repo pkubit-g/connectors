@@ -26,7 +26,6 @@ import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.connector.file.sink.writer.FileWriter;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
-import org.apache.flink.streaming.api.functions.sink.filesystem.BulkBucketWriter;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaBulkBucketWriter;
 import org.apache.flink.streaming.api.functions.sink.filesystem.OutputFileConfig;
 import org.apache.flink.streaming.api.functions.sink.filesystem.RollingPolicy;
@@ -45,6 +44,17 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
+
+/**
+ * A {@link SinkWriter} implementation for {@link org.apache.flink.connector.delta.sink.DeltaSink}.
+ *
+ * <p>It writes data to and manages the different active {@link DeltaWriterBucket buckets} in the
+ * {@link org.apache.flink.connector.delta.sink.DeltaSink}.
+ * <p>
+ * Most of the logic for this class was sourced from {@link FileWriter}
+ *
+ * @param <IN> The type of input elements.
+ */
 @Internal
 public class DeltaWriter<IN>
         implements SinkWriter<IN, DeltaCommittable, DeltaWriterBucketState>,
@@ -76,6 +86,7 @@ public class DeltaWriter<IN>
 
     private final OutputFileConfig outputFileConfig;
 
+    private final String appId;
 
     public DeltaWriter(
             final Path basePath,
@@ -85,7 +96,8 @@ public class DeltaWriter<IN>
             final RollingPolicy<IN, String> rollingPolicy,
             final OutputFileConfig outputFileConfig,
             final Sink.ProcessingTimeService processingTimeService,
-            final long bucketCheckInterval) {
+            final long bucketCheckInterval,
+            String appId) {
         this.basePath = checkNotNull(basePath);
         this.bucketAssigner = checkNotNull(bucketAssigner);
         this.bucketFactory = checkNotNull(bucketFactory);
@@ -102,6 +114,7 @@ public class DeltaWriter<IN>
                 bucketCheckInterval > 0,
                 "Bucket checking interval for processing time should be positive.");
         this.bucketCheckInterval = bucketCheckInterval;
+        this.appId = appId;
     }
 
     /**
@@ -112,8 +125,6 @@ public class DeltaWriter<IN>
      * <ol>
      *   <li>we set the initial value for part counter to the maximum value used before across all
      *       tasks and buckets. This guarantees that we do not overwrite valid data,
-     *   <li>we commit any pending files for previous checkpoints (previous to the last successful
-     *       one from which we restore),
      *   <li>we resume writing to the previous in-progress file of each bucket, and
      *   <li>if we receive multiple states for the same bucket, we merge them.
      * </ol>
@@ -134,7 +145,7 @@ public class DeltaWriter<IN>
 
             DeltaWriterBucket<IN> restoredBucket =
                     bucketFactory.restoreBucket(
-                            bucketWriter, rollingPolicy, state, outputFileConfig);
+                            bucketWriter, rollingPolicy, state, outputFileConfig, appId);
 
             updateActiveBucketId(bucketId, restoredBucket);
         }
@@ -204,7 +215,7 @@ public class DeltaWriter<IN>
             final Path bucketPath = assembleBucketPath(bucketId);
             bucket =
                     bucketFactory.getNewBucket(
-                            bucketId, bucketPath, bucketWriter, rollingPolicy, outputFileConfig);
+                            bucketId, bucketPath, bucketWriter, rollingPolicy, outputFileConfig, appId);
             activeBuckets.put(bucketId, bucket);
         }
         return bucket;

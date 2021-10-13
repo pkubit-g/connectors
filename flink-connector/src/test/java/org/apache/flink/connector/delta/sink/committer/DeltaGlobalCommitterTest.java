@@ -16,27 +16,30 @@
  * limitations under the License.
  */
 
-package org.apache.flink.streaming.api.functions.sink.filesystem;
+package org.apache.flink.connector.delta.sink.committer;
 
-public class DeltaInProgressPart<IN> {
+import org.junit.Test;
 
-    // TODO extend with bucket prefix
-    private final String fileName;
+/**
+ * Tests for {@link DeltaCommitter}.
+ */
+public class DeltaGlobalCommitterTest {
 
-    private final DeltaBulkPartWriter<IN, String> inProgressPart;
+    @Test
+    public void testCommitToDeltaLogAppendMode() throws Exception {
 
-    public DeltaInProgressPart(String fileName,
-                               DeltaBulkPartWriter<IN, String> inProgressPart) {
-        this.fileName = fileName;
-        this.inProgressPart = inProgressPart;
     }
 
-    public String getFileName() {
-        return fileName;
+    @Test
+    public void testCommitToDeltaLogCompleteMode() throws Exception {
+
     }
 
-    public DeltaBulkPartWriter<IN, String> getInProgressPart() {
-        return inProgressPart;
+    @Test
+    public void testPrepareDeltaLogOperation() throws Exception {
+
     }
+
+
 
 }

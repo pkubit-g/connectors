@@ -80,6 +80,7 @@ public class DeltaWriterBucketStateSerializer
                 SimpleVersionedStringSerializer.INSTANCE, state.getBucketId(), dataOutputView);
         dataOutputView.writeUTF(state.getBucketPath().toString());
         dataOutputView.writeLong(state.getInProgressFileCreationTime());
+        dataOutputView.writeUTF(state.getAppId());
 
 
         // put the current open part file
@@ -120,6 +121,7 @@ public class DeltaWriterBucketStateSerializer
 
         String bucketPathStr = dataInputView.readUTF();
         long creationTime = dataInputView.readLong();
+        String appId = dataInputView.readUTF();
 
         // then get the current resumable stream
         InProgressFileRecoverable current = null;
@@ -140,7 +142,8 @@ public class DeltaWriterBucketStateSerializer
                 current,
                 inprogressFileName,
                 recordCount,
-                inProgressPartFileSize
+                inProgressPartFileSize,
+                appId
         );
     }
 

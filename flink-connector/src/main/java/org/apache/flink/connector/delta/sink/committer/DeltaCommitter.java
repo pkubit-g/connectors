@@ -1,4 +1,4 @@
-package org.apache.flink.connector.delta.sink.commiter;
+package org.apache.flink.connector.delta.sink.committer;
 
 import org.apache.flink.api.connector.sink.Committer;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
@@ -43,4 +43,5 @@ public class DeltaCommitter implements Committer<DeltaCommittable> {
     public void close() throws Exception {
 
     }
+
 }
