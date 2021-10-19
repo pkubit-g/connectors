@@ -1,42 +1,19 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package org.apache.flink.connector.delta.sink;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
-import org.apache.flink.table.types.logical.*;
-import org.junit.Test;
-import static org.junit.Assert.assertEquals;
-
-import io.delta.standalone.types.DataType;
 import io.delta.standalone.types.StructField;
 import io.delta.standalone.types.StructType;
+import org.apache.flink.table.types.logical.*;
+import org.junit.Test;
+
+import java.util.Arrays;
 
 public class TestSchemaConverter {
 
+
     @Test
-    public void testConvertFlinkSchemaToDeltaSchema() {
+    public void testConvertFlinkSchemaToIcebergSchema() {
         // GIVEN
-        RowType flinkRowType = new RowType(
-            Arrays.asList(
+        RowType flinkRowType = new RowType(Arrays.asList(
                 new RowType.RowField("f1", new FloatType()),
                 new RowType.RowField("f2", new IntType()),
                 new RowType.RowField("f3", new VarCharType()),
@@ -58,36 +35,25 @@ public class TestSchemaConverter {
                 new RowType.RowField("f19", new DecimalType(2)),
                 new RowType.RowField("f21", new DecimalType(2, 2)),
                 new RowType.RowField("f22", new DecimalType(38, 2)),
-                new RowType.RowField("f23", new DecimalType(10, 1)),
-                new RowType.RowField("nested_field", new RowType(Arrays.asList(
-                    new RowType.RowField("f01", new VarCharType()),
-                    new RowType.RowField("f02", new IntType())
-                )))
-            ));
+                new RowType.RowField("f23", new DecimalType(10, 1))
+        ));
 
         // WHEN
-        StructType deltaStructType = SchemaConverter.toDeltaDataType(flinkRowType);
+        StructType deltaStructType = new SchemaConverter().toDeltaFormat(flinkRowType);
 
         // THEN
-        StructType expectedDeltaStructType = new StructType(
-            new StructField[]{
+        StructType expectedDeltaStructType = new StructType(new StructField[]{
                 new StructField("f1", new io.delta.standalone.types.FloatType()),
                 new StructField("f2", new io.delta.standalone.types.IntegerType()),
                 new StructField("f3", new io.delta.standalone.types.StringType()),
                 new StructField("f4", new io.delta.standalone.types.DoubleType()),
                 new StructField("f5", new io.delta.standalone.types.MapType(
-                    new io.delta.standalone.types.StringType(),
-                    new io.delta.standalone.types.IntegerType(),
-                    true // valueContainsNull
+                        new io.delta.standalone.types.StringType(),
+                        new io.delta.standalone.types.IntegerType(),
+                        true
                 )),
-                new StructField("f6", new io.delta.standalone.types.ArrayType(
-                    new io.delta.standalone.types.ByteType(),
-                    true // containsNull
-                )),
-                new StructField("f7", new io.delta.standalone.types.ArrayType(
-                    new io.delta.standalone.types.StringType(),
-                    true // containsNull
-                )),
+                new StructField("f6", new io.delta.standalone.types.ArrayType(new io.delta.standalone.types.ByteType(), true)),
+                new StructField("f7", new io.delta.standalone.types.ArrayType(new io.delta.standalone.types.StringType(), true)),
                 new StructField("f8", new io.delta.standalone.types.StringType()),
                 new StructField("f9", new io.delta.standalone.types.BooleanType()),
                 new StructField("f10", new io.delta.standalone.types.ByteType()),
@@ -102,95 +68,22 @@ public class TestSchemaConverter {
                 new StructField("f19", new io.delta.standalone.types.DecimalType(2, 0)),
                 new StructField("f21", new io.delta.standalone.types.DecimalType(2, 2)),
                 new StructField("f22", new io.delta.standalone.types.DecimalType(38, 2)),
-                new StructField("f23", new io.delta.standalone.types.DecimalType(10, 1)),
-                new StructField("nested_field", new StructType(new StructField[]{
-                    new StructField("f01", new io.delta.standalone.types.StringType()),
-                    new StructField("f02", new io.delta.standalone.types.IntegerType()),
-                }))
+                new StructField("f23", new io.delta.standalone.types.DecimalType(10, 1))
 
-            });
+        });
 
-        assertEquals(expectedDeltaStructType, deltaStructType);
+        assert expectedDeltaStructType.equals(deltaStructType);
     }
 
     @Test
     public void testMapType() {
-
-        class Types {
-            public final LogicalType flinkKeyType;
-            public final LogicalType flinkValueType;
-            public final DataType deltaKeyType;
-            public final DataType deltaValueType;
-
-            Types(LogicalType flinkKeyType,
-                         LogicalType flinkValueType,
-                         DataType deltaKeyType,
-                         DataType deltaValueType) {
-                this.flinkKeyType = flinkKeyType;
-                this.flinkValueType = flinkValueType;
-                this.deltaKeyType = deltaKeyType;
-                this.deltaValueType = deltaValueType;
-            }
-        }
-
-        // setting up different variations of map's keys and values' types for Flink and its
-        // corresponding mappings for Delta types to test different possible map-like objects.
-        List<Types> typesVariations = new ArrayList<>(Arrays.asList(
-            new Types(
-                new VarCharType(),
-                new IntType(),
-                new io.delta.standalone.types.StringType(),
-                new io.delta.standalone.types.IntegerType()),
-
-            new Types(
-                new IntType(),
-                new ArrayType(new TinyIntType()),
-                new io.delta.standalone.types.IntegerType(),
-                new io.delta.standalone.types.ArrayType(
-                    new io.delta.standalone.types.ByteType(),
-                    true // containsNull
-                )),
-
-            new Types(
-                new BigIntType(),
-                new RowType(Arrays.asList(
-                    new RowType.RowField("f01", new VarCharType()),
-                    new RowType.RowField("f02", new IntType())
-                )),
-                new io.delta.standalone.types.LongType(),
-                new StructType(new StructField[]{
-                    new StructField("f01", new io.delta.standalone.types.StringType()),
-                    new StructField("f02", new io.delta.standalone.types.IntegerType()),
-                })),
-
-            new Types(
-                new SmallIntType(),
-                new BinaryType(),
-                new io.delta.standalone.types.ShortType(),
-                new io.delta.standalone.types.BinaryType()),
-
-            new Types(
-                new BinaryType(),
-                new SmallIntType(),
-                new io.delta.standalone.types.BinaryType(),
-                new io.delta.standalone.types.ShortType())
-        ));
-
-        for (Types types : typesVariations) {
-            // GIVEN
-            MapType mapType = new MapType(types.flinkKeyType, types.flinkValueType);
-
-            // WHEN
-            DataType deltaStructType = SchemaConverter.toDeltaDataType(mapType);
-
-            // THEN
-            DataType expectedDeltaDataType = new io.delta.standalone.types.MapType(
-                types.deltaKeyType,
-                types.deltaValueType,
-                true // valueContainsNull
-            );
-
-            assertEquals(expectedDeltaDataType, deltaStructType);
-        }
+        // TODO add extensive tests for MapType
     }
+
+    @Test
+    public void testStructType() {
+        // TODO add extensive tests for StructType
+    }
+
+
 }

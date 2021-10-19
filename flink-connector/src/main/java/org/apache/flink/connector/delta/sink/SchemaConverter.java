@@ -18,50 +18,29 @@
 
 package org.apache.flink.connector.delta.sink;
 
+
+import io.delta.standalone.types.*;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 
-import io.delta.standalone.types.*;
-
-/**
- * This is a utility class to convert from Flink's specific {@link RowType} into
- * DeltaLake's specific {@link StructType} which is used for schema-matching comparisons
- * during {@link io.delta.standalone.DeltaLog} commits.
- */
 public class SchemaConverter {
 
-    /**
-     * Main method for converting from {@link RowType} into {@link StructType}
-     *
-     * @param rowType Flink's logical type of stream's events
-     * @return DeltaLake's specific type of stream's events
-     */
-    public static StructType toDeltaDataType(RowType rowType) {
+    public StructType toDeltaFormat(RowType rowType) {
         StructField[] fields = rowType.getFields()
-            .stream()
-            .map(rowField -> {
-                DataType rowFieldType = toDeltaDataType(rowField.getType());
-                return new StructField(
-                    rowField.getName(),
-                    rowFieldType,
-                    rowField.getType().isNullable());
-            })
-            .toArray(StructField[]::new);
+                .stream()
+                .map(rowField -> {
+                    DataType rowFieldType = toDeltaDataType(rowField.getType());
+                    return new StructField(rowField.getName(), rowFieldType, rowField.getType().isNullable());
+                })
+                .toArray(StructField[]::new);
 
         return new StructType(fields);
     }
 
-    /**
-     * Method containing the actual mapping between Flink's and DeltaLake's types.
-     *
-     * @param flinkType Flink's logical type
-     * @return DeltaLake's data type
-     */
-    public static DataType toDeltaDataType(LogicalType flinkType) {
+    public DataType toDeltaDataType(LogicalType flinkType) {
         switch (flinkType.getTypeRoot()) {
             case ARRAY:
-                org.apache.flink.table.types.logical.ArrayType arrayType =
-                    (org.apache.flink.table.types.logical.ArrayType) flinkType;
+                org.apache.flink.table.types.logical.ArrayType arrayType = (org.apache.flink.table.types.logical.ArrayType) flinkType;
                 LogicalType flinkElementType = arrayType.getElementType();
                 DataType deltaElementType = toDeltaDataType(flinkElementType);
                 return new ArrayType(deltaElementType, flinkElementType.isNullable());
@@ -75,8 +54,7 @@ public class SchemaConverter {
             case DATE:
                 return new DateType();
             case DECIMAL:
-                org.apache.flink.table.types.logical.DecimalType decimalType =
-                    (org.apache.flink.table.types.logical.DecimalType) flinkType;
+                org.apache.flink.table.types.logical.DecimalType decimalType = (org.apache.flink.table.types.logical.DecimalType) flinkType;
                 return new DecimalType(decimalType.getPrecision(), decimalType.getScale());
             case DOUBLE:
                 return new DoubleType();
@@ -85,8 +63,7 @@ public class SchemaConverter {
             case INTEGER:
                 return new IntegerType();
             case MAP:
-                org.apache.flink.table.types.logical.MapType mapType =
-                    (org.apache.flink.table.types.logical.MapType) flinkType;
+                org.apache.flink.table.types.logical.MapType mapType = (org.apache.flink.table.types.logical.MapType) flinkType;
                 DataType keyType = toDeltaDataType(mapType.getKeyType());
                 DataType valueType = toDeltaDataType(mapType.getValueType());
                 boolean valueCanContainNull = mapType.getValueType().isNullable();
@@ -104,11 +81,10 @@ public class SchemaConverter {
             case CHAR:
             case VARCHAR:
                 return new StringType();
-            case ROW:
-                return toDeltaDataType((RowType) flinkType);
             default:
                 throw new UnsupportedOperationException(
-                    "Cannot convert unknown type to Flink: " + flinkType);
+                        "Cannot convert unknown type to Flink: " + flinkType);
         }
     }
+
 }
