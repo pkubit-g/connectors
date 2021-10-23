@@ -28,12 +28,14 @@ import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile
 import org.apache.flink.streaming.api.functions.sink.filesystem.InProgressFileWriter;
 import org.apache.flink.streaming.api.functions.sink.filesystem.OutputFileConfig;
 import org.apache.flink.streaming.api.functions.sink.filesystem.RollingPolicy;
+import org.apache.flink.table.utils.PartitionPathUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -73,6 +75,8 @@ class DeltaWriterBucket<IN> {
 
     @Nullable
     private DeltaInProgressPart<IN> deltaInProgressPart;
+
+    private LinkedHashMap<String, String> partitionSpec;
 
     /**
      * Constructor to create a new empty bucket.
@@ -137,6 +141,7 @@ class DeltaWriterBucket<IN> {
             );
         } else {
             DeltaPendingFile deltaPendingFile = new DeltaPendingFile(
+                    partitionSpec,
                     state.getInProgressPartFileName(),
                     inProgressFileRecoverable,
                     state.getRecordCount(),
@@ -207,7 +212,6 @@ class DeltaWriterBucket<IN> {
         List<DeltaCommittable> committables = new ArrayList<>();
         pendingFiles.forEach(pendingFile -> committables.add(new DeltaCommittable(pendingFile, appId, checkpointId)));
         pendingFiles.clear();
-
         if (inProgressFileToCleanup != null) {
             committables.add(new DeltaCommittable(inProgressFileToCleanup, appId, checkpointId));
             inProgressFileToCleanup = null;
@@ -309,7 +313,7 @@ class DeltaWriterBucket<IN> {
 
     private void closePartFile() throws IOException {
         if (deltaInProgressPart != null) {
-            // we need to close the explicitly before calling closeForCommit() in order to get
+            // we need to close the writer explicitly before calling closeForCommit() in order to get
             // the actual file size
             deltaInProgressPart.getInProgressPart().closeWriter();
             long fileSize = deltaInProgressPart.getInProgressPart().getSize();
@@ -317,6 +321,7 @@ class DeltaWriterBucket<IN> {
                     deltaInProgressPart.getInProgressPart().closeForCommit();
 
             DeltaPendingFile pendingFile = new DeltaPendingFile(
+                    partitionSpec,
                     deltaInProgressPart.getFileName(),
                     pendingFileRecoverable,
                     this.inProgressPartRecordCount,
