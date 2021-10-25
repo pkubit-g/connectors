@@ -18,69 +18,132 @@
 
 package org.apache.flink.connector.delta.sink.committer;
 
+import io.delta.standalone.DeltaLog;
+import io.delta.standalone.Snapshot;
+import io.delta.standalone.actions.AddFile;
+import io.delta.standalone.data.CloseableIterator;
+import org.apache.flink.connector.delta.sink.SchemaConverter;
+import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
+import org.apache.flink.connector.delta.sink.committables.DeltaGlobalCommittable;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.HadoopConfTest;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestDeltaCommittable;
+import org.apache.flink.core.fs.Path;
+import org.apache.flink.table.types.logical.IntType;
+import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.table.types.logical.VarCharType;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.ClassRule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Tests for {@link DeltaCommitter}.
  */
+// TODO refactor this test for more code reuse and DRY
+// TODO cover all corner cases
 public class DeltaGlobalCommitterTest {
 
-    @Test
-    public void testCommitToDeltaLogAppendMode() throws Exception {
+    @ClassRule
+    public static final TemporaryFolder TEMPORARY_FOLDER = new TemporaryFolder();
+
+    // TODO move setup for initial test Delta table to the TestUtils class
+    private static final RowType ROW_TYPE = new RowType(Arrays.asList(
+            new RowType.RowField("name", new VarCharType(VarCharType.MAX_LENGTH)),
+            new RowType.RowField("surname", new VarCharType(VarCharType.MAX_LENGTH)),
+            new RowType.RowField("age", new IntType())
+    ));
+
+    private Path tablePath;
+    private DeltaLog deltaLog;
+
+    @Before
+    public void setup() throws IOException {
+        tablePath = new Path(TEMPORARY_FOLDER.newFolder().toURI());
+        deltaLog = DeltaLog.forTable(HadoopConfTest.getHadoopConf(), tablePath.getPath());
+    }
+
+    @After
+    public void teardown() {
 
     }
 
-    @Test(expected = RuntimeException.class)
-    public void testCommittablesFromDifferentCheckpointIntervalOneWithIncompatiblePartitions()
-        throws Exception {
+    @Test
+    public void testCommitToNewDeltaTableInAppendMode() throws Exception {
         //GIVEN
-        DeltaSinkTestUtils.initTestForPartitionedTable(tablePath.getPath());
-        int numAddedFiles1 = 3;
-        int numAddedFiles2 = 5;
-        DeltaLog deltaLog = DeltaLog.forTable(
-            DeltaSinkTestUtils.getHadoopConf(), tablePath.getPath());
-        assertEquals(0, deltaLog.snapshot().getVersion());
-        int initialNumberOfFiles = deltaLog.snapshot().getAllFiles().size();
-
-        List<DeltaCommittable> deltaCommittables1 = DeltaSinkTestUtils.getListOfDeltaCommittables(
-            numAddedFiles1, DeltaSinkTestUtils.getTestPartitionSpec(), 1);
-        List<DeltaCommittable> deltaCommittables2 = DeltaSinkTestUtils.getListOfDeltaCommittables(
-            numAddedFiles2, getNonMatchingPartitionSpec(), 2);
-
+        LinkedHashMap<String, String> emptyPartitionSpec = new LinkedHashMap<>();
+        DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(HadoopConfTest.getHadoopConf(), tablePath, ROW_TYPE, false);
+        List<DeltaCommittable> deltaCommittables = Arrays.asList(
+                TestDeltaCommittable.getTestDeltaCommittableWithPendingFile(emptyPartitionSpec),
+                TestDeltaCommittable.getTestDeltaCommittableWithPendingFile(emptyPartitionSpec),
+                TestDeltaCommittable.getTestDeltaCommittableWithPendingFile(emptyPartitionSpec)
+        );
         List<DeltaGlobalCommittable> globalCommittables = Arrays.asList(
-            new DeltaGlobalCommittable(deltaCommittables1),
-            new DeltaGlobalCommittable(deltaCommittables2)
+                new DeltaGlobalCommittable(deltaCommittables)
         );
 
-        DeltaGlobalCommitter globalCommitter =
-            getTestGlobalCommitter(DeltaSinkTestUtils.TEST_ROW_TYPE);
+        // WHEN
+        globalCommitter.commit(globalCommittables);
+
+        // THEN
+        assertEquals(deltaLog.snapshot().getVersion(), -1);
+        Snapshot snapshot = deltaLog.update();
+        assertEquals(snapshot.getVersion(), 0);
+        assertEquals(snapshot.getAllFiles().size(), deltaCommittables.size());
+        assertEquals(snapshot.getMetadata().getSchema().toJson(), new SchemaConverter().toDeltaFormat(ROW_TYPE).toJson());
+        assertTrue(snapshot.getMetadata().getPartitionColumns().isEmpty());
+        CloseableIterator<AddFile> filesIterator = snapshot.scan().getFiles();
+        while (filesIterator.hasNext()) {
+            AddFile addFile = filesIterator.next();
+            assertTrue(addFile.getPartitionValues().isEmpty());
+            assertTrue(addFile.getSize() > 0);
+            assert (!addFile.getPath().isEmpty());
+        }
+
+    }
+
+    @Test
+    public void testCommitToNewDeltaTableInAppendModeWithPartitionColumns() throws Exception {
+        //GIVEN
+        LinkedHashMap<String, String> partitionSpec = new LinkedHashMap<String, String>() {{
+            put("a", "b");
+            put("c", "d");
+        }};
+        DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(HadoopConfTest.getHadoopConf(), tablePath, ROW_TYPE, false);
+        List<DeltaCommittable> deltaCommittables = Arrays.asList(
+                TestDeltaCommittable.getTestDeltaCommittableWithPendingFile(partitionSpec),
+                TestDeltaCommittable.getTestDeltaCommittableWithPendingFile(partitionSpec),
+                TestDeltaCommittable.getTestDeltaCommittableWithPendingFile(partitionSpec)
+        );
+        List<DeltaGlobalCommittable> globalCommittables = Arrays.asList(
+                new DeltaGlobalCommittable(deltaCommittables)
+        );
 
         // WHEN
-        try {
-            globalCommitter.commit(globalCommittables);
-        } catch (Exception exc) {
-            // the commit should raise an exception for incompatible committables for the second
-            // checkpoint interval but correct committables for the first checkpoint interval should
-            // have been committed
-            deltaLog.update();
-            assertEquals(1, deltaLog.snapshot().getVersion());
-            assertEquals(
-                initialNumberOfFiles + numAddedFiles1, deltaLog.snapshot().getAllFiles().size());
-            // we rethrow the exception for the test to pass
-            throw exc;
+        globalCommitter.commit(globalCommittables);
+
+        // THEN
+        assertEquals(deltaLog.snapshot().getVersion(), -1);
+        Snapshot snapshot = deltaLog.update();
+        assertEquals(snapshot.getVersion(), 0);
+        assertEquals(snapshot.getAllFiles().size(), deltaCommittables.size());
+        assertEquals(snapshot.getMetadata().getPartitionColumns(), Arrays.asList("a", "c"));
+        CloseableIterator<AddFile> filesIterator = snapshot.scan().getFiles();
+        while (filesIterator.hasNext()) {
+            AddFile addFile = filesIterator.next();
+            assertEquals(addFile.getPartitionValues(), partitionSpec);
+            assertTrue(addFile.getSize() > 0);
+            assert (!addFile.getPath().isEmpty());
         }
-    }
-
-    @Test
-    public void testCommitToDeltaLogCompleteMode() throws Exception {
 
     }
-
-    @Test
-    public void testPrepareDeltaLogOperation() throws Exception {
-
-    }
-
-
 
 }
