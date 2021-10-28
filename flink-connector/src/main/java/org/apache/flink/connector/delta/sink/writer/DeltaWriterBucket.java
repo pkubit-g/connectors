@@ -76,7 +76,7 @@ class DeltaWriterBucket<IN> {
     @Nullable
     private DeltaInProgressPart<IN> deltaInProgressPart;
 
-    private LinkedHashMap<String, String> partitionSpec;
+    private final LinkedHashMap<String, String> partitionSpec;
 
     /**
      * Constructor to create a new empty bucket.
