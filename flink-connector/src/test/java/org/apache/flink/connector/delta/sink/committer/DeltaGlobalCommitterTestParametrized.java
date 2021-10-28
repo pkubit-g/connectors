@@ -18,6 +18,24 @@
 
 package org.apache.flink.connector.delta.sink.committer;
 
+import io.delta.standalone.DeltaLog;
+import io.delta.standalone.Snapshot;
+import io.delta.standalone.actions.AddFile;
+import io.delta.standalone.data.CloseableIterator;
+import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
+import org.apache.flink.connector.delta.sink.committables.DeltaGlobalCommittable;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.HadoopConfTest;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestDeltaCommittable;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestDeltaLakeTable;
+import org.apache.flink.core.fs.Path;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -26,25 +44,8 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 
-import org.apache.flink.connector.delta.sink.SchemaConverter;
-import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
-import org.apache.flink.connector.delta.sink.committables.DeltaGlobalCommittable;
-import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils;
-import org.apache.flink.core.fs.Path;
-import org.apache.flink.table.types.logical.RowType;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-
-import io.delta.standalone.DeltaLog;
-import io.delta.standalone.Snapshot;
-import io.delta.standalone.actions.AddFile;
-import io.delta.standalone.data.CloseableIterator;
 
 /**
  * Tests for {@link DeltaGlobalCommitter}.
@@ -55,35 +56,27 @@ public class DeltaGlobalCommitterTestParametrized {
     @ClassRule
     public static final TemporaryFolder TEMPORARY_FOLDER = new TemporaryFolder();
 
-    @Parameterized.Parameters(
-        name = "shouldTryUpdateSchema = {0}, " +
-        "initializeTableBeforeCommit = {1}, " +
-        "partitionSpec = {2}, "
-    )
+    @Parameterized.Parameters
     public static Collection<Object[]> params() {
         return Arrays.asList(
-            // shouldTryUpdateSchema, initializeTableBeforeCommit, partitionSpec
-            new Object[]{false, false, DeltaSinkTestUtils.getEmptyTestPartitionSpec()},
-            new Object[]{false, false, DeltaSinkTestUtils.getTestPartitionSpec()},
-            new Object[]{false, true, DeltaSinkTestUtils.getEmptyTestPartitionSpec()},
-            new Object[]{false, true, DeltaSinkTestUtils.getTestPartitionSpec()},
-            new Object[]{true, false, DeltaSinkTestUtils.getEmptyTestPartitionSpec()},
-            new Object[]{true, true, DeltaSinkTestUtils.getEmptyTestPartitionSpec()},
-            new Object[]{true, false, DeltaSinkTestUtils.getTestPartitionSpec()},
-            new Object[]{true, true, DeltaSinkTestUtils.getTestPartitionSpec()}
+                new Object[]{false, 0, TestDeltaLakeTable.getEmptyTestPartitionSpec(), false},
+                new Object[]{false, 0, TestDeltaLakeTable.getTestPartitionSpec(), false},
+                new Object[]{false, 1, TestDeltaLakeTable.getEmptyTestPartitionSpec(), true},
+                new Object[]{false, 1, TestDeltaLakeTable.getTestPartitionSpec(), true}
         );
     }
 
     @Parameterized.Parameter(0)
-    public boolean shouldTryUpdateSchema;
+    public boolean canUpdateSchema;
 
     @Parameterized.Parameter(1)
-    public boolean initializeTableBeforeCommit;
+    public int expectedTableVersionAfterCommit;
 
     @Parameterized.Parameter(2)
     public LinkedHashMap<String, String> partitionSpec;
 
-    private RowType rowTypeToCommit;
+    @Parameterized.Parameter(3)
+    public boolean initializeTableBeforeCommit;
 
     private Path tablePath;
     private DeltaLog deltaLog;
@@ -93,60 +86,65 @@ public class DeltaGlobalCommitterTestParametrized {
         tablePath = new Path(TEMPORARY_FOLDER.newFolder().toURI());
         if (initializeTableBeforeCommit) {
             if (partitionSpec.isEmpty()) {
-                DeltaSinkTestUtils.initTestForNonPartitionedTable(
-                    tablePath.getPath());
+                TestDeltaLakeTable.initializeTestStateForNonPartitionedDeltaTable(tablePath.getPath());
             } else {
-                DeltaSinkTestUtils.initTestForPartitionedTable(tablePath.getPath());
+                TestDeltaLakeTable.initializeTestStateForPartitionedDeltaTable(tablePath.getPath());
             }
         }
-        deltaLog = DeltaLog.forTable(DeltaSinkTestUtils.getHadoopConf(), tablePath.getPath());
-        rowTypeToCommit = shouldTryUpdateSchema ?
-            DeltaSinkTestUtils.addNewColumnToSchema(DeltaSinkTestUtils.TEST_ROW_TYPE) :
-            DeltaSinkTestUtils.TEST_ROW_TYPE;
+        deltaLog = DeltaLog.forTable(HadoopConfTest.getHadoopConf(), tablePath.getPath());
+    }
+
+    @After
+    public void teardown() {
+
     }
 
     @Test
-    public void testCommitToDeltaTableInAppendMode() {
+    public void testCommitToDeltaTableInAppendMode() throws Exception {
         //GIVEN
-        DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(
-            DeltaSinkTestUtils.getHadoopConf(),
-            tablePath,
-            rowTypeToCommit,
-            shouldTryUpdateSchema);
-        List<DeltaCommittable> deltaCommittables =
-            DeltaSinkTestUtils.getListOfDeltaCommittables(3, partitionSpec);
-        List<DeltaGlobalCommittable> globalCommittables =
-            Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
+        List<String> partitionColumns = new ArrayList<>(partitionSpec.keySet());
+        DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(HadoopConfTest.getHadoopConf(), tablePath, TestDeltaLakeTable.TEST_ROW_TYPE, canUpdateSchema);
+        List<DeltaCommittable> deltaCommittables = TestDeltaCommittable.getListOfDeltaCommittables(3, partitionSpec);
+        List<DeltaGlobalCommittable> globalCommittables = Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
 
         // WHEN
         globalCommitter.commit(globalCommittables);
 
         // THEN
-        validateCurrentSnapshotState(deltaCommittables.size());
-        validateCurrentTableFiles(deltaLog.update());
+        validateCurrentSnapshotState(
+                deltaLog,
+                expectedTableVersionAfterCommit,
+                deltaCommittables.size(),
+                partitionColumns,
+                initializeTableBeforeCommit
+        );
+        validateCurrentTableFiles(deltaLog.update(), partitionSpec);
     }
 
-    private void validateCurrentSnapshotState(int numFilesAdded) {
+    private static void validateCurrentSnapshotState(DeltaLog deltaLog,
+                                                     int expectedTableVersionAfterUpdate,
+                                                     int deltaCommittablesSize,
+                                                     List<String> partitionColumns,
+                                                     boolean initializeTableBeforeCommit) {
         int initialTableFilesCount = 0;
         if (initializeTableBeforeCommit) {
             initialTableFilesCount = deltaLog.snapshot().getAllFiles().size();
         }
-        int expectedTableVersionAfterUpdate = initializeTableBeforeCommit ? 1 : 0;
-        List<String> partitionColumns = new ArrayList<>(partitionSpec.keySet());
         Snapshot snapshot = deltaLog.update();
         assertEquals(snapshot.getVersion(), expectedTableVersionAfterUpdate);
-        assertEquals(snapshot.getAllFiles().size(), numFilesAdded + initialTableFilesCount);
-        assertEquals(deltaLog.snapshot().getMetadata().getSchema().toJson(),
-            SchemaConverter.toDeltaDataType(rowTypeToCommit).toJson());
+        assertEquals(snapshot.getAllFiles().size(), deltaCommittablesSize + initialTableFilesCount);
         assertEquals(snapshot.getMetadata().getPartitionColumns(), partitionColumns);
     }
 
-    private void validateCurrentTableFiles(Snapshot snapshot) {
+    private static void validateCurrentTableFiles(Snapshot snapshot,
+                                                  LinkedHashMap<String, String> partitionSpec) {
         CloseableIterator<AddFile> filesIterator = snapshot.scan().getFiles();
         while (filesIterator.hasNext()) {
             AddFile addFile = filesIterator.next();
             assertEquals(addFile.getPartitionValues(), partitionSpec);
             assertTrue(addFile.getSize() > 0);
+            assert (!addFile.getPath().isEmpty());
         }
     }
+
 }
