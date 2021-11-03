@@ -1,5 +1,6 @@
 package org.apache.flink.connector.delta.sink.utils;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.connector.file.sink.utils.FileSinkTestUtils;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
@@ -8,6 +9,7 @@ import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.logical.VarCharType;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -29,6 +31,30 @@ public class DeltaSinkTestUtils {
                 new RowType.RowField("surname", new VarCharType(VarCharType.MAX_LENGTH)),
                 new RowType.RowField("age", new IntType())
         ));
+
+        public static LinkedHashMap<String, String> getEmptyTestPartitionSpec() {
+            return new LinkedHashMap<>();
+        }
+
+        public static LinkedHashMap<String, String> getTestPartitionSpec() {
+            return new LinkedHashMap<String, String>() {{
+                put("a", "b");
+                put("c", "d");
+            }};
+        }
+
+        public static String TEST_DELTA_TABLE_INITIAL_STATE_NP_DIR = "test-data/test-non-partitioned-delta-table-initial-state";
+        public static String TEST_DELTA_TABLE_INITIAL_STATE_NP_FULL_PATH = TestDeltaLakeTable.class.getClassLoader().getResource(TEST_DELTA_TABLE_INITIAL_STATE_NP_DIR).getPath();
+        public static String TEST_DELTA_TABLE_INITIAL_STATE_P_DIR = "test-data/test-partitioned-delta-table-initial-state";
+        public static String TEST_DELTA_TABLE_INITIAL_STATE_P_FULL_PATH = TestDeltaLakeTable.class.getClassLoader().getResource(TEST_DELTA_TABLE_INITIAL_STATE_P_DIR).getPath();
+
+        public static void initializeTestStateForNonPartitionedDeltaTable(String targetTablePath) throws IOException {
+            FileUtils.copyDirectory(new File(TEST_DELTA_TABLE_INITIAL_STATE_NP_FULL_PATH), new File(targetTablePath));
+        }
+
+        public static void initializeTestStateForPartitionedDeltaTable(String targetTablePath) throws IOException {
+            FileUtils.copyDirectory(new File(TEST_DELTA_TABLE_INITIAL_STATE_P_FULL_PATH), new File(targetTablePath));
+        }
 
     }
 

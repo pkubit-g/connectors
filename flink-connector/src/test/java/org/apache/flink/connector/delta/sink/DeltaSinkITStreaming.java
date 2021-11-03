@@ -18,6 +18,9 @@
 
 package org.apache.flink.connector.delta.sink;
 
+import io.delta.standalone.DeltaLog;
+import io.delta.standalone.actions.AddFile;
+import io.delta.standalone.actions.CommitInfo;
 import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.state.ListState;
@@ -57,10 +60,14 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.stream.LongStream;
 
 import static org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.HadoopConfTest;
 
@@ -90,6 +97,7 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
         LATCH_MAP.put(latchId, new CountDownLatch(NUM_SOURCES * 2));
         try {
             deltaTablePath = TEMPORARY_FOLDER.newFolder().getAbsolutePath();
+            TestDeltaLakeTable.initializeTestStateForNonPartitionedDeltaTable(deltaTablePath);
         } catch (IOException e) {
             throw new RuntimeException("Weren't able to setup the test dependencies", e);
         }
@@ -108,6 +116,12 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
 
     public void runDeltaSinkTest() throws Exception {
         // GIVEN
+        org.apache.hadoop.conf.Configuration conf = HadoopConfTest.getHadoopConf();
+        DeltaLog deltaLog = DeltaLog.forTable(conf, deltaTablePath);
+        List<AddFile> initialDeltaFiles = deltaLog.snapshot().getAllFiles();
+        long initialVersion = deltaLog.snapshot().getVersion();
+        assert initialDeltaFiles.size() == 2;
+
         JobGraph jobGraph = createJobGraph(deltaTablePath);
 
         // WHEN
@@ -119,6 +133,24 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
         // THEN
         DeltaSinkTestUtils.TestFileSystem.validateIfPathContainsParquetFilesWithData(deltaTablePath);
 
+        List<AddFile> finalDeltaFiles = deltaLog.update().getAllFiles();
+        assert finalDeltaFiles.size() > initialDeltaFiles.size();
+        Iterator<Long> it = LongStream.range(initialVersion + 1, deltaLog.snapshot().getVersion() + 1).iterator();
+        long totalRowsAdded = 0;
+        long totalAddedFiles = 0;
+        while (it.hasNext()) {
+            long currentVersion = it.next();
+            CommitInfo currentCommitInfo = deltaLog.getCommitInfoAt(currentVersion);
+            Optional<Map<String, String>> operationMetrics = currentCommitInfo.getOperationMetrics();
+            assert operationMetrics.isPresent();
+            totalRowsAdded += Long.parseLong(operationMetrics.get().get("numOutputRows"));
+            totalAddedFiles += Long.parseLong(operationMetrics.get().get("numAddedFiles"));
+
+            assert Integer.parseInt(operationMetrics.get().get("numOutputBytes")) > 0;
+        }
+
+        assert totalAddedFiles == finalDeltaFiles.size() - initialDeltaFiles.size();
+        assert totalRowsAdded == (NUM_RECORDS * NUM_SOURCES);
     }
 
     @Override
