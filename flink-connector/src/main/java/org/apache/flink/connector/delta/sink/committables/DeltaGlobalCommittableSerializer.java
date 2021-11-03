@@ -24,8 +24,13 @@ import org.apache.flink.core.memory.DataInputDeserializer;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputSerializer;
 import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.streaming.api.functions.sink.filesystem.InProgressFileWriter;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
 
 
 @Internal
@@ -34,8 +39,14 @@ public class DeltaGlobalCommittableSerializer
 
     private static final int MAGIC_NUMBER = 0x1e765c80;
 
+    private final SimpleVersionedSerializer<InProgressFileWriter.PendingFileRecoverable>
+            pendingFileSerializer;
 
-    public DeltaGlobalCommittableSerializer() {
+
+    public DeltaGlobalCommittableSerializer(
+            SimpleVersionedSerializer<InProgressFileWriter.PendingFileRecoverable>
+                    pendingFileSerializer) {
+        this.pendingFileSerializer = checkNotNull(pendingFileSerializer);
     }
 
     @Override
@@ -65,10 +76,22 @@ public class DeltaGlobalCommittableSerializer
     private void serializeV1(DeltaGlobalCommittable committable, DataOutputView dataOutputView)
             throws IOException {
 
+        dataOutputView.writeInt(committable.getDeltaCommittables().size());
+        for (DeltaCommittable deltaCommittable : committable.getDeltaCommittables()) {
+            new DeltaCommittableSerializer(pendingFileSerializer).serializeV1(deltaCommittable, dataOutputView);
+        }
+
     }
 
     private DeltaGlobalCommittable deserializeV1(DataInputView dataInputView) throws IOException {
-        return new DeltaGlobalCommittable();
+        int deltaCommittablesSize = dataInputView.readInt();
+        List<DeltaCommittable> deltaCommittables = new ArrayList<>(deltaCommittablesSize);
+        for (int i = 0; i < deltaCommittablesSize; i++) {
+            DeltaCommittable deserializedCommittable = new DeltaCommittableSerializer(pendingFileSerializer).deserializeV1(dataInputView);
+
+            deltaCommittables.add(deserializedCommittable);
+        }
+        return new DeltaGlobalCommittable(deltaCommittables);
     }
 
     private static void validateMagicNumber(DataInputView in) throws IOException {

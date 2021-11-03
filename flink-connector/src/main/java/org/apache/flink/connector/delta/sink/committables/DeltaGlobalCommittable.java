@@ -19,12 +19,24 @@
 package org.apache.flink.connector.delta.sink.committables;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
+
+import java.util.List;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
 
 
 @Internal
 public class DeltaGlobalCommittable {
 
-    public DeltaGlobalCommittable() {
+    private final List<DeltaCommittable> deltaCommittables;
+
+    public DeltaGlobalCommittable(List<DeltaCommittable> deltaCommittables) {
+        this.deltaCommittables = checkNotNull(deltaCommittables);
+    }
+
+    public List<DeltaCommittable> getDeltaCommittables() {
+        return deltaCommittables;
     }
 
 }

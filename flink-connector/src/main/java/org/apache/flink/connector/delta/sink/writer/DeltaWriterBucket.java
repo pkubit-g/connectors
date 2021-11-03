@@ -143,7 +143,9 @@ class DeltaWriterBucket<IN> {
     }
 
 
-    List<DeltaCommittable> prepareCommit(boolean flush) throws IOException {
+    List<DeltaCommittable> prepareCommit(boolean flush,
+                                         String appId,
+                                         long checkpointId) throws IOException {
         if (deltaInProgressPart != null) {
             if (rollingPolicy.shouldRollOnCheckpoint(deltaInProgressPart.getInProgressPart()) || flush) {
                 if (LOG.isDebugEnabled())
@@ -158,16 +160,17 @@ class DeltaWriterBucket<IN> {
         }
 
         List<DeltaCommittable> committables = new ArrayList<>();
-        pendingFiles.forEach(pendingFile -> committables.add(new DeltaCommittable(pendingFile)));
+        pendingFiles.forEach(pendingFile -> committables.add(new DeltaCommittable(pendingFile, appId, checkpointId)));
         pendingFiles.clear();
 
         return committables;
     }
 
-    DeltaWriterBucketState snapshotState() throws IOException {
+    DeltaWriterBucketState snapshotState(String appId) throws IOException {
         return new DeltaWriterBucketState(
                 bucketId,
-                bucketPath
+                bucketPath,
+                appId
         );
     }
 

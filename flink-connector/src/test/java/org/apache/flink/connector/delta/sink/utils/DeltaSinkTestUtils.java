@@ -47,20 +47,36 @@ public class DeltaSinkTestUtils {
 
     public static class TestDeltaCommittable {
 
+        static final String TEST_APP_ID = UUID.randomUUID().toString();
+        static final long TEST_CHECKPOINT_ID = new Random().nextInt(10);
+
         public static List<DeltaCommittable> getListOfDeltaCommittables(int size,
                                                                         LinkedHashMap<String, String> partitionSpec) {
+            return getListOfDeltaCommittables(size, partitionSpec, TEST_CHECKPOINT_ID);
+        }
+
+        public static List<DeltaCommittable> getListOfDeltaCommittables(int size,
+                                                                        LinkedHashMap<String, String> partitionSpec,
+                                                                        long checkpointId) {
             List<DeltaCommittable> deltaCommittableList = new ArrayList<>();
             for (int i = 0; i < size; i++) {
                 deltaCommittableList.add(
-                        TestDeltaCommittable.getTestDeltaCommittableWithPendingFile(partitionSpec)
+                        TestDeltaCommittable.getTestDeltaCommittableWithPendingFile(partitionSpec, checkpointId)
                 );
             }
             return deltaCommittableList;
         }
 
         public static DeltaCommittable getTestDeltaCommittableWithPendingFile(LinkedHashMap<String, String> partitionSpec) {
+            return getTestDeltaCommittableWithPendingFile(partitionSpec, TEST_CHECKPOINT_ID);
+        }
+
+        public static DeltaCommittable getTestDeltaCommittableWithPendingFile(LinkedHashMap<String, String> partitionSpec,
+                                                                              long checkpointId) {
             return new DeltaCommittable(
-                    TestDeltaPendingFile.getTestDeltaPendingFile(partitionSpec)
+                    TestDeltaPendingFile.getTestDeltaPendingFile(partitionSpec),
+                    TEST_APP_ID,
+                    checkpointId
             );
         }
 
@@ -68,6 +84,8 @@ public class DeltaSinkTestUtils {
                                                              DeltaCommittable deserialized,
                                                              LinkedHashMap<String, String> expectedPartitionSpec) {
             assertEquals(committable.getDeltaPendingFile().getPendingFile(), deserialized.getDeltaPendingFile().getPendingFile());
+            assertEquals(committable.getCheckpointId(), deserialized.getCheckpointId());
+            assertEquals(committable.getAppId(), deserialized.getAppId());
             assertEquals(committable.getDeltaPendingFile().getFileName(), deserialized.getDeltaPendingFile().getFileName());
             assertEquals(committable.getDeltaPendingFile().getFileSize(), deserialized.getDeltaPendingFile().getFileSize());
             assertEquals(committable.getDeltaPendingFile().getRecordCount(), deserialized.getDeltaPendingFile().getRecordCount());

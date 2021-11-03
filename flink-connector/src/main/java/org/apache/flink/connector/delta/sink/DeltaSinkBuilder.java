@@ -46,6 +46,7 @@ import org.apache.hadoop.conf.Configuration;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.UUID;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -74,6 +75,11 @@ public class DeltaSinkBuilder<IN>
 
     private final SerializableConfiguration serializableConfiguration;
 
+    private final String appId;
+
+    private static String generateNewAppId() {
+        return UUID.randomUUID().toString();
+    }
 
     protected DeltaSinkBuilder(
             Path basePath,
@@ -88,7 +94,8 @@ public class DeltaSinkBuilder<IN>
                 assigner,
                 OnCheckpointRollingPolicy.build(),
                 new DefaultDeltaWriterBucketFactory<>(),
-                OutputFileConfig.builder().withPartSuffix(".snappy.parquet").build()
+                OutputFileConfig.builder().withPartSuffix(".snappy.parquet").build(),
+                generateNewAppId()
         );
     }
 
@@ -100,7 +107,8 @@ public class DeltaSinkBuilder<IN>
             BucketAssigner<IN, String> assigner,
             CheckpointRollingPolicy<IN, String> policy,
             DeltaWriterBucketFactory<IN> bucketFactory,
-            OutputFileConfig outputFileConfig) {
+            OutputFileConfig outputFileConfig,
+            String appId) {
         this.tableBasePath = checkNotNull(basePath);
         this.serializableConfiguration = new SerializableConfiguration(checkNotNull(conf));
         this.bucketCheckInterval = bucketCheckInterval;
@@ -109,6 +117,7 @@ public class DeltaSinkBuilder<IN>
         this.rollingPolicy = checkNotNull(policy);
         this.bucketFactory = checkNotNull(bucketFactory);
         this.outputFileConfig = checkNotNull(outputFileConfig);
+        this.appId = appId;
     }
 
     public DeltaSinkBuilder<IN> withBucketCheckInterval(final long interval) {
@@ -145,7 +154,21 @@ public class DeltaSinkBuilder<IN>
                 checkNotNull(assigner),
                 rollingPolicy,
                 bucketFactory,
-                outputFileConfig);
+                outputFileConfig,
+                appId);
+    }
+
+    public DeltaSinkBuilder<IN> withAppId(final String appId) {
+        return new DeltaSinkBuilder<>(
+                tableBasePath,
+                serializableConfiguration.conf(),
+                bucketCheckInterval,
+                writerFactory,
+                bucketAssigner,
+                rollingPolicy,
+                bucketFactory,
+                outputFileConfig,
+                appId);
     }
 
     /**
@@ -155,7 +178,9 @@ public class DeltaSinkBuilder<IN>
         return new DeltaSink<IN>(this);
     }
 
-    DeltaWriter<IN> createWriter(Sink.InitContext context) throws IOException {
+    DeltaWriter<IN> createWriter(Sink.InitContext context,
+                                 String appId,
+                                 long nextCheckpointId) throws IOException {
         return new DeltaWriter<IN>(
                 tableBasePath,
                 bucketAssigner,
@@ -164,7 +189,9 @@ public class DeltaSinkBuilder<IN>
                 rollingPolicy,
                 outputFileConfig,
                 context.getProcessingTimeService(),
-                bucketCheckInterval);
+                bucketCheckInterval,
+                appId,
+                nextCheckpointId);
     }
 
     DeltaCommitter createCommitter() throws IOException {
@@ -172,7 +199,7 @@ public class DeltaSinkBuilder<IN>
     }
 
     DeltaGlobalCommitter createGlobalCommitter() throws IOException {
-        return new DeltaGlobalCommitter();
+        return new DeltaGlobalCommitter(serializableConfiguration.conf(), tableBasePath);
     }
 
     SimpleVersionedSerializer<DeltaWriterBucketState> getWriterStateSerializer()
@@ -191,7 +218,7 @@ public class DeltaSinkBuilder<IN>
             throws IOException {
         BucketWriter<IN, String> bucketWriter = createBucketWriter();
 
-        return new DeltaGlobalCommittableSerializer();
+        return new DeltaGlobalCommittableSerializer(bucketWriter.getProperties().getPendingFileRecoverableSerializer());
     }
 
     private DeltaBulkBucketWriter<IN, String> createBucketWriter() throws IOException {
@@ -207,6 +234,8 @@ public class DeltaSinkBuilder<IN>
         return serializableConfiguration;
     }
 
+    String getAppId() {
+        return appId;
+    }
+
 }
-
-

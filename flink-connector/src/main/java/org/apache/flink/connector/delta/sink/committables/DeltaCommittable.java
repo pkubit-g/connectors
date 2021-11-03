@@ -31,12 +31,27 @@ public class DeltaCommittable implements Serializable {
 
     private final DeltaPendingFile deltaPendingFile;
 
-    public DeltaCommittable(DeltaPendingFile deltaPendingFile) {
+    private final String appId;
+
+    private final long checkpointId;
+
+    public DeltaCommittable(DeltaPendingFile deltaPendingFile,
+                            String appId,
+                            long checkpointId) {
         this.deltaPendingFile = checkNotNull(deltaPendingFile);
+        this.appId = appId;
+        this.checkpointId = checkpointId;
     }
 
     public DeltaPendingFile getDeltaPendingFile() {
         return deltaPendingFile;
     }
 
+    public long getCheckpointId() {
+        return checkpointId;
+    }
+
+    public String getAppId() {
+        return appId;
+    }
 }

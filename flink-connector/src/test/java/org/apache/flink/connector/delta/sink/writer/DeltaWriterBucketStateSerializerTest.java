@@ -35,7 +35,8 @@ public class DeltaWriterBucketStateSerializerTest {
         DeltaWriterBucketState bucketState =
                 new DeltaWriterBucketState(
                         "bucketId",
-                        new Path("file:///tmp/bucketId")
+                        new Path("file:///tmp/bucketId"),
+                        "appId"
                 );
         DeltaWriterBucketState deserialized = serializeAndDeserialize(bucketState);
         assertBucketStateEquals(bucketState, deserialized);
@@ -45,6 +46,7 @@ public class DeltaWriterBucketStateSerializerTest {
     private void assertBucketStateEquals(DeltaWriterBucketState bucketState, DeltaWriterBucketState deserialized) {
         assertEquals(bucketState.getBucketId(), deserialized.getBucketId());
         assertEquals(bucketState.getBucketPath(), deserialized.getBucketPath());
+        assertEquals(bucketState.getAppId(), deserialized.getAppId());
     }
 
     private DeltaWriterBucketState serializeAndDeserialize(DeltaWriterBucketState bucketState)

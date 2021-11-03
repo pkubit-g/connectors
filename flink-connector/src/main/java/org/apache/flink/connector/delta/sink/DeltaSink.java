@@ -19,6 +19,7 @@
 package org.apache.flink.connector.delta.sink;
 
 
+import io.delta.standalone.DeltaLog;
 import org.apache.flink.api.connector.sink.Committer;
 import org.apache.flink.api.connector.sink.GlobalCommitter;
 import org.apache.flink.api.connector.sink.Sink;
@@ -81,9 +82,46 @@ public class DeltaSink<IN> implements Sink<IN, DeltaCommittable, DeltaWriterBuck
             InitContext context,
             List<DeltaWriterBucketState> states
     ) throws IOException {
-        DeltaWriter<IN> writer = sinkBuilder.createWriter(context);
+        String appId = restoreOrCreateAppId(states);
+        long nextCheckpointId = restoreOrGetNextCheckpointId(appId);
+        DeltaWriter<IN> writer = sinkBuilder.createWriter(context, appId, nextCheckpointId);
         writer.initializeState(states);
         return writer;
+    }
+
+    /**
+     * In order to gurantee the idempotency of the GlobalCommitter we need unique identifier of the app.
+     * We obtain it with simple logic: if it's the first run of the application (so no restart from snapshot
+     * or failure recovery happened and the writer's state is empty) then assign appId to a newly generated UUID
+     * that will be further stored in the state of each writer.
+     * Alternatively if the writer's states are not empty then we resolve appId from on of the restored states.
+     *
+     * @param states restored list of writer's buckets states that include previously generated appId
+     * @return newly created or resolved from restored writer's states unique identifier of the app.
+     */
+    private String restoreOrCreateAppId(List<DeltaWriterBucketState> states) {
+        if (states.isEmpty()) {
+            return sinkBuilder.getAppId();
+        }
+        return states.get(0).getAppId();
+    }
+
+    /**
+     * In order to gurantee the idempotency of the GlobalCommitter we need to version consecutive commits with consecutive
+     * identifiers. For this purpose we are using checkpointId that is being "manually" managed in writer's internal logic,
+     * added to the committables information and incremented on every precommit action (after generating the committables).
+     *
+     * @param appId unique identifier for the current application
+     * @return last committed version for the provided appId
+     */
+    private long restoreOrGetNextCheckpointId(String appId) {
+        DeltaLog deltaLog = DeltaLog.forTable(this.sinkBuilder.getSerializableConfiguration().conf(), this.sinkBuilder.getTableBasePath().getPath());
+        long lastCommittedCheckpointId = deltaLog.startTransaction().txnVersion(appId);
+        if (lastCommittedCheckpointId < 0) {
+            return 1;
+        } else {
+            return lastCommittedCheckpointId + 1;
+        }
     }
 
     @Override
@@ -133,7 +171,6 @@ public class DeltaSink<IN> implements Sink<IN, DeltaCommittable, DeltaWriterBuck
         }
     }
 
-
     /**
      * Convenience method where developer must ensure that writerFactory is configured to use SNAPPY
      * compression codec.
@@ -158,7 +195,6 @@ public class DeltaSink<IN> implements Sink<IN, DeltaCommittable, DeltaWriterBuck
                 new BasePathBucketAssigner<>()
         );
     }
-
 
     /**
      * A builder for configuring the sink for bulk-encoding formats, e.g. Parquet.

@@ -86,6 +86,10 @@ public class DeltaWriter<IN>
 
     private final OutputFileConfig outputFileConfig;
 
+    private final String appId;
+
+    private long nextCheckpointId;
+
     public DeltaWriter(
             final Path basePath,
             final BucketAssigner<IN, String> bucketAssigner,
@@ -94,7 +98,9 @@ public class DeltaWriter<IN>
             final CheckpointRollingPolicy<IN, String> rollingPolicy,
             final OutputFileConfig outputFileConfig,
             final Sink.ProcessingTimeService processingTimeService,
-            final long bucketCheckInterval) {
+            final long bucketCheckInterval,
+            final String appId,
+            final long nextCheckpointId) {
         this.basePath = checkNotNull(basePath);
         this.bucketAssigner = checkNotNull(bucketAssigner);
         this.bucketFactory = checkNotNull(bucketFactory);
@@ -111,7 +117,8 @@ public class DeltaWriter<IN>
                 bucketCheckInterval > 0,
                 "Bucket checking interval for processing time should be positive.");
         this.bucketCheckInterval = bucketCheckInterval;
-
+        this.appId = appId;
+        this.nextCheckpointId = nextCheckpointId;
     }
 
     /**
@@ -186,11 +193,16 @@ public class DeltaWriter<IN>
             if (!entry.getValue().isActive()) {
                 activeBucketIt.remove();
             } else {
-                committables.addAll(entry.getValue().prepareCommit(flush));
+                committables.addAll(entry.getValue().prepareCommit(flush, appId, nextCheckpointId));
             }
         }
 
+        incrementNextCheckpointId();
         return committables;
+    }
+
+    private void incrementNextCheckpointId() {
+        nextCheckpointId += 1;
     }
 
     @Override
@@ -199,7 +211,7 @@ public class DeltaWriter<IN>
 
         List<DeltaWriterBucketState> state = new ArrayList<>();
         for (DeltaWriterBucket<IN> bucket : activeBuckets.values()) {
-            state.add(bucket.snapshotState());
+            state.add(bucket.snapshotState(appId));
         }
 
         return state;

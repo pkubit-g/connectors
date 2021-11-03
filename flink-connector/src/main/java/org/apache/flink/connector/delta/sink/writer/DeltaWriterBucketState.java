@@ -31,11 +31,15 @@ public class DeltaWriterBucketState {
      */
     private final Path bucketPath;
 
+    private final String appId;
+
     public DeltaWriterBucketState(
             String bucketId,
-            Path bucketPath) {
+            Path bucketPath,
+            String appId) {
         this.bucketId = bucketId;
         this.bucketPath = bucketPath;
+        this.appId = appId;
     }
 
     public String getBucketId() {
@@ -57,6 +61,10 @@ public class DeltaWriterBucketState {
                 .append(bucketPath);
 
         return strBuilder.toString();
+    }
+
+    public String getAppId() {
+        return appId;
     }
 
 }
