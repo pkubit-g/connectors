@@ -28,14 +28,15 @@ jobs:
       - name: Run sqlDeltaImport tests (Scala 2.12 only)
         run: build/sbt "++ ${{ matrix.scala }}" sqlDeltaImport/test
         if: matrix.scala != '2.11.12'
-      - name: Run Delta Standalone Compatibility tests (Scala 2.12 only)
-        run: build/sbt "++ ${{ matrix.scala }}" compatibility/test
-        if: matrix.scala != '2.11.12'
-      - name: Run Delta Standalone tests
-        run: build/sbt "++ ${{ matrix.scala }}" standalone/test testStandaloneCosmetic/test
-      - name: Run Hive 3 tests
-        run: build/sbt "++ ${{ matrix.scala }}" hiveMR/test hiveTez/test
-      - name: Run Hive 2 tests
-        run: build/sbt "++ ${{ matrix.scala }}" hive2MR/test hive2Tez/test
-      - name: Run Flink tests
-        run: build/sbt "++ ${{ matrix.scala }}" flinkConnector/test
+      - name: Run SBT tests
+        shell: bash -l {0}
+        run: |
+          build/sbt "++ ${{ matrix.scala }} testScalastyle"
+          build/sbt "++ ${{ matrix.scala }} standalone/test"
+          build/sbt "++ ${{ matrix.scala }} testStandaloneCosmetic/test"
+          build/sbt "++ ${{ matrix.scala }} compatibility/test"
+          build/sbt "++ ${{ matrix.scala }} hiveMR/test"
+          build/sbt "++ ${{ matrix.scala }} hiveTez/test"
+          build/sbt "++ ${{ matrix.scala }} hive2MR/test"
+          build/sbt "++ ${{ matrix.scala }} hive2Tez/test"
+          build/sbt "++ ${{ matrix.scala }} flinkConnector/test"
