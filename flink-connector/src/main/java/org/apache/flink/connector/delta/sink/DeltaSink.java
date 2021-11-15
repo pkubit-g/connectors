@@ -49,9 +49,10 @@ import io.delta.standalone.DeltaLog;
  * semantics for both {@code BATCH} and {@code STREAMING}.
  * <p>
  * Behaviour of this sink splits down upon two phases. The first phase takes place between
- * application's checkpoints when events are being flushed to files (or appended to writers'
+ * application's checkpoints when records are being flushed to files (or appended to writers'
  * buffers) where the behaviour is almost identical as in case of
  * {@link org.apache.flink.connector.file.sink.FileSink}.
+ * <p>
  * Next during the checkpoint phase files are "closed" (renamed) by the independent instances of
  * {@link org.apache.flink.connector.delta.sink.committer.DeltaCommitter} that behave very similar
  * to {@link org.apache.flink.connector.file.sink.committer.FileCommitter}.
@@ -61,16 +62,19 @@ import io.delta.standalone.DeltaLog;
  * This {@link DeltaSink} sources many specific implementations from the
  * {@link org.apache.flink.connector.file.sink.FileSink} so for most of the low level behaviour one
  * may refer to the docs from this module. The most notable differences to the FileSinks are:
- * - tightly coupling DeltaSink to the Bulk-/ParquetFormat
- * - extending committable information with files metadata (name, size, rows, last update timestamp)
- * - providing DeltaLake-specific behaviour which is mostly contained in the
- * {@link DeltaGlobalCommitter} implementing
- * the commit to the {@link DeltaLog} at the final stage of each checkpoint.
+ * <ul>
+ *  <li>tightly coupling DeltaSink to the Bulk-/ParquetFormat</li>
+ *  <li>extending committable information with files metadata (name, size, rows, last update
+ *      timestamp)</li>
+ *  <li>providing DeltaLake-specific behaviour which is mostly contained in the
+ *      {@link DeltaGlobalCommitter} implementing the commit to the {@link DeltaLog} at the final
+ *      stage of each checkpoint.</li>
+ * </ul>
  *
  * @param <IN> Type of the elements in the input of the sink that are also the elements to be
  *             written to its output
  * @implNote This sink sources many methods and solutions from
- * {@link org.apache.flink.connector.file.sink.FileSink} implementation simply by coping the
+ * {@link org.apache.flink.connector.file.sink.FileSink} implementation simply by copying the
  * code since it was not possible to directly reuse those due to some access specifiers, use of
  * generics and need to provide some internal workarounds compared to the FileSink. To make it
  * explicit which methods are directly copied from FileSink we use `FileSink-specific methods`

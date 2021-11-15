@@ -25,7 +25,7 @@ import org.apache.flink.annotation.Internal;
  * snapshot created during pre-commit phase of a checkpoint process or manually on demand
  * by the user.
  * see fault_tolerance/#state-snapshots section on
- * <a href="https://ci.apache.org/projects/flink/flink-docs-master/docs/learn-flink/"</a>
+ * @see <a href="https://ci.apache.org/projects/flink/flink-docs-master/docs/learn-flink/" target="_blank">this page</a>
  *
  * <p>
  * This class is partially inspired by
@@ -43,5 +43,4 @@ import org.apache.flink.annotation.Internal;
 public class DeltaWriterBucketState {
 
     public DeltaWriterBucketState() {}
-
 }

@@ -29,7 +29,7 @@ import org.apache.flink.core.memory.DataOutputSerializer;
 import org.apache.flink.core.memory.DataOutputView;
 
 /**
- * Versioned serializer for  {@link DeltaGlobalCommittable}.
+ * Versioned serializer for {@link DeltaGlobalCommittable}.
  */
 @Internal
 public class DeltaGlobalCommittableSerializer
