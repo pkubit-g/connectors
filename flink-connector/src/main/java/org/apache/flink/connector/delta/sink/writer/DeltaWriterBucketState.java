@@ -19,6 +19,7 @@
 package org.apache.flink.connector.delta.sink.writer;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.core.fs.Path;
 
 /**
  * State of a {@link DeltaWriterBucket} that will become part of each application's
@@ -42,5 +43,29 @@ import org.apache.flink.annotation.Internal;
 @Internal
 public class DeltaWriterBucketState {
 
-    public DeltaWriterBucketState() {}
+    private final String bucketId;
+
+    private final Path bucketPath;
+
+    public DeltaWriterBucketState(String bucketId,
+                                  Path bucketPath) {
+        this.bucketId = bucketId;
+        this.bucketPath = bucketPath;
+    }
+
+    public String getBucketId() {
+        return bucketId;
+    }
+
+    public Path getBucketPath() {
+        return bucketPath;
+    }
+
+    @Override
+    public String toString() {
+        return "BucketState for bucketId=" +
+            bucketId +
+            " and bucketPath=" +
+            bucketPath;
+    }
 }

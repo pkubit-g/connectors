@@ -22,6 +22,7 @@ import java.io.Serializable;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
+import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * Committable object that carries the information about files written to the file system
@@ -41,5 +42,13 @@ import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile
 @Internal
 public class DeltaCommittable implements Serializable {
 
-    public DeltaCommittable() {}
+    private final DeltaPendingFile deltaPendingFile;
+
+    public DeltaCommittable(DeltaPendingFile deltaPendingFile) {
+        this.deltaPendingFile = checkNotNull(deltaPendingFile);
+    }
+
+    public DeltaPendingFile getDeltaPendingFile() {
+        return deltaPendingFile;
+    }
 }

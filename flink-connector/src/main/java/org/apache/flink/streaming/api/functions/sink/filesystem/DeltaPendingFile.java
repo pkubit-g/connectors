@@ -32,5 +32,45 @@ package org.apache.flink.streaming.api.functions.sink.filesystem;
  */
 public class DeltaPendingFile {
 
-    public DeltaPendingFile() {}
+    private final String fileName;
+
+    private final InProgressFileWriter.PendingFileRecoverable pendingFile;
+
+    private final long recordCount;
+
+    private final long fileSize;
+
+    private final long lastUpdateTime;
+
+    public DeltaPendingFile(String fileName,
+                            InProgressFileWriter.PendingFileRecoverable pendingFile,
+                            long recordCount,
+                            long fileSize,
+                            long lastUpdateTime) {
+        this.fileName = fileName;
+        this.pendingFile = pendingFile;
+        this.fileSize = fileSize;
+        this.recordCount = recordCount;
+        this.lastUpdateTime = lastUpdateTime;
+    }
+
+    public String getFileName() {
+        return fileName;
+    }
+
+    public InProgressFileWriter.PendingFileRecoverable getPendingFile() {
+        return pendingFile;
+    }
+
+    public long getFileSize() {
+        return fileSize;
+    }
+
+    public long getRecordCount() {
+        return recordCount;
+    }
+
+    public long getLastUpdateTime() {
+        return lastUpdateTime;
+    }
 }

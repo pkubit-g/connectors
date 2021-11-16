@@ -27,6 +27,8 @@ import org.apache.flink.connector.delta.sink.DeltaSink;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.connector.delta.sink.writer.DeltaWriter;
 import org.apache.flink.connector.file.sink.FileSink;
+import org.apache.flink.streaming.api.functions.sink.filesystem.BucketWriter;
+import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * Committer implementation for {@link DeltaSink}.
@@ -57,11 +59,18 @@ public class DeltaCommitter implements Committer<DeltaCommittable> {
     // FileSink-specific
     ///////////////////////////////////////////////////////////////////////////
 
-    public DeltaCommitter() {
+    private final BucketWriter<?, ?> bucketWriter;
+
+    public DeltaCommitter(BucketWriter<?, ?> bucketWriter) {
+        this.bucketWriter = checkNotNull(bucketWriter);
     }
 
     @Override
     public List<DeltaCommittable> commit(List<DeltaCommittable> committables) throws IOException {
+        for (DeltaCommittable committable : committables) {
+            bucketWriter.recoverPendingFile(
+                committable.getDeltaPendingFile().getPendingFile()).commitAfterRecovery();
+        }
         return Collections.emptyList();
     }
 

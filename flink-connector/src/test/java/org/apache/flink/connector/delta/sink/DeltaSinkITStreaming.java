@@ -29,18 +29,19 @@ import java.util.concurrent.CountDownLatch;
 
 import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
+import org.apache.flink.api.common.state.CheckpointListener;
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ExecutionOptions;
-import org.apache.flink.configuration.RestOptions;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.HadoopConfTest;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestFileSystem;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestRowData;
+import org.apache.flink.connector.delta.sink.utils.ITCaseUtils;
 import org.apache.flink.connector.file.sink.StreamingExecutionFileSinkITCase;
-import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.minicluster.MiniCluster;
-import org.apache.flink.runtime.minicluster.MiniClusterConfiguration;
-import org.apache.flink.runtime.state.CheckpointListener;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.streaming.api.CheckpointingMode;
@@ -49,11 +50,15 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
 import org.apache.flink.streaming.api.graph.StreamGraph;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.types.Row;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import static org.junit.Assert.assertEquals;
+
+import io.delta.standalone.DeltaLog;
 
 @RunWith(Parameterized.class)
 public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
@@ -61,17 +66,17 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
     private static final Map<String, CountDownLatch> LATCH_MAP = new ConcurrentHashMap<>();
 
     @Parameterized.Parameters(
-            name = "triggerFailover = {0}"
+        name = "triggerFailover = {0}"
     )
     public static Collection<Object[]> params() {
         return Arrays.asList(
-                new Object[]{false},
-                new Object[]{true}
+            new Object[]{false},
+            new Object[]{true}
         );
     }
 
     private String latchId;
-    String deltaTablePath;
+    private String deltaTablePath;
 
     @Before
     public void setup() {
@@ -97,15 +102,19 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
 
     public void runDeltaSinkTest() throws Exception {
         // GIVEN
+        DeltaLog deltaLog = DeltaLog.forTable(HadoopConfTest.getHadoopConf(), deltaTablePath);
         JobGraph jobGraph = createJobGraph(deltaTablePath);
 
         // WHEN
-        try (MiniCluster miniCluster = getMiniCluster()) {
+        try (MiniCluster miniCluster = ITCaseUtils.getMiniCluster()) {
             miniCluster.start();
             miniCluster.executeJobBlocking(jobGraph);
         }
 
         // THEN
+        int writtenRecordsCount =
+            TestFileSystem.validateIfPathContainsParquetFilesWithData(deltaTablePath);
+        assertEquals(NUM_RECORDS * NUM_SOURCES, writtenRecordsCount);
     }
 
     @Override
@@ -113,32 +122,12 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
         StreamExecutionEnvironment env = getTestStreamEnv();
 
         env.addSource(new DeltaStreamingExecutionTestSource(latchId, NUM_RECORDS, triggerFailover))
-                .setParallelism(NUM_SOURCES)
-                .sinkTo(createDeltaSink())
-                .setParallelism(NUM_SINKS);
+            .setParallelism(NUM_SOURCES)
+            .sinkTo(ITCaseUtils.createDeltaSink(deltaTablePath))
+            .setParallelism(NUM_SINKS);
 
         StreamGraph streamGraph = env.getStreamGraph();
         return streamGraph.getJobGraph();
-    }
-
-    private DeltaSink<RowData> createDeltaSink() {
-        return DeltaSink
-                .forDeltaFormat(
-                        new Path(deltaTablePath),
-                        new org.apache.hadoop.conf.Configuration())
-                .build();
-    }
-
-    private MiniCluster getMiniCluster() {
-        final Configuration config = new Configuration();
-        config.setString(RestOptions.BIND_PORT, "18081-19000");
-        final MiniClusterConfiguration cfg =
-                new MiniClusterConfiguration.Builder()
-                        .setNumTaskManagers(1)
-                        .setNumSlotsPerTaskManager(4)
-                        .setConfiguration(config)
-                        .build();
-        return new MiniCluster(cfg);
     }
 
     private StreamExecutionEnvironment getTestStreamEnv() {
@@ -167,8 +156,8 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
      * {@link StreamingExecutionFileSinkITCase}
      */
     private static class DeltaStreamingExecutionTestSource
-            extends RichParallelSourceFunction<RowData>
-            implements CheckpointListener, CheckpointedFunction {
+        extends RichParallelSourceFunction<RowData>
+        implements CheckpointListener, CheckpointedFunction {
 
         private final String latchId;
 
@@ -193,7 +182,7 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
         private volatile boolean hasCompletedCheckpoint;
 
         DeltaStreamingExecutionTestSource(
-                String latchId, int numberOfRecords, boolean isFailoverScenario) {
+            String latchId, int numberOfRecords, boolean isFailoverScenario) {
             this.latchId = latchId;
             this.numberOfRecords = numberOfRecords;
             this.isFailoverScenario = isFailoverScenario;
@@ -202,8 +191,8 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
         @Override
         public void initializeState(FunctionInitializationContext context) throws Exception {
             nextValueState =
-                    context.getOperatorStateStore()
-                            .getListState(new ListStateDescriptor<>("nextValue", Integer.class));
+                context.getOperatorStateStore()
+                    .getListState(new ListStateDescriptor<>("nextValue", Integer.class));
 
             if (nextValueState.get() != null && nextValueState.get().iterator().hasNext()) {
                 nextValue = nextValueState.get().iterator().next();
@@ -247,6 +236,13 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
         private void sendRecordsUntil(int targetNumber, SourceContext<RowData> ctx) {
             while (!isCanceled && nextValue < targetNumber) {
                 synchronized (ctx.getCheckpointLock()) {
+                    RowData row = TestRowData.CONVERTER.toInternal(
+                        Row.of(
+                            String.valueOf(nextValue),
+                            String.valueOf((nextValue + nextValue)),
+                            nextValue)
+                    );
+                    ctx.collect(row);
                     nextValue++;
                 }
             }
@@ -255,19 +251,17 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
         @Override
         public void snapshotState(FunctionSnapshotContext context) throws Exception {
             nextValueState.update(Collections.singletonList(nextValue));
-
             if (isWaitingCheckpointComplete) {
                 snapshottedAfterAllRecordsOutput = true;
             }
         }
 
         @Override
-        public void notifyCheckpointComplete(long checkpointId) throws Exception {
+        public void notifyCheckpointComplete(long checkpointId) {
             if (isWaitingCheckpointComplete && snapshottedAfterAllRecordsOutput) {
                 CountDownLatch latch = LATCH_MAP.get(latchId);
                 latch.countDown();
             }
-
             hasCompletedCheckpoint = true;
         }
 
