@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.stream.IntStream;
 
-import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestRowData;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.formats.parquet.vector.ParquetColumnarRowSplitReader;
 import org.apache.flink.formats.parquet.vector.ParquetSplitReaderUtil;
@@ -45,8 +44,8 @@ public class TestParquetReader {
      * @return count of written records
      * @throws IOException Thrown if an error occurs while reading the file
      */
-    public static int readAndParseRecords(Path parquetFilepath,
-                                          RowType rowType) throws IOException {
+    public static int parseAndCountRecords(Path parquetFilepath,
+                                           RowType rowType) throws IOException {
         ParquetColumnarRowSplitReader reader = getTestParquetReader(
             parquetFilepath,
             rowType
@@ -54,18 +53,18 @@ public class TestParquetReader {
 
         int recordsRead = 0;
         while (!reader.reachedEnd()) {
-            TestRowData.CONVERTER.toExternal(reader.nextRecord());
+            DeltaSinkTestUtils.CONVERTER.toExternal(reader.nextRecord());
             recordsRead++;
         }
         return recordsRead;
     }
 
-    static ParquetColumnarRowSplitReader getTestParquetReader(Path path,
-                                                              RowType rowType) throws IOException {
+    private static ParquetColumnarRowSplitReader getTestParquetReader(
+        Path path, RowType rowType) throws IOException {
         return ParquetSplitReaderUtil.genPartColumnarRowReader(
-            true,
-            true,
-            DeltaSinkTestUtils.HadoopConfTest.getHadoopConf(),
+            true, // utcTimestamp
+            true, // caseSensitive
+            DeltaSinkTestUtils.getHadoopConf(),
             rowType.getFieldNames().toArray(new String[0]),
             rowType.getChildren().stream()
                 .map(TypeConversions::fromLogicalToDataType)

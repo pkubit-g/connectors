@@ -23,10 +23,7 @@ import java.io.IOException;
 import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ExecutionOptions;
-import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.HadoopConfTest;
-import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestFileSystem;
-import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestRowData;
-import org.apache.flink.connector.delta.sink.utils.ITCaseUtils;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils;
 import org.apache.flink.connector.file.sink.BatchExecutionFileSinkITCase;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.minicluster.MiniCluster;
@@ -38,7 +35,10 @@ import static org.junit.Assert.assertEquals;
 
 import io.delta.standalone.DeltaLog;
 
-public class DeltaSinkITBatch extends BatchExecutionFileSinkITCase {
+/**
+ * Tests the functionality of the {@link DeltaSink} in BATCH mode.
+ */
+public class DeltaSinkBatchExecutionITCase extends BatchExecutionFileSinkITCase {
 
     private String deltaTablePath;
 
@@ -59,18 +59,18 @@ public class DeltaSinkITBatch extends BatchExecutionFileSinkITCase {
 
     public void runDeltaSinkTest() throws Exception {
         // GIVEN
-        DeltaLog deltaLog = DeltaLog.forTable(HadoopConfTest.getHadoopConf(), deltaTablePath);
+        DeltaLog deltaLog = DeltaLog.forTable(DeltaSinkTestUtils.getHadoopConf(), deltaTablePath);
         JobGraph jobGraph = createJobGraph(deltaTablePath);
 
         // WHEN
-        try (MiniCluster miniCluster = ITCaseUtils.getMiniCluster()) {
+        try (MiniCluster miniCluster = DeltaSinkTestUtils.getMiniCluster()) {
             miniCluster.start();
             miniCluster.executeJobBlocking(jobGraph);
         }
 
         // THEN
         int writtenRecordsCount =
-            TestFileSystem.validateIfPathContainsParquetFilesWithData(deltaTablePath);
+            DeltaSinkTestUtils.validateIfPathContainsParquetFilesWithData(deltaTablePath);
         assertEquals(NUM_RECORDS, writtenRecordsCount);
     }
 
@@ -78,9 +78,9 @@ public class DeltaSinkITBatch extends BatchExecutionFileSinkITCase {
     protected JobGraph createJobGraph(String path) {
         StreamExecutionEnvironment env = getTestStreamEnv();
 
-        env.fromCollection(TestRowData.getTestRowData(NUM_RECORDS))
+        env.fromCollection(DeltaSinkTestUtils.getTestRowData(NUM_RECORDS))
             .setParallelism(1)
-            .sinkTo(ITCaseUtils.createDeltaSink(path))
+            .sinkTo(DeltaSinkTestUtils.createDeltaSink(path))
             .setParallelism(NUM_SINKS);
 
         StreamGraph streamGraph = env.getStreamGraph();

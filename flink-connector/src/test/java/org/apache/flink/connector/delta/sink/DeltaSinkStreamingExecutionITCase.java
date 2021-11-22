@@ -35,10 +35,7 @@ import org.apache.flink.api.common.state.ListStateDescriptor;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ExecutionOptions;
-import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.HadoopConfTest;
-import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestFileSystem;
-import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestRowData;
-import org.apache.flink.connector.delta.sink.utils.ITCaseUtils;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils;
 import org.apache.flink.connector.file.sink.StreamingExecutionFileSinkITCase;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.minicluster.MiniCluster;
@@ -60,8 +57,11 @@ import static org.junit.Assert.assertEquals;
 
 import io.delta.standalone.DeltaLog;
 
+/**
+ * Tests the functionality of the {@link DeltaSink} in STREAMING mode.
+ */
 @RunWith(Parameterized.class)
-public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
+public class DeltaSinkStreamingExecutionITCase extends StreamingExecutionFileSinkITCase {
 
     private static final Map<String, CountDownLatch> LATCH_MAP = new ConcurrentHashMap<>();
 
@@ -102,28 +102,32 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
 
     public void runDeltaSinkTest() throws Exception {
         // GIVEN
-        DeltaLog deltaLog = DeltaLog.forTable(HadoopConfTest.getHadoopConf(), deltaTablePath);
+        DeltaLog deltaLog = DeltaLog.forTable(DeltaSinkTestUtils.getHadoopConf(), deltaTablePath);
         JobGraph jobGraph = createJobGraph(deltaTablePath);
 
         // WHEN
-        try (MiniCluster miniCluster = ITCaseUtils.getMiniCluster()) {
+        try (MiniCluster miniCluster = DeltaSinkTestUtils.getMiniCluster()) {
             miniCluster.start();
             miniCluster.executeJobBlocking(jobGraph);
         }
 
         // THEN
         int writtenRecordsCount =
-            TestFileSystem.validateIfPathContainsParquetFilesWithData(deltaTablePath);
+            DeltaSinkTestUtils.validateIfPathContainsParquetFilesWithData(deltaTablePath);
         assertEquals(NUM_RECORDS * NUM_SOURCES, writtenRecordsCount);
     }
 
+    /**
+     * Creating the testing job graph in streaming mode. The graph created is [Source] -> [Delta
+     * Sink]. The source would trigger failover if required.
+     */
     @Override
     protected JobGraph createJobGraph(String path) {
         StreamExecutionEnvironment env = getTestStreamEnv();
 
         env.addSource(new DeltaStreamingExecutionTestSource(latchId, NUM_RECORDS, triggerFailover))
             .setParallelism(NUM_SOURCES)
-            .sinkTo(ITCaseUtils.createDeltaSink(deltaTablePath))
+            .sinkTo(DeltaSinkTestUtils.createDeltaSink(deltaTablePath))
             .setParallelism(NUM_SINKS);
 
         StreamGraph streamGraph = env.getStreamGraph();
@@ -236,7 +240,7 @@ public class DeltaSinkITStreaming extends StreamingExecutionFileSinkITCase {
         private void sendRecordsUntil(int targetNumber, SourceContext<RowData> ctx) {
             while (!isCanceled && nextValue < targetNumber) {
                 synchronized (ctx.getCheckpointLock()) {
-                    RowData row = TestRowData.CONVERTER.toInternal(
+                    RowData row = DeltaSinkTestUtils.CONVERTER.toInternal(
                         Row.of(
                             String.valueOf(nextValue),
                             String.valueOf((nextValue + nextValue)),

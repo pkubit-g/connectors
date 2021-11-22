@@ -159,7 +159,7 @@ public class DeltaSink<IN>
      * @param conf     Hadoop's conf object that will be used for creating instances of
      *                 {@link io.delta.standalone.DeltaLog} and will be also passed to the
      *                 {@link ParquetRowDataBuilder} to create {@link ParquetWriterFactory}
-     * @param rowType  Flink 's logical type to indicate the structure of the events in the stream
+     * @param rowType  Flink's logical type to indicate the structure of the events in the stream
      * @return builder for the DeltaSink
      */
     public static DeltaSinkBuilder<RowData> forDeltaFormat(
@@ -168,8 +168,11 @@ public class DeltaSink<IN>
         final RowType rowType
     ) {
         conf.set("parquet.compression", "SNAPPY");
-        ParquetWriterFactory<RowData> writerFactory =
-            ParquetRowDataBuilder.createWriterFactory(rowType, conf, true);
+        ParquetWriterFactory<RowData> writerFactory = ParquetRowDataBuilder.createWriterFactory(
+            rowType,
+            conf,
+            true // utcTimestamp
+        );
 
         return new DeltaSinkBuilder.DefaultDeltaFormatBuilder<>(
             basePath,

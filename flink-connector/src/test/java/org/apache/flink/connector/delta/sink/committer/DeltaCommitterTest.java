@@ -18,13 +18,16 @@
 
 package org.apache.flink.connector.delta.sink.committer;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
-import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils.TestDeltaPendingFile;
+import org.apache.flink.connector.delta.sink.committables.DeltaCommittableSerializer;
+import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils;
+import org.apache.flink.connector.file.sink.utils.FileSinkTestUtils;
 import org.apache.flink.connector.file.sink.utils.NoOpBucketWriter;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketWriter;
 import org.apache.flink.streaming.api.functions.sink.filesystem.InProgressFileWriter;
@@ -48,7 +51,7 @@ public class DeltaCommitterTest {
 
         // WHEN
         DeltaCommittable deltaCommittable =
-            new DeltaCommittable(TestDeltaPendingFile.getTestDeltaPendingFile());
+            new DeltaCommittable(DeltaSinkTestUtils.getTestDeltaPendingFile());
         List<DeltaCommittable> toRetry =
             deltaCommitter.commit(Collections.singletonList(deltaCommittable));
 
@@ -66,9 +69,9 @@ public class DeltaCommitterTest {
 
         // WHEN
         List<DeltaCommittable> committables = Arrays.asList(
-            new DeltaCommittable(TestDeltaPendingFile.getTestDeltaPendingFile()),
-            new DeltaCommittable(TestDeltaPendingFile.getTestDeltaPendingFile()),
-            new DeltaCommittable(TestDeltaPendingFile.getTestDeltaPendingFile())
+            new DeltaCommittable(DeltaSinkTestUtils.getTestDeltaPendingFile()),
+            new DeltaCommittable(DeltaSinkTestUtils.getTestDeltaPendingFile()),
+            new DeltaCommittable(DeltaSinkTestUtils.getTestDeltaPendingFile())
         );
         List<DeltaCommittable> toRetry =
             deltaCommitter.commit(committables);
@@ -79,6 +82,19 @@ public class DeltaCommitterTest {
             .getRecoveredPendingFiles()
             .forEach(pendingFile -> assertTrue(pendingFile.isCommitted()));
         assertEquals(0, toRetry.size());
+    }
+
+    @Test
+    public void testCommittableWithPendingFileForNonPartitionedTable() throws IOException {
+        // GIVEN
+        DeltaCommittable committable =
+            DeltaSinkTestUtils.getTestDeltaCommittableWithPendingFile();
+
+        // WHEN
+        DeltaCommittable deserialized = serializeAndDeserialize(committable);
+
+        // THEN
+        DeltaSinkTestUtils.validateDeltaCommittablesEquality(committable, deserialized);
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -117,5 +133,19 @@ public class DeltaCommitterTest {
         public List<RecordingPendingFile> getRecoveredPendingFiles() {
             return recoveredPendingFiles;
         }
+    }
+
+    ///////////////////////////////////////////////////
+    // serde test utils
+    ///////////////////////////////////////////////////
+
+    private DeltaCommittable serializeAndDeserialize(DeltaCommittable committable)
+        throws IOException {
+        DeltaCommittableSerializer serializer =
+            new DeltaCommittableSerializer(
+                new FileSinkTestUtils.SimpleVersionedWrapperSerializer<>(
+                    FileSinkTestUtils.TestPendingFileRecoverable::new));
+        byte[] data = serializer.serialize(committable);
+        return serializer.deserialize(serializer.getVersion(), data);
     }
 }

@@ -27,7 +27,6 @@ import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputSerializer;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
-import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFileSerdeUtil;
 import org.apache.flink.streaming.api.functions.sink.filesystem.InProgressFileWriter;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -78,13 +77,13 @@ public class DeltaCommittableSerializer
 
     void serializeV1(DeltaCommittable committable, DataOutputView dataOutputView)
         throws IOException {
-        DeltaPendingFileSerdeUtil.serialize(
+        DeltaPendingFile.serialize(
             committable.getDeltaPendingFile(), dataOutputView, pendingFileSerializer);
     }
 
     DeltaCommittable deserializeV1(DataInputView dataInputView) throws IOException {
         DeltaPendingFile deltaPendingFile =
-            DeltaPendingFileSerdeUtil.deserialize(dataInputView, pendingFileSerializer);
+            DeltaPendingFile.deserialize(dataInputView, pendingFileSerializer);
         return new DeltaCommittable(deltaPendingFile);
     }
 

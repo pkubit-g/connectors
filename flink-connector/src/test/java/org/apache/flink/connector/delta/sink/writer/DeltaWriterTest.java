@@ -32,7 +32,6 @@ import org.apache.flink.api.connector.sink.SinkWriter;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils;
-import org.apache.flink.connector.delta.sink.utils.WriterTestUtils;
 import org.apache.flink.connector.file.sink.writer.FileWriterTest;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.functions.sink.filesystem.OutputFileConfig;
@@ -60,7 +59,7 @@ public class DeltaWriterTest {
         File outDir = TEMP_FOLDER.newFolder();
         Path path = new Path(outDir.toURI());
         int rowsCount = 2;
-        List<RowData> testRows = DeltaSinkTestUtils.TestRowData.getTestRowData(rowsCount);
+        List<RowData> testRows = DeltaSinkTestUtils.getTestRowData(rowsCount);
         DeltaWriter<RowData> writer = createNewWriter(path);
 
         // WHEN
@@ -78,7 +77,7 @@ public class DeltaWriterTest {
         File outDir = TEMP_FOLDER.newFolder();
         Path path = new Path(outDir.toURI());
         int rowsCount = 2;
-        List<RowData> testRows = DeltaSinkTestUtils.TestRowData.getTestRowData(rowsCount);
+        List<RowData> testRows = DeltaSinkTestUtils.getTestRowData(rowsCount);
         DeltaWriter<RowData> writer = createNewWriter(path);
 
         // WHEN
@@ -99,7 +98,7 @@ public class DeltaWriterTest {
         File outDir = TEMP_FOLDER.newFolder();
         Path path = new Path(outDir.toURI());
         int rowsCount = 2;
-        List<RowData> testRows = DeltaSinkTestUtils.TestRowData.getTestRowData(rowsCount);
+        List<RowData> testRows = DeltaSinkTestUtils.getTestRowData(rowsCount);
         DeltaWriter<RowData> firstWriter = createNewWriter(path);
         DeltaWriter<RowData> secondWriter = createNewWriter(path);
 
@@ -127,7 +126,7 @@ public class DeltaWriterTest {
         File outDir = TEMP_FOLDER.newFolder();
         Path path = new Path(outDir.toURI());
         int rowsCount = 2;
-        List<RowData> testRows = DeltaSinkTestUtils.TestRowData.getTestRowData(rowsCount);
+        List<RowData> testRows = DeltaSinkTestUtils.getTestRowData(rowsCount);
         DeltaWriter<RowData> writer = createNewWriter(path);
 
         // WHEN
@@ -160,15 +159,15 @@ public class DeltaWriterTest {
     }
 
     private void testCorrectTimestampPassingInContext(
-            // GIVEN
-            Long timestamp, long watermark, long processingTime) throws Exception {
+        // GIVEN
+        Long timestamp, long watermark, long processingTime) throws Exception {
         final File outDir = TEMP_FOLDER.newFolder();
         final Path path = new Path(outDir.toURI());
-        List<RowData> testRows = DeltaSinkTestUtils.TestRowData.getTestRowData(1);
+        List<RowData> testRows = DeltaSinkTestUtils.getTestRowData(1);
 
         // Create the processing timer service starts from 10.
         ManuallyTriggeredProcessingTimeService processingTimeService =
-                new ManuallyTriggeredProcessingTimeService();
+            new ManuallyTriggeredProcessingTimeService();
         processingTimeService.advanceTo(processingTime);
 
         DeltaWriter<RowData> writer = createNewWriter(path);
@@ -187,13 +186,13 @@ public class DeltaWriterTest {
 
     private static DeltaWriter<RowData> createNewWriter(Path basePath) throws IOException {
         return new DeltaWriter<>(
-                basePath,
-                new BasePathBucketAssigner<>(),
-                WriterTestUtils.createBucketWriter(basePath),
-                WriterTestUtils.ON_CHECKPOINT_ROLLING_POLICY,
-                OutputFileConfig.builder().withPartSuffix(".snappy.parquet").build(),
-                new ManuallyTriggeredProcessingTimeService(),
-                10
+            basePath,
+            new BasePathBucketAssigner<>(),
+            DeltaSinkTestUtils.createBucketWriter(basePath),
+            DeltaSinkTestUtils.ON_CHECKPOINT_ROLLING_POLICY,
+            OutputFileConfig.builder().withPartSuffix(".snappy.parquet").build(),
+            new ManuallyTriggeredProcessingTimeService(),
+            10
         );
     }
 
@@ -203,8 +202,8 @@ public class DeltaWriterTest {
      * {@link org.apache.flink.connector.delta.sink.DeltaSink#createWriter}
      */
     private static DeltaWriter<RowData> restoreWriter(
-            Path basePath,
-            List<DeltaWriterBucketState> states) throws IOException {
+        Path basePath,
+        List<DeltaWriterBucketState> states) throws IOException {
 
         DeltaWriter<RowData> writer = createNewWriter(basePath);
         writer.initializeState(states);
@@ -253,12 +252,12 @@ public class DeltaWriterTest {
      * Borrowed from {@link org.apache.flink.connector.file.sink.writer.FileWriterTest}
      */
     private static class ManuallyTriggeredProcessingTimeService
-            implements Sink.ProcessingTimeService {
+        implements Sink.ProcessingTimeService {
 
         private long now;
 
         private final Queue<Tuple2<Long, ProcessingTimeCallback>> timers =
-                new PriorityQueue<>(Comparator.comparingLong(o -> o.f0));
+            new PriorityQueue<>(Comparator.comparingLong(o -> o.f0));
 
         @Override
         public long getCurrentProcessingTime() {
@@ -267,7 +266,7 @@ public class DeltaWriterTest {
 
         @Override
         public void registerProcessingTimer(
-                long time, ProcessingTimeCallback processingTimeCallback) {
+            long time, ProcessingTimeCallback processingTimeCallback) {
             if (time <= now) {
                 try {
                     processingTimeCallback.onProcessingTime(now);

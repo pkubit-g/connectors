@@ -52,7 +52,20 @@ import static org.apache.flink.util.Preconditions.checkState;
  * <p>
  * Most of the logic for this class was sourced from {@link FileWriter} as the behaviour is very
  * similar. The main differences are use of custom implementations for some member classes and also
- * managing {@link io.delta.standalone.DeltaLog} transactional ids.
+ * managing {@link io.delta.standalone.DeltaLog} transactional ids:
+ * {@link DeltaWriter#appId} and {@link DeltaWriter#nextCheckpointId}
+ * <p>
+ * Lifecycle of instances of this class is as follows:
+ * <ol>
+ *     <li>Every instance is being created via
+ *         {@link org.apache.flink.connector.delta.sink.DeltaSink#createWriter} method</li>
+ *     <li>Writers' life spand is the same as the application's (unless the worker node gets
+ *         unresponding and the job manager needs to create a new instance to satisfy the
+ *         parallelism)</li>
+ *     <li>Number of instances are managed globally by a job manager and this number is equal to the
+ *         parallelism of the sink.
+ *         @see <a href="https://nightlies.apache.org/flink/flink-docs-master/docs/dev/datastream/execution/parallel/" target="_blank">Flink's parallel execution</a></li>
+ * </ol>
  *
  * @param <IN> The type of input elements.
  */
@@ -128,6 +141,8 @@ public class DeltaWriter<IN>
     }
 
     /**
+     * Prepares the writer's state to be snapshotted between checkpoint intervals.
+     * <p>
      * @implNote This method behaves in the similar way as
      * {@link org.apache.flink.connector.file.sink.writer.FileWriter#snapshotState}
      * except that it uses custom {@link DeltaWriterBucketState} and {@link DeltaWriterBucket}
@@ -180,6 +195,11 @@ public class DeltaWriter<IN>
     }
 
     /**
+     * This method prepares committables objects that will be passed to
+     * {@link org.apache.flink.connector.delta.sink.committer.DeltaCommitter} and
+     * {@link org.apache.flink.connector.delta.sink.committer.DeltaGlobalCommitter} to finalize the
+     * checkpoint interval and commit written files.
+     *
      * @implNote This method behaves in the same way as
      * {@link org.apache.flink.connector.file.sink.writer.FileWriter#prepareCommit}
      * except that it uses custom {@link DeltaWriterBucket} implementation.
@@ -191,12 +211,12 @@ public class DeltaWriter<IN>
         // Every time before we prepare commit, we first check and remove the inactive
         // buckets. Checking the activeness right before pre-committing avoid re-creating
         // the bucket every time if the bucket use OnCheckpointingRollingPolicy.
-        Iterator<Map.Entry<String, DeltaWriterBucket<IN>>> activeBucketIt =
+        Iterator<Map.Entry<String, DeltaWriterBucket<IN>>> activeBucketIter =
             activeBuckets.entrySet().iterator();
-        while (activeBucketIt.hasNext()) {
-            Map.Entry<String, DeltaWriterBucket<IN>> entry = activeBucketIt.next();
+        while (activeBucketIter.hasNext()) {
+            Map.Entry<String, DeltaWriterBucket<IN>> entry = activeBucketIter.next();
             if (!entry.getValue().isActive()) {
-                activeBucketIt.remove();
+                activeBucketIter.remove();
             } else {
                 committables.addAll(entry.getValue().prepareCommit(flush));
             }
@@ -206,7 +226,7 @@ public class DeltaWriter<IN>
     }
 
     /**
-     * Initializes the state from snapshoted {@link DeltaWriterBucketState}.
+     * Initializes the state from snapshotted {@link DeltaWriterBucketState}.
      *
      * @param bucketStates the state holding recovered state about active buckets.
      * @throws IOException if anything goes wrong during retrieving the state or
@@ -237,6 +257,10 @@ public class DeltaWriter<IN>
     }
 
     /**
+     * This method either initializes new bucket or merges its state with the existing one.
+     * <p>
+     * It is run only during creation of the {@link DeltaWriter} when received some previous states.
+     *
      * @implNote This method behaves in the same way as
      * {@link org.apache.flink.connector.file.sink.writer.FileWriter}#updateActiveBucketId
      * except that it uses custom {@link DeltaWriterBucket} implementation.
@@ -253,6 +277,9 @@ public class DeltaWriter<IN>
     }
 
     /**
+     * This method returns {@link DeltaWriterBucket} by either creating it or resolving from
+     * existing instances for given writer.
+     *
      * @implNote This method behaves in the same way as
      * {@link org.apache.flink.connector.file.sink.writer.FileWriter}#getOrCreateBucketForBucketId
      * except that it uses custom {@link DeltaWriterBucket} implementation.
@@ -270,6 +297,8 @@ public class DeltaWriter<IN>
     }
 
     /**
+     * Method for closing the writer, that it to say to dispose any in progress files.
+     *
      * @implNote This method behaves in the same way as
      * {@link org.apache.flink.connector.file.sink.writer.FileWriter#close}
      * except that it uses custom {@link DeltaWriterBucket} implementation.
@@ -282,6 +311,8 @@ public class DeltaWriter<IN>
     }
 
     /**
+     * Resolves full filesystem's path to the bucket with given id.
+     *
      * @implNote This method behaves in the same way as
      * {@link org.apache.flink.connector.file.sink.writer.FileWriter}#assembleBucketPath.
      */
@@ -293,6 +324,8 @@ public class DeltaWriter<IN>
     }
 
     /**
+     * Method for getting current processing time ahd register timers.
+     *
      * @implNote This method behaves in the same way as
      * {@link org.apache.flink.connector.file.sink.writer.FileWriter#onProcessingTime}
      * except that it uses custom {@link DeltaWriterBucket} implementation.
@@ -307,6 +340,8 @@ public class DeltaWriter<IN>
     }
 
     /**
+     * Invokes the given callback at the given timestamp.
+     *
      * @implNote This method behaves in the same way as in
      * {@link org.apache.flink.connector.file.sink.writer.FileWriter}
      */
