@@ -29,7 +29,6 @@ import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils;
-import org.apache.flink.connector.delta.sink.utils.TestParquetReader;
 import org.apache.flink.connector.file.sink.BatchExecutionFileSinkITCase;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.minicluster.MiniCluster;
@@ -56,7 +55,7 @@ public class DeltaSinkBatchExecutionITCase extends BatchExecutionFileSinkITCase 
     public void setup() {
         try {
             deltaTablePath = TEMPORARY_FOLDER.newFolder().getAbsolutePath();
-            DeltaSinkTestUtils.initTestForNonPartitionedTable(deltaTablePath);
+            DeltaSinkTestUtils.initializeTestStateForNonPartitionedDeltaTable(deltaTablePath);
         } catch (IOException e) {
             throw new RuntimeException("Weren't able to setup the test dependencies", e);
         }
@@ -72,7 +71,6 @@ public class DeltaSinkBatchExecutionITCase extends BatchExecutionFileSinkITCase 
         // GIVEN
         DeltaLog deltaLog = DeltaLog.forTable(DeltaSinkTestUtils.getHadoopConf(), deltaTablePath);
         List<AddFile> initialDeltaFiles = deltaLog.snapshot().getAllFiles();
-        int initialTableRecordsCount = TestParquetReader.readAndValidateAllTableRecords(deltaLog);
         long initialVersion = deltaLog.snapshot().getVersion();
         assertEquals(initialDeltaFiles.size(), 2);
 
@@ -87,7 +85,7 @@ public class DeltaSinkBatchExecutionITCase extends BatchExecutionFileSinkITCase 
         // THEN
         int writtenRecordsCount =
             DeltaSinkTestUtils.validateIfPathContainsParquetFilesWithData(deltaTablePath);
-        assertEquals(NUM_RECORDS, writtenRecordsCount - initialTableRecordsCount);
+        assertEquals(NUM_RECORDS, writtenRecordsCount - initialDeltaFiles.size());
 
         List<AddFile> finalDeltaFiles = deltaLog.update().getAllFiles();
         assertTrue(finalDeltaFiles.size() > initialDeltaFiles.size());

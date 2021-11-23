@@ -72,6 +72,7 @@ import io.delta.standalone.actions.CommitInfo;
 public class DeltaSinkStreamingExecutionITCase extends StreamingExecutionFileSinkITCase {
 
     private static final Map<String, CountDownLatch> LATCH_MAP = new ConcurrentHashMap<>();
+    protected static final int NUM_SINKS = 1;
 
     @Parameterized.Parameters(
         name = "triggerFailover = {0}, isPartitioned = {1}"
@@ -97,11 +98,7 @@ public class DeltaSinkStreamingExecutionITCase extends StreamingExecutionFileSin
         LATCH_MAP.put(latchId, new CountDownLatch(NUM_SOURCES * 2));
         try {
             deltaTablePath = TEMPORARY_FOLDER.newFolder().getAbsolutePath();
-            if (isPartitioned) {
-                DeltaSinkTestUtils.initTestForPartitionedTable(deltaTablePath);
-            } else {
-                DeltaSinkTestUtils.initTestForNonPartitionedTable(deltaTablePath);
-            }
+            DeltaSinkTestUtils.initializeTestStateForNonPartitionedDeltaTable(deltaTablePath);
         } catch (IOException e) {
             throw new RuntimeException("Weren't able to setup the test dependencies", e);
         }
@@ -137,7 +134,7 @@ public class DeltaSinkStreamingExecutionITCase extends StreamingExecutionFileSin
         // THEN
         int writtenRecordsCount =
             DeltaSinkTestUtils.validateIfPathContainsParquetFilesWithData(deltaTablePath);
-        assertEquals(NUM_RECORDS * NUM_SOURCES, writtenRecordsCount - initialTableRecordsCount);
+        assertEquals(NUM_RECORDS * NUM_SOURCES, writtenRecordsCount - initialDeltaFiles.size());
 
         List<AddFile> finalDeltaFiles = deltaLog.update().getAllFiles();
         assertTrue(finalDeltaFiles.size() > initialDeltaFiles.size());
@@ -202,10 +199,6 @@ public class DeltaSinkStreamingExecutionITCase extends StreamingExecutionFileSin
     // Streaming mode user functions
     ///////////////////////////////////////////////////////////////////////////
 
-    /**
-     * Implementation idea and some functions is borrowed from 'StreamingExecutionTestSource' in
-     * {@link StreamingExecutionFileSinkITCase}
-     */
     private static class DeltaStreamingExecutionTestSource
         extends RichParallelSourceFunction<RowData>
         implements CheckpointListener, CheckpointedFunction {
@@ -231,8 +224,6 @@ public class DeltaSinkStreamingExecutionITCase extends StreamingExecutionFileSin
         private volatile boolean isWaitingCheckpointComplete;
 
         private volatile boolean hasCompletedCheckpoint;
-
-        private volatile boolean isLastCheckpointInterval;
 
         DeltaStreamingExecutionTestSource(
             String latchId, int numberOfRecords, boolean isFailoverScenario) {
@@ -279,6 +270,8 @@ public class DeltaSinkStreamingExecutionITCase extends StreamingExecutionFileSin
                 // run until finished.
                 sendRecordsUntil(numberOfRecords, ctx);
 
+                // Wait for the last checkpoint to commit all the pending records.
+                Thread.sleep(50);
                 isWaitingCheckpointComplete = true;
                 CountDownLatch latch = LATCH_MAP.get(latchId);
                 latch.await();
@@ -310,19 +303,12 @@ public class DeltaSinkStreamingExecutionITCase extends StreamingExecutionFileSin
 
         @Override
         public void notifyCheckpointComplete(long checkpointId) {
-            if (isWaitingCheckpointComplete && snapshottedAfterAllRecordsOutput
-                && isLastCheckpointInterval) {
+            if (isWaitingCheckpointComplete && snapshottedAfterAllRecordsOutput) {
+                // need to add some time buffer as in very rare cases the job is terminated before
+                // execution of the global commit
                 CountDownLatch latch = LATCH_MAP.get(latchId);
                 latch.countDown();
             }
-
-            if (isWaitingCheckpointComplete && snapshottedAfterAllRecordsOutput
-                && !isLastCheckpointInterval) {
-                // we set the job to run for one additional checkpoint interval to avoid any
-                // premature job termination and race conditions
-                isLastCheckpointInterval = true;
-            }
-
             hasCompletedCheckpoint = true;
         }
 

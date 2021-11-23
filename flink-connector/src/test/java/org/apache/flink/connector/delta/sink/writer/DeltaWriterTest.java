@@ -32,7 +32,6 @@ import org.apache.flink.api.connector.sink.SinkWriter;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils;
-import org.apache.flink.connector.delta.sink.utils.WriterTestUtils;
 import org.apache.flink.connector.file.sink.writer.FileWriterTest;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.functions.sink.filesystem.OutputFileConfig;
@@ -78,7 +77,7 @@ public class DeltaWriterTest {
         File outDir = TEMP_FOLDER.newFolder();
         Path path = new Path(outDir.toURI());
         int rowsCount = 2;
-        List<RowData> testRows = DeltaSinkTestUtils.TestRowData.getTestRowData(rowsCount);
+        List<RowData> testRows = DeltaSinkTestUtils.getTestRowData(rowsCount);
         DeltaWriter<RowData> writer = createNewWriter(path);
 
         // WHEN
@@ -97,12 +96,12 @@ public class DeltaWriterTest {
         File outDir = TEMP_FOLDER.newFolder();
         Path path = new Path(outDir.toURI());
         int rowsCount = 2;
-        List<RowData> testRows = DeltaSinkTestUtils.TestRowData.getTestRowData(rowsCount);
+        List<RowData> testRows = DeltaSinkTestUtils.getTestRowData(rowsCount);
         DeltaWriter<RowData> writer = createNewWriter(path);
 
         // WHEN
         writeData(writer, testRows);
-        List<DeltaCommittable> committables = writer.prepareCommit(false);
+        writer.prepareCommit(false);
         List<DeltaWriterBucketState> states = writer.snapshotState();
         assertEquals(1, writer.getActiveBuckets().size());
         assertEquals(1, states.size());
@@ -118,7 +117,7 @@ public class DeltaWriterTest {
         File outDir = TEMP_FOLDER.newFolder();
         Path path = new Path(outDir.toURI());
         int rowsCount = 2;
-        List<RowData> testRows = DeltaSinkTestUtils.TestRowData.getTestRowData(rowsCount);
+        List<RowData> testRows = DeltaSinkTestUtils.getTestRowData(rowsCount);
         DeltaWriter<RowData> firstWriter = createNewWriter(path);
         DeltaWriter<RowData> secondWriter = createNewWriter(path);
 
@@ -146,7 +145,7 @@ public class DeltaWriterTest {
         File outDir = TEMP_FOLDER.newFolder();
         Path path = new Path(outDir.toURI());
         int rowsCount = 2;
-        List<RowData> testRows = DeltaSinkTestUtils.TestRowData.getTestRowData(rowsCount);
+        List<RowData> testRows = DeltaSinkTestUtils.getTestRowData(rowsCount);
         DeltaWriter<RowData> writer = createNewWriter(path);
 
         // WHEN
@@ -155,7 +154,7 @@ public class DeltaWriterTest {
         writer.snapshotState();
         assertEquals(1, writer.getActiveBuckets().size());
 
-        // No more records and another call to prepareCommit will makes it inactive
+        // No more records and another call to prepareCommit will make the bucket inactive
         writer.prepareCommit(false);
 
         // THEN
@@ -183,7 +182,7 @@ public class DeltaWriterTest {
         Long timestamp, long watermark, long processingTime) throws Exception {
         final File outDir = TEMP_FOLDER.newFolder();
         final Path path = new Path(outDir.toURI());
-        List<RowData> testRows = DeltaSinkTestUtils.TestRowData.getTestRowData(1);
+        List<RowData> testRows = DeltaSinkTestUtils.getTestRowData(1);
 
         // Create the processing timer service starts from 10.
         ManuallyTriggeredProcessingTimeService processingTimeService =
@@ -208,8 +207,8 @@ public class DeltaWriterTest {
         return new DeltaWriter<>(
             basePath,
             new BasePathBucketAssigner<>(),
-            WriterTestUtils.createBucketWriter(basePath),
-            WriterTestUtils.ON_CHECKPOINT_ROLLING_POLICY,
+            DeltaSinkTestUtils.createBucketWriter(basePath),
+            DeltaSinkTestUtils.ON_CHECKPOINT_ROLLING_POLICY,
             OutputFileConfig.builder().withPartSuffix(".snappy.parquet").build(),
             new ManuallyTriggeredProcessingTimeService(),
             10,
@@ -300,7 +299,7 @@ public class DeltaWriterTest {
             }
         }
 
-        public void advanceTo(long time) throws IOException, InterruptedException {
+        public void advanceTo(long time) throws IOException {
             if (time > now) {
                 now = time;
 
