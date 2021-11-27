@@ -70,19 +70,20 @@ import static org.apache.flink.util.Preconditions.checkState;
  *         {@link DeltaWriterBucket} instance. Or in case of non-partitioned tables whenever writer
  *         receives the very first event as in such cases there is only one
  *         {@link DeltaWriterBucket} representing the root path of the table</li>
+ *     <li>{@link DeltaWriter} instance can create zero, one or multiple instances of
+ *         {@link DeltaWriterBucket} during one checkpoint interval. It creates none if it hasn't
+ *         received any events (thus didn't have to create buckets for them). It creates one when it
+ *         has received events belonging only to one bucket (same if the table is not partitioned).
+ *         Finally, it creates multiple when it has received events belonging to more than one
+ *         bucket.</li>
  *     <li>Life span of one {@link DeltaWriterBucket} may hold through one or more checkpoint
  *         intervals. It remains "active" as long as it receives data. If e.g. for given checkpoint
  *         interval an instance of {@link DeltaWriter} hasn't received any events belonging to given
- *         bucket, then {@link DeltaWriterBucket} representind this bucket is de-listed from the
+ *         bucket, then {@link DeltaWriterBucket} representing this bucket is de-listed from the
  *         writer's internal bucket's iterator. If in future checkpoint interval given
  *         {@link DeltaWriter} will receive some more events for given bucket then it will create
  *         new instance of {@link DeltaWriterBucket} representing this bucket.
  *         </li>
- *     <li>Number of instances of {@link DeltaWriterBucket} can be smaller, equal or greater then
- *         number of instance of {@link DeltaWriter}. It's smaller when not all (or none) of the
- *         writer's received events. It's equal if the table is not partitioned or if every writer
- *         has been receiving data for only one bucket. It's greater if any of the writers has
- *         received events belonging to more than one bucket during given checkpoint interval.</li>
  * </ol>
  *
  * @param <IN> The type of input elements.

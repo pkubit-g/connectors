@@ -59,7 +59,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  * <ol>
  *     <li>Every instance is being created via
  *         {@link org.apache.flink.connector.delta.sink.DeltaSink#createWriter} method</li>
- *     <li>Writers' life spand is the same as the application's (unless the worker node gets
+ *     <li>Writers' life span is the same as the application's (unless the worker node gets
  *         unresponding and the job manager needs to create a new instance to satisfy the
  *         parallelism)</li>
  *     <li>Number of instances are managed globally by a job manager and this number is equal to the
@@ -324,7 +324,7 @@ public class DeltaWriter<IN>
     }
 
     /**
-     * Method for getting current processing time ahd register timers.
+     * Method for getting current processing time and register timers.
      *
      * @implNote This method behaves in the same way as
      * {@link org.apache.flink.connector.file.sink.writer.FileWriter#onProcessingTime}
