@@ -98,7 +98,11 @@ public class DeltaSinkStreamingExecutionITCase extends StreamingExecutionFileSin
         LATCH_MAP.put(latchId, new CountDownLatch(NUM_SOURCES * 2));
         try {
             deltaTablePath = TEMPORARY_FOLDER.newFolder().getAbsolutePath();
-            DeltaSinkTestUtils.initializeTestStateForNonPartitionedDeltaTable(deltaTablePath);
+            if (isPartitioned) {
+                DeltaSinkTestUtils.initializeTestStateForPartitionedDeltaTable(deltaTablePath);
+            } else {
+                DeltaSinkTestUtils.initializeTestStateForNonPartitionedDeltaTable(deltaTablePath);
+            }
         } catch (IOException e) {
             throw new RuntimeException("Weren't able to setup the test dependencies", e);
         }
