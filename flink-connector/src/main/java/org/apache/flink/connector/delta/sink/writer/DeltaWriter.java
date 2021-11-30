@@ -52,8 +52,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  * <p>
  * Most of the logic for this class was sourced from {@link FileWriter} as the behaviour is very
  * similar. The main differences are use of custom implementations for some member classes and also
- * managing {@link io.delta.standalone.DeltaLog} transactional ids:
- * {@link DeltaWriter#appId} and {@link DeltaWriter#nextCheckpointId}
+ * managing {@link io.delta.standalone.DeltaLog} transactional ids: appId and nextCheckpointId.
  * <p>
  * Lifecycle of instances of this class is as follows:
  * <ol>
@@ -113,6 +112,14 @@ public class DeltaWriter<IN>
      * @param bucketAssigner The {@link BucketAssigner} provided by the user.
      * @param bucketWriter   The {@link DeltaBulkBucketWriter} to be used when writing data.
      * @param rollingPolicy  The {@link CheckpointRollingPolicy} as specified by the user.
+     * @param outputFileConfig      The {@link OutputFileConfig} to configure the options for output
+     *                              files.
+     * @param processingTimeService The {@link Sink.ProcessingTimeService} that allows to get the
+     *                              current processing time and register timers that will execute
+     *                              the given Sink.ProcessingTimeService.ProcessingTimeCallback when
+     *                              firing.
+     * @param bucketCheckInterval   interval for invoking the {@link Sink.ProcessingTimeService}'s
+     *                              callback.
      */
     public DeltaWriter(
         final Path basePath,
