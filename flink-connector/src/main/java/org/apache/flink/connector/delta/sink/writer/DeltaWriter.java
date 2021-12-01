@@ -100,7 +100,7 @@ public class DeltaWriter<IN>
      * {@link DeltaWriter#prepareCommit} method. Its value is always incremented by one after
      * generating set of committables for given checkpoint interval. It's also snapshotted as a part
      * of the writer's state in order to support failure recovery and provide exactly-once delivery
-     * guarantee.
+     * guarantee. For a fresh start of an application it always starts with the value of "1".
      */
     private long nextCheckpointId;
 

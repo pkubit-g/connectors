@@ -55,7 +55,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  *
  * @param <IN> The type of input elements.
  */
-class DeltaSinkBuilder<IN> implements Serializable {
+public class DeltaSinkBuilder<IN> implements Serializable {
 
     private static final long serialVersionUID = 7493169281026370228L;
 
@@ -90,6 +90,14 @@ class DeltaSinkBuilder<IN> implements Serializable {
     // FileSink-specific fields
     ///////////////////////////////////////////////////////////////////////////
 
+    /**
+     * Interval for triggering {@link Sink.ProcessingTimeService} within {@link DeltaWriter}
+     * instance.
+     * <p>
+     * In some scenarios, the open buckets are required to change based on time. In these cases,
+     * the user can specify a bucketCheckInterval and the sink will check
+     * periodically and roll the part file if the specified rolling policy says so.
+     */
     private final long bucketCheckInterval;
 
     private final ParquetWriterFactory<IN> writerFactory;

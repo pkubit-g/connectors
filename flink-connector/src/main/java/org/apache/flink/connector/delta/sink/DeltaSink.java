@@ -123,6 +123,9 @@ public class DeltaSink<IN>
     }
 
     /**
+     * Restores application's id snapshotted in any of the {@link DeltaWriter}s' states or gets
+     * new one from the builder in case there is no previous states.
+     * <p>
      * In order to gurantee the idempotency of the GlobalCommitter we need unique identifier of the
      * app. We obtain it with simple logic: if it's the first run of the application (so no restart
      * from snapshot or failure recovery happened and the writer's state is empty) then assign appId
@@ -142,6 +145,9 @@ public class DeltaSink<IN>
     }
 
     /**
+     * Restores the last checkpoint id snapshotted in one of the most recent {@link DeltaWriter}s'
+     * states or sets it to "1" in case there is no previous states.
+     * <p>
      * In order to gurantee the idempotency of the GlobalCommitter we need to version consecutive
      * commits with consecutive identifiers. For this purpose we are using checkpointId that is
      * being "manually" managed in writer's internal logic, added to the committables information
@@ -212,7 +218,7 @@ public class DeltaSink<IN>
      * @param rowType  Flink's logical type to indicate the structure of the events in the stream
      * @return builder for the DeltaSink
      */
-    public static DeltaSink<RowData> forDeltaFormat(
+    public static DeltaSinkBuilder<RowData> forDeltaFormat(
         final Path basePath,
         final Configuration conf,
         final RowType rowType
@@ -230,6 +236,6 @@ public class DeltaSink<IN>
             writerFactory,
             new BasePathBucketAssigner<>(),
             OnCheckpointRollingPolicy.build()
-        ).build();
+        );
     }
 }

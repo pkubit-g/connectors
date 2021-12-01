@@ -235,7 +235,7 @@ public class DeltaSinkTestUtils {
             .forDeltaFormat(
                 new Path(deltaTablePath),
                 DeltaSinkTestUtils.getHadoopConf(),
-                DeltaSinkTestUtils.TEST_ROW_TYPE);
+                DeltaSinkTestUtils.TEST_ROW_TYPE).build();
     }
 
     public static MiniCluster getMiniCluster() {
