@@ -24,7 +24,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import javax.annotation.Nullable;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -101,6 +102,10 @@ public class DeltaGlobalCommitter
      * We are always returning all the committables as we do not implement any retry behaviour
      * in {@link GlobalCommitter#commit} method and always want to try to commit all the received
      * committables.
+     * <p>
+     * If there will be any previous committables from checkpoint intervals other than the most
+     * recent one then we will try to commit them in an idempotent manner during
+     * {@link DeltaGlobalCommitter#commit} method and not by filtering them.
      *
      * @param globalCommittables list of combined committables objects
      * @return same as input
@@ -146,36 +151,36 @@ public class DeltaGlobalCommitter
     }
 
     /**
-     * Commits already written files to the DeltaLake table using unique identifier for the given
-     * Flink job (appId) and checkpointId delivered with every committable object. Those ids
-     * together construct transactionId that will be used for verification whether given set of
-     * files has already been committed to the Delta table.
+     * Commits already written files to the Delta table using unique identifier for the given Flink
+     * job (appId) and checkpointId delivered with every committable object. Those ids together
+     * construct transactionId that will be used for verification whether given set of files has
+     * already been committed to the Delta table.
      *
      * <p>During commit preparation phase:
      *
      * <ol>
-     *   <li>first appId is resolved from any of the provided committables.
+     *   <li>First appId is resolved from any of the provided committables.
      *       If no appId is resolved then it means that no committables were provided and no commit
      *       is performed. Such situations may happen when e.g. there were no stream events received
      *       within given checkpoint interval,
      *   <li>If appId is successfully resolved then the provided set of committables needs to be
-     *       flatten (as one {@link DeltaGlobalCommittable} contains a list of
+     *       flattened (as one {@link DeltaGlobalCommittable} contains a list of
      *       {@link DeltaCommittable}), mapped to {@link AddFile} objects and then grouped by
      *       checkpointId. The grouping part is necessary as committer object may receive
      *       committables from different checkpoint intervals,
-     *   <li>we process each of the resolved checkpointId incrementally,
-     *   <li>during processing each of the checkpointId and their committables we first query
-     *       the DeltaLog for last checkpointed version for given appId. Here checkpointed version
-     *       equals checkpointId. We proceed with the transaction only if current checkpointId is
-     *       greater than last checkpointed version.
-     *   <li>if above condition is met the we handle the metadata for data in given stream by
+     *   <li>We process each of the resolved checkpointId in increasing order,
+     *   <li>During processing each of the checkpointId and their committables, we first query
+     *       the DeltaLog for last committed transaction version for given appId. Here transaction
+     *       version equals checkpointId. We proceed with the transaction only if current
+     *       checkpointId is greater than last committed transaction version.
+     *   <li>If above condition is met, then we handle the metadata for data in given stream by
      *       comparing the stream's schema with current table snapshot's schema. We proceed with
      *       the transaction only when the schemas are matching or when it was explicitly configured
      *       during creation of the sink that we can try to update the schema.
-     *   <li>if above validation passes then we prepare the final set of {@link Action} objects to
+     *   <li>If above validation passes then we prepare the final set of {@link Action} objects to
      *       be committed along with transaction's metadata and mandatory parameters,
-     *   <li>we try to commit the prepared transaction
-     *   <li>if the commit fails then we fail the application as well. If it succeeds then we
+     *   <li>We try to commit the prepared transaction
+     *   <li>If the commit fails then we fail the application as well. If it succeeds then we
      *       proceed with the next checkpointId (if any).
      * </ol>
      *
@@ -186,40 +191,25 @@ public class DeltaGlobalCommitter
     public List<DeltaGlobalCommittable> commit(List<DeltaGlobalCommittable> globalCommittables) {
         String appId = resolveAppId(globalCommittables);
         if (appId != null) { // means there are committables to process
-            Map<Long, List<AddFile>> addFileActionsPerCheckpoint =
-                prepareAddFileActionsPerCheckpoint(globalCommittables);
+            SortedMap<Long, List<DeltaCommittable>> committablesPerCheckpoint =
+                groupCommittablesByCheckpointInterval(globalCommittables);
             DeltaLog deltaLog = DeltaLog.forTable(conf, basePath.getPath());
 
-            List<Long> sortedCheckpointIds =
-                getSortedListOfCheckpointIds(addFileActionsPerCheckpoint);
-
-            for (long checkpointId : sortedCheckpointIds) {
+            for (long checkpointId : committablesPerCheckpoint.keySet()) {
                 OptimisticTransaction transaction = deltaLog.startTransaction();
                 long lastCommittedVersion = transaction.txnVersion(appId);
                 if (checkpointId > lastCommittedVersion) {
-                    List<AddFile> addFilesForCurrentCheckpointId =
-                        addFileActionsPerCheckpoint.get(checkpointId);
+                    List<AddFile> addFiles =
+                        prepareAddFileActions(committablesPerCheckpoint.get(checkpointId));
                     List<Action> actions = prepareActionsForTransaction(
-                        appId, checkpointId, addFilesForCurrentCheckpointId);
-                    Operation operation = prepareDeltaLogOperation(
-                        addFileActionsPerCheckpoint.get(checkpointId).size(),
-                        checkpointId
-                    );
+                        appId, checkpointId, addFiles);
+                    Operation operation = prepareDeltaLogOperation(addFiles.size(), checkpointId);
 
                     transaction.commit(actions, operation, ENGINE_INFO);
                 }
             }
         }
         return Collections.emptyList();
-    }
-
-    private List<Long> getSortedListOfCheckpointIds(
-        Map<Long, List<AddFile>> addFileActionsPerCheckpoint) {
-        return addFileActionsPerCheckpoint
-            .keySet()
-            .stream()
-            .sorted()
-            .collect(Collectors.toList());
     }
 
     /**
@@ -265,57 +255,75 @@ public class DeltaGlobalCommitter
     }
 
     /**
-     * Prepares the set of {@link AddFile} actions grouped per checkpointId.
-     * During this process we not only map the single committables to {@link AddFile} actions and
-     * group them by checkpointId but also flatten collection of {@link DeltaGlobalCommittable}
-     * objects (each containing its own collection of {@link DeltaCommittable}). Additionally,
-     * during the iteration process we also validate whether the committables for the same
-     * checkpoint interval have the same set of partition columns and throw
-     * a {@link RuntimeException} when this condition is not met.
+     * Prepares the set of {@link DeltaCommittable} grouped per checkpointId.
+     * <p>
+     * During this process we not only group committables by checkpointId but also flatten
+     * collection of {@link DeltaGlobalCommittable} objects (each containing its own collection of
+     * {@link DeltaCommittable}).
      *
-     * @param globalCommittables list of combined @link DeltaGlobalCommittable} objects
-     * @return {@link AddFile} actions grouped by the checkpoint interval in the form of
-     * {@link java.util.Map}. It is guaranteed that all actions per have the same partition columns
-     * within given checkpoint interval.
+     * @param globalCommittables list of combined {@link DeltaGlobalCommittable} objects
+     * @return collections of {@link DeltaCommittable} grouped by checkpoint id (map keys are sorted
+     * in ascending order).
      */
-    private Map<Long, List<AddFile>> prepareAddFileActionsPerCheckpoint(
+    private SortedMap<Long, List<DeltaCommittable>> groupCommittablesByCheckpointInterval(
         List<DeltaGlobalCommittable> globalCommittables) {
-        Map<Long, List<AddFile>> addFilesPerCheckpoint = new HashMap<>();
+        SortedMap<Long, List<DeltaCommittable>> committablesPerCheckpoint = new TreeMap<>();
 
         for (DeltaGlobalCommittable globalCommittable : globalCommittables) {
             for (DeltaCommittable deltaCommittable : globalCommittable.getDeltaCommittables()) {
-                DeltaPendingFile deltaPendingFile = deltaCommittable.getDeltaPendingFile();
                 long checkpointId = deltaCommittable.getCheckpointId();
-
-                if (!addFilesPerCheckpoint.containsKey(checkpointId)) {
-                    addFilesPerCheckpoint.put(checkpointId, new ArrayList<>());
+                if (!committablesPerCheckpoint.containsKey(checkpointId)) {
+                    committablesPerCheckpoint.put(checkpointId, new ArrayList<>());
                 }
-
-                AddFile action = convertDeltaPendingFileToAddFileAction(deltaPendingFile);
-                addFilesPerCheckpoint.get(checkpointId).add(action);
-
-                // prepare operation's metrics
-                if (!operationMetricsPerCheckpoint.containsKey(checkpointId)) {
-                    operationMetricsPerCheckpoint.put(checkpointId, new HashMap<>());
-                }
-                Map<String, Long> currentOperationMetricsPerCheckpoint =
-                    operationMetricsPerCheckpoint.get(checkpointId);
-
-                long currentNumOutputRows = currentOperationMetricsPerCheckpoint
-                    .getOrDefault(Operation.Metrics.numOutputRows, 0L);
-
-                long currentNumOutputBytes = currentOperationMetricsPerCheckpoint
-                    .getOrDefault(Operation.Metrics.numOutputBytes, 0L);
-
-                currentOperationMetricsPerCheckpoint.put(
-                    Operation.Metrics.numOutputRows,
-                    currentNumOutputRows + deltaPendingFile.getRecordCount());
-                currentOperationMetricsPerCheckpoint.put(
-                    Operation.Metrics.numOutputBytes,
-                    currentNumOutputBytes + deltaPendingFile.getFileSize());
+                committablesPerCheckpoint.get(checkpointId).add(deltaCommittable);
             }
         }
-        return addFilesPerCheckpoint;
+        return committablesPerCheckpoint;
+    }
+
+    /**
+     * Prepares the set of {@link AddFile} actions from given set of committables.
+     * <p>
+     * During this process we map single committables to {@link AddFile}. Additionally, during
+     * the iteration process we also validate whether the committables for the same checkpoint
+     * interval have the same set of partition columns and throw a {@link RuntimeException} when
+     * this condition is not met.
+     *
+     * @param committables list of combined committables for particular checkpoint interval
+     * @return {@link AddFile} actions generated from input list of committables. It is guaranteed
+     * that all actions per have the same partition columns within given checkpoint interval.
+     */
+    private List<AddFile> prepareAddFileActions(List<DeltaCommittable> committables) {
+        List<AddFile> addFiles = new ArrayList<>();
+
+        for (DeltaCommittable deltaCommittable : committables) {
+            DeltaPendingFile deltaPendingFile = deltaCommittable.getDeltaPendingFile();
+            long checkpointId = deltaCommittable.getCheckpointId();
+
+            AddFile action = deltaPendingFile.convertDeltaPendingFileToAddFileAction();
+            addFiles.add(action);
+
+            // prepare operation's metrics
+            if (!operationMetricsPerCheckpoint.containsKey(checkpointId)) {
+                operationMetricsPerCheckpoint.put(checkpointId, new HashMap<>());
+            }
+            Map<String, Long> currentOperationMetricsPerCheckpoint =
+                operationMetricsPerCheckpoint.get(checkpointId);
+
+            long currentNumOutputRows = currentOperationMetricsPerCheckpoint
+                .getOrDefault(Operation.Metrics.numOutputRows, 0L);
+
+            long currentNumOutputBytes = currentOperationMetricsPerCheckpoint
+                .getOrDefault(Operation.Metrics.numOutputBytes, 0L);
+
+            currentOperationMetricsPerCheckpoint.put(
+                Operation.Metrics.numOutputRows,
+                currentNumOutputRows + deltaPendingFile.getRecordCount());
+            currentOperationMetricsPerCheckpoint.put(
+                Operation.Metrics.numOutputBytes,
+                currentNumOutputBytes + deltaPendingFile.getFileSize());
+        }
+        return addFiles;
     }
 
     /**
@@ -343,24 +351,6 @@ public class DeltaGlobalCommitter
         operationMetrics.put(Operation.Metrics.numOutputBytes, String.valueOf(cumulatedSize));
 
         return operationMetrics;
-    }
-
-    /**
-     * Converts {@link DeltaPendingFile} object to a {@link AddFile} object
-     *
-     * @param deltaPendingFile input object to be converted to {@link AddFile} object
-     * @return {@link AddFile} object generated from input
-     */
-    private AddFile convertDeltaPendingFileToAddFileAction(DeltaPendingFile deltaPendingFile) {
-        long modificationTime = deltaPendingFile.getLastUpdateTime();
-        return new AddFile(
-            deltaPendingFile.getFileName(),
-            Collections.emptyMap(), // partition support will be added in next PR
-            deltaPendingFile.getFileSize(),
-            modificationTime,
-            true, // dataChange
-            null,
-            null);
     }
 
     @Override

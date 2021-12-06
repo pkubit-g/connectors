@@ -66,7 +66,7 @@ public class DeltaGlobalCommitterTest {
     public void testCommitTwice() throws Exception {
         //GIVEN
         int numAddedFiles = 3;
-        DeltaSinkTestUtils.initializeTestStateForNonPartitionedDeltaTable(tablePath.getPath());
+        DeltaSinkTestUtils.initTestForNonPartitionedTable(tablePath.getPath());
         DeltaLog deltaLog = DeltaLog.forTable(
             DeltaSinkTestUtils.getHadoopConf(), tablePath.getPath());
         assertEquals(deltaLog.snapshot().getVersion(), 0);
@@ -97,7 +97,7 @@ public class DeltaGlobalCommitterTest {
     @Test
     public void testCommittablesFromDifferentCheckpointInterval() throws IOException {
         //GIVEN
-        DeltaSinkTestUtils.initializeTestStateForNonPartitionedDeltaTable(tablePath.getPath());
+        DeltaSinkTestUtils.initTestForNonPartitionedTable(tablePath.getPath());
         int numAddedFiles1 = 3;
         int numAddedFiles2 = 5;
         DeltaLog deltaLog = DeltaLog.forTable(
@@ -105,10 +105,12 @@ public class DeltaGlobalCommitterTest {
         int initialTableFilesCount = deltaLog.snapshot().getAllFiles().size();
         assertEquals(0, deltaLog.snapshot().getVersion());
 
+        // we are putting newer committables first in the collection on purpose - it will also test
+        // if global committer will commit them in correct order
         List<DeltaCommittable> deltaCommittables = DeltaSinkTestUtils.getListOfDeltaCommittables(
-            numAddedFiles1, 1);
+            numAddedFiles2, 2);
         deltaCommittables.addAll(DeltaSinkTestUtils.getListOfDeltaCommittables(
-            numAddedFiles2, 2));
+            numAddedFiles1, 1));
         List<DeltaGlobalCommittable> globalCommittables =
             Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
 
@@ -134,7 +136,7 @@ public class DeltaGlobalCommitterTest {
         // committables is different from the previous one however for this test it better to
         // differentiate those by changing the number of files to commit which will make the final
         // validation unambiguous
-        DeltaSinkTestUtils.initializeTestStateForNonPartitionedDeltaTable(tablePath.getPath());
+        DeltaSinkTestUtils.initTestForNonPartitionedTable(tablePath.getPath());
         int numAddedFiles1FirstTrial = 3;
         int numAddedFiles1SecondTrial = 4;
         int numAddedFiles2 = 10;

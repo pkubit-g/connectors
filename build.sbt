@@ -642,6 +642,8 @@ lazy val flinkConnector = (project in file("flink-connector"))
       "org.apache.flink" % "flink-connector-test-utils" % flinkVersion % "test",
       "com.github.sbt" % "junit-interface" % "0.12" % Test
     ),
+    // generating source java class with version number to be passed during commit to the DeltaLog as engine info
+    // (part of transaction's metadata)
     sourceGenerators in Compile += Def.task {
       val file = (sourceManaged in Compile).value / "meta" / "Meta.java"
       IO.write(file,
