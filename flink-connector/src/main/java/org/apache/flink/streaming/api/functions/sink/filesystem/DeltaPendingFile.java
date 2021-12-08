@@ -102,7 +102,7 @@ public class DeltaPendingFile {
      *
      * @return {@link AddFile} object generated from input
      */
-    public AddFile convertDeltaPendingFileToAddFileAction() {
+    public AddFile toAddFile() {
         long modificationTime = this.getLastUpdateTime();
         return new AddFile(
             this.getFileName(),

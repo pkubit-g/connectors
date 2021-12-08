@@ -84,12 +84,6 @@ public class DeltaGlobalCommitter
      */
     private final Path basePath;
 
-    ///////////////////////////////////////////////////
-    // transaction's mutable params
-    ///////////////////////////////////////////////////
-
-    Map<Long, Map<String, Long>> operationMetricsPerCheckpoint = new HashMap<>();
-
     public DeltaGlobalCommitter(Configuration conf,
                                 Path basePath) {
         this.conf = conf;
@@ -199,17 +193,56 @@ public class DeltaGlobalCommitter
                 OptimisticTransaction transaction = deltaLog.startTransaction();
                 long lastCommittedVersion = transaction.txnVersion(appId);
                 if (checkpointId > lastCommittedVersion) {
-                    List<AddFile> addFiles =
-                        prepareAddFileActions(committablesPerCheckpoint.get(checkpointId));
-                    List<Action> actions = prepareActionsForTransaction(
-                        appId, checkpointId, addFiles);
-                    Operation operation = prepareDeltaLogOperation(addFiles.size(), checkpointId);
-
-                    transaction.commit(actions, operation, ENGINE_INFO);
+                    doCommit(
+                        transaction,
+                        committablesPerCheckpoint.get(checkpointId));
                 }
             }
         }
         return Collections.emptyList();
+    }
+
+    /**
+     * Prepares the set of {@link AddFile} actions from given set of committables, generates the
+     * metadata and metrics and finally performs actual commit to the {@link DeltaLog}.
+     * <p>
+     * During this process we map single committables to {@link AddFile} objects. Additionally,
+     * during the iteration process we also validate whether the committables for the same
+     * checkpoint interval have the same set of partition columns and throw a
+     * {@link RuntimeException} when this condition is not met. At the final stage we handle the
+     * metadata update along with preparing the final set of metrics and perform the actual commit
+     * to the {@link DeltaLog}.
+     *
+     * @param transaction  {@link OptimisticTransaction} instance that will be used for committing
+     *                     given checkpoint interval
+     * @param committables list of committables for particular checkpoint interval
+     */
+    private void doCommit(OptimisticTransaction transaction,
+                          List<DeltaCommittable> committables) {
+        String appId = committables.get(0).getAppId();
+        long checkpointId = committables.get(0).getCheckpointId();
+
+        List<AddFile> addFileActions = new ArrayList<>();
+        long numOutputRows = 0;
+        long numOutputBytes = 0;
+        for (DeltaCommittable deltaCommittable : committables) {
+            DeltaPendingFile deltaPendingFile = deltaCommittable.getDeltaPendingFile();
+            AddFile action = deltaPendingFile.toAddFile();
+            addFileActions.add(action);
+
+            numOutputRows += deltaPendingFile.getRecordCount();
+            numOutputBytes += deltaPendingFile.getFileSize();
+        }
+
+        List<Action> actions = prepareActionsForTransaction(appId, checkpointId, addFileActions);
+        Map<String, String> operationMetrics = prepareOperationMetrics(
+            addFileActions.size(),
+            numOutputRows,
+            numOutputBytes
+        );
+        Operation operation = prepareDeltaLogOperation(operationMetrics);
+
+        transaction.commit(actions, operation, ENGINE_INFO);
     }
 
     /**
@@ -234,15 +267,10 @@ public class DeltaGlobalCommitter
     /**
      * Prepares {@link Operation} object for current transaction
      *
-     * @param numAddedFiles       number of added files to be committed with the transaction
-     * @param currentCheckpointId identifier of the checkpoint interval for which the transaction
-     *                            will be committed
+     * @param operationMetrics resolved operation metrics for current transaction
      * @return {@link Operation} object for current transaction
      */
-    private Operation prepareDeltaLogOperation(int numAddedFiles,
-                                               long currentCheckpointId) {
-        Map<String, String> operationMetrics =
-            prepareOperationMetrics(numAddedFiles, currentCheckpointId);
+    private Operation prepareDeltaLogOperation(Map<String, String> operationMetrics) {
         Map<String, String> operationParameters = new HashMap<>();
         try {
             ObjectMapper objectMapper = new ObjectMapper();
@@ -282,74 +310,23 @@ public class DeltaGlobalCommitter
     }
 
     /**
-     * Prepares the set of {@link AddFile} actions from given set of committables.
-     * <p>
-     * During this process we map single committables to {@link AddFile}. Additionally, during
-     * the iteration process we also validate whether the committables for the same checkpoint
-     * interval have the same set of partition columns and throw a {@link RuntimeException} when
-     * this condition is not met.
-     *
-     * @param committables list of combined committables for particular checkpoint interval
-     * @return {@link AddFile} actions generated from input list of committables. It is guaranteed
-     * that all actions per have the same partition columns within given checkpoint interval.
-     */
-    private List<AddFile> prepareAddFileActions(List<DeltaCommittable> committables) {
-        List<AddFile> addFiles = new ArrayList<>();
-
-        for (DeltaCommittable deltaCommittable : committables) {
-            DeltaPendingFile deltaPendingFile = deltaCommittable.getDeltaPendingFile();
-            long checkpointId = deltaCommittable.getCheckpointId();
-
-            AddFile action = deltaPendingFile.convertDeltaPendingFileToAddFileAction();
-            addFiles.add(action);
-
-            // prepare operation's metrics
-            if (!operationMetricsPerCheckpoint.containsKey(checkpointId)) {
-                operationMetricsPerCheckpoint.put(checkpointId, new HashMap<>());
-            }
-            Map<String, Long> currentOperationMetricsPerCheckpoint =
-                operationMetricsPerCheckpoint.get(checkpointId);
-
-            long currentNumOutputRows = currentOperationMetricsPerCheckpoint
-                .getOrDefault(Operation.Metrics.numOutputRows, 0L);
-
-            long currentNumOutputBytes = currentOperationMetricsPerCheckpoint
-                .getOrDefault(Operation.Metrics.numOutputBytes, 0L);
-
-            currentOperationMetricsPerCheckpoint.put(
-                Operation.Metrics.numOutputRows,
-                currentNumOutputRows + deltaPendingFile.getRecordCount());
-            currentOperationMetricsPerCheckpoint.put(
-                Operation.Metrics.numOutputBytes,
-                currentNumOutputBytes + deltaPendingFile.getFileSize());
-        }
-        return addFiles;
-    }
-
-    /**
-     * Prepare operation metrics to be passed to the constructor of {@link Operation} object for
+     * Prepares operation metrics to be passed to the constructor of {@link Operation} object for
      * current transaction.
      *
-     * @param numAddedFiles       number of added files that will be added in current transaction
-     * @param currentCheckpointId identifier of the checkpoint interval for which the transaction
-     *                            will be committed
+     * @param numAddedFiles  number of added files for current transaction
+     * @param numOutputRows  number of rows written for current transaction
+     * @param numOutputBytes size in bytes of the written contents for current transaction
      * @return resolved operation metrics for current transaction
      */
     private Map<String, String> prepareOperationMetrics(int numAddedFiles,
-                                                        long currentCheckpointId) {
-        long cumulatedRecordCount = operationMetricsPerCheckpoint.get(currentCheckpointId)
-            .get(Operation.Metrics.numOutputRows);
-
-        long cumulatedSize = operationMetricsPerCheckpoint.get(currentCheckpointId)
-            .get(Operation.Metrics.numOutputBytes);
-
+                                                        long numOutputRows,
+                                                        long numOutputBytes) {
         Map<String, String> operationMetrics = new HashMap<>();
         // number of removed files will be supported for different operation modes
         operationMetrics.put(Operation.Metrics.numRemovedFiles, "0");
         operationMetrics.put(Operation.Metrics.numAddedFiles, String.valueOf(numAddedFiles));
-        operationMetrics.put(Operation.Metrics.numOutputRows, String.valueOf(cumulatedRecordCount));
-        operationMetrics.put(Operation.Metrics.numOutputBytes, String.valueOf(cumulatedSize));
-
+        operationMetrics.put(Operation.Metrics.numOutputRows, String.valueOf(numOutputRows));
+        operationMetrics.put(Operation.Metrics.numOutputBytes, String.valueOf(numOutputBytes));
         return operationMetrics;
     }
 
