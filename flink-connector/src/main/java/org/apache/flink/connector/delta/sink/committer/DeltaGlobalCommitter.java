@@ -32,10 +32,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.flink.api.connector.sink.GlobalCommitter;
 import org.apache.flink.connector.delta.sink.Meta;
+import org.apache.flink.connector.delta.sink.SchemaConverter;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.connector.delta.sink.committables.DeltaGlobalCommittable;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
+import org.apache.flink.table.types.logical.RowType;
 import org.apache.hadoop.conf.Configuration;
 
 import io.delta.standalone.DeltaLog;
@@ -43,7 +45,9 @@ import io.delta.standalone.Operation;
 import io.delta.standalone.OptimisticTransaction;
 import io.delta.standalone.actions.Action;
 import io.delta.standalone.actions.AddFile;
+import io.delta.standalone.actions.Metadata;
 import io.delta.standalone.actions.SetTransaction;
+import io.delta.standalone.types.StructType;
 
 /**
  * A {@link GlobalCommitter} implementation for
@@ -84,10 +88,24 @@ public class DeltaGlobalCommitter
      */
     private final Path basePath;
 
+    /**
+     * RowType object from which the Delta's {@link StructType} will be deducted
+     */
+    private final RowType rowType;
+
+    /**
+     * Indicator whether the committer should try to commit unmatching schema
+     */
+    private final boolean canTryUpdateSchema;
+
     public DeltaGlobalCommitter(Configuration conf,
-                                Path basePath) {
+                                Path basePath,
+                                RowType rowType,
+                                boolean canTryUpdateSchema) {
         this.conf = conf;
         this.basePath = basePath;
+        this.rowType = rowType;
+        this.canTryUpdateSchema = canTryUpdateSchema;
     }
 
     /**
@@ -195,7 +213,8 @@ public class DeltaGlobalCommitter
                 if (checkpointId > lastCommittedVersion) {
                     doCommit(
                         transaction,
-                        committablesPerCheckpoint.get(checkpointId));
+                        committablesPerCheckpoint.get(checkpointId),
+                        deltaLog.snapshot().getVersion());
                 }
             }
         }
@@ -213,12 +232,15 @@ public class DeltaGlobalCommitter
      * metadata update along with preparing the final set of metrics and perform the actual commit
      * to the {@link DeltaLog}.
      *
-     * @param transaction  {@link OptimisticTransaction} instance that will be used for committing
-     *                     given checkpoint interval
-     * @param committables list of committables for particular checkpoint interval
+     * @param transaction            {@link OptimisticTransaction} instance that will be used for
+     *                               committing given checkpoint interval
+     * @param committables           list of committables for particular checkpoint interval
+     * @param currentSnapshotVersion version of the latest snapshot for the Delta table queried from
+     *                               the {@link DeltaLog}
      */
     private void doCommit(OptimisticTransaction transaction,
-                          List<DeltaCommittable> committables) {
+                          List<DeltaCommittable> committables,
+                          long currentSnapshotVersion) {
         String appId = committables.get(0).getAppId();
         long checkpointId = committables.get(0).getCheckpointId();
 
@@ -234,6 +256,8 @@ public class DeltaGlobalCommitter
             numOutputBytes += deltaPendingFile.getFileSize();
         }
 
+        handleMetadataUpdate(currentSnapshotVersion, transaction);
+
         List<Action> actions = prepareActionsForTransaction(appId, checkpointId, addFileActions);
         Map<String, String> operationMetrics = prepareOperationMetrics(
             addFileActions.size(),
@@ -243,6 +267,59 @@ public class DeltaGlobalCommitter
         Operation operation = prepareDeltaLogOperation(operationMetrics);
 
         transaction.commit(actions, operation, ENGINE_INFO);
+    }
+
+    /**
+     * Resolves whether to add the {@link Metadata} object to the transaction.
+     *
+     * <p>During this process:
+     * <ol>
+     *   <li>first we prepare metadata {@link Action} object using provided {@link RowType} (and
+     *       converting it to {@link StructType}) and partition values,
+     *   <li>then we compare the schema from above metadata with the current table's schema,
+     *   <li>resolved metadata object is added to the transaction only when it's the first commit to
+     *       the given Delta table or when the schemas are not matching but the sink was provided
+     *       with option {@link DeltaGlobalCommitter#canTryUpdateSchema} set to true (the commit
+     *       may still fail though if the Delta Standalone Writer will determine that the schemas
+     *       are not compatible),
+     *   <li>if the schemas are not matching and {@link DeltaGlobalCommitter#canTryUpdateSchema}
+     *       was set to false then we throw an exception
+     *   <li>if the schemas are matching then we do nothing and let the transaction proceed
+     * </ol>
+     * <p>
+     *
+     * @param currentTableVersion current version of the table's snapshot
+     * @param transaction         DeltaLog's transaction object
+     */
+    private void handleMetadataUpdate(long currentTableVersion,
+                                      OptimisticTransaction transaction) {
+        Metadata transactionMetadata = transaction.metadata();
+
+        Metadata metadataAction = prepareMetadata(transactionMetadata);
+        StructType currentTableSchema = transactionMetadata.getSchema();
+        StructType commitSchema = metadataAction.getSchema();
+        boolean schemasAreMatching = areSchemasEqual(currentTableSchema, commitSchema);
+        if ((currentTableVersion == -1) || (!schemasAreMatching && canTryUpdateSchema)) {
+            transaction.updateMetadata(metadataAction);
+        } else if (!schemasAreMatching) {
+            String printableCurrentTableSchema = currentTableSchema == null ? "null"
+                : currentTableSchema.toPrettyJson();
+            String printableCommitSchema = commitSchema == null ? "null"
+                : commitSchema.toPrettyJson();
+
+            throw new RuntimeException(
+                "DataStream's schema is different from current table's schema. \n" +
+                    "provided: " + printableCurrentTableSchema + "\n" +
+                    "is different from: " + printableCommitSchema);
+        }
+    }
+
+    private boolean areSchemasEqual(@Nullable StructType first,
+                                    @Nullable StructType second) {
+        if (first == null || second == null) {
+            return false;
+        }
+        return first.toJson().equals(second.toJson());
     }
 
     /**
@@ -262,6 +339,28 @@ public class DeltaGlobalCommitter
         actions.add(setTransaction);
         actions.addAll(addFileActions);
         return actions;
+    }
+
+    /**
+     * Prepares {@link Metadata} object for current transaction
+     *
+     * @param transactionMetadata {@link Metadata} object referring to the metadata of the table's
+     *                            latest version as of this transaction's instantiation
+     * @return {@link Metadata} object for current transaction
+     */
+    private Metadata prepareMetadata(Metadata transactionMetadata) {
+        StructType dataStreamSchema = new SchemaConverter().toDeltaFormat(rowType);
+        return new Metadata
+            .Builder()
+            .id(transactionMetadata.getId())
+            .name(transactionMetadata.getName())
+            .description(transactionMetadata.getDescription())
+            .format(transactionMetadata.getFormat())
+            // below line will be changed in the next PR
+            .partitionColumns(transactionMetadata.getPartitionColumns())
+            .configuration(transactionMetadata.getConfiguration())
+            .schema(dataStreamSchema)
+            .build();
     }
 
     /**
