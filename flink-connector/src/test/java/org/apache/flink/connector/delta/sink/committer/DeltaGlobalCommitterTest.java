@@ -98,7 +98,7 @@ public class DeltaGlobalCommitterTest {
     }
 
     @Test
-    public void testCanTryUpdateSchemaSetToTrue() throws IOException {
+    public void testShouldTryUpdateSchemaSetToTrue() throws IOException {
         //GIVEN
         DeltaSinkTestUtils.initTestForNonPartitionedTable(tablePath.getPath());
         DeltaLog deltaLog = DeltaLog.forTable(
@@ -115,7 +115,7 @@ public class DeltaGlobalCommitterTest {
             DeltaSinkTestUtils.getHadoopConf(),
             tablePath,
             updatedSchema,
-            true // canTryUpdateSchema
+            true // shouldTryUpdateSchema
         );
 
         // WHEN
@@ -125,14 +125,14 @@ public class DeltaGlobalCommitterTest {
         // schema before deltaLog.update() is in old format, but after update it equals to the new
         // format
         assertEquals(deltaLog.snapshot().getMetadata().getSchema().toJson(),
-            new SchemaConverter().toDeltaFormat(DeltaSinkTestUtils.TEST_ROW_TYPE).toJson());
+            SchemaConverter.toDeltaDataType(DeltaSinkTestUtils.TEST_ROW_TYPE).toJson());
         deltaLog.update();
         assertEquals(deltaLog.snapshot().getMetadata().getSchema().toJson(),
-            new SchemaConverter().toDeltaFormat(updatedSchema).toJson());
+            SchemaConverter.toDeltaDataType(updatedSchema).toJson());
     }
 
     @Test(expected = RuntimeException.class)
-    public void testCanTryUpdateSchemaSetToFalse() throws Exception {
+    public void testShouldTryUpdateSchemaSetToFalse() throws Exception {
         //GIVEN
         DeltaSinkTestUtils.initTestForNonPartitionedTable(tablePath.getPath());
 
@@ -149,7 +149,7 @@ public class DeltaGlobalCommitterTest {
     }
 
     @Test(expected = RuntimeException.class)
-    public void testCanTryUpdateIncompatibleSchema() throws Exception {
+    public void testShouldTryUpdateIncompatibleSchema() throws Exception {
         //GIVEN
         DeltaSinkTestUtils.initTestForNonPartitionedTable(tablePath.getPath());
 
@@ -312,7 +312,7 @@ public class DeltaGlobalCommitterTest {
             DeltaSinkTestUtils.getHadoopConf(),
             tablePath,
             schema,
-            false // canTryUpdateSchema
+            false // shouldTryUpdateSchema
         );
     }
 

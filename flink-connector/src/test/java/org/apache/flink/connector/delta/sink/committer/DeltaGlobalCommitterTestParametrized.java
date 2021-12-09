@@ -24,6 +24,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.flink.connector.delta.sink.SchemaConverter;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
 import org.apache.flink.connector.delta.sink.committables.DeltaGlobalCommittable;
 import org.apache.flink.connector.delta.sink.utils.DeltaSinkTestUtils;
@@ -54,11 +55,12 @@ public class DeltaGlobalCommitterTestParametrized {
     public static final TemporaryFolder TEMPORARY_FOLDER = new TemporaryFolder();
 
     @Parameterized.Parameters(
-        name = "canTryUpdateSchema = {0}, " +
+        name = "shouldTryUpdateSchema = {0}, " +
             "initializeTableBeforeCommit = {1}"
     )
     public static Collection<Object[]> params() {
         return Arrays.asList(
+            // shouldTryUpdateSchema, initializeTableBeforeCommit
             new Object[]{false, false},
             new Object[]{false, true},
             new Object[]{true, false},
@@ -67,13 +69,12 @@ public class DeltaGlobalCommitterTestParametrized {
     }
 
     @Parameterized.Parameter(0)
-    public boolean canTryUpdateSchema;
+    public boolean shouldTryUpdateSchema;
 
     @Parameterized.Parameter(1)
     public boolean initializeTableBeforeCommit;
 
-    private int expectedTableVersionAfterCommit;
-    private RowType testRowType;
+    private RowType rowTypeToCommit;
 
     private Path tablePath;
     private DeltaLog deltaLog;
@@ -86,8 +87,7 @@ public class DeltaGlobalCommitterTestParametrized {
                 tablePath.getPath());
         }
         deltaLog = DeltaLog.forTable(DeltaSinkTestUtils.getHadoopConf(), tablePath.getPath());
-        expectedTableVersionAfterCommit = initializeTableBeforeCommit ? 1 : 0;
-        testRowType = canTryUpdateSchema ?
+        rowTypeToCommit = shouldTryUpdateSchema ?
             DeltaSinkTestUtils.addNewColumnToSchema() : DeltaSinkTestUtils.TEST_ROW_TYPE;
     }
 
@@ -97,8 +97,8 @@ public class DeltaGlobalCommitterTestParametrized {
         DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(
             DeltaSinkTestUtils.getHadoopConf(),
             tablePath,
-            testRowType,
-            canTryUpdateSchema);
+            rowTypeToCommit,
+            shouldTryUpdateSchema);
         List<DeltaCommittable> deltaCommittables =
             DeltaSinkTestUtils.getListOfDeltaCommittables(3);
         List<DeltaGlobalCommittable> globalCommittables =
@@ -108,26 +108,21 @@ public class DeltaGlobalCommitterTestParametrized {
         globalCommitter.commit(globalCommittables);
 
         // THEN
-        validateCurrentSnapshotState(
-            deltaLog,
-            expectedTableVersionAfterCommit,
-            deltaCommittables.size(),
-            initializeTableBeforeCommit
-        );
+        validateCurrentSnapshotState(deltaCommittables.size());
         validateCurrentTableFiles(deltaLog.update());
     }
 
-    private static void validateCurrentSnapshotState(DeltaLog deltaLog,
-                                                     int expectedTableVersionAfterUpdate,
-                                                     int deltaCommittablesSize,
-                                                     boolean initializeTableBeforeCommit) {
+    private void validateCurrentSnapshotState(int numFilesAdded) {
         int initialTableFilesCount = 0;
         if (initializeTableBeforeCommit) {
             initialTableFilesCount = deltaLog.snapshot().getAllFiles().size();
         }
+        int expectedTableVersionAfterUpdate = initializeTableBeforeCommit ? 1 : 0;
         Snapshot snapshot = deltaLog.update();
         assertEquals(snapshot.getVersion(), expectedTableVersionAfterUpdate);
-        assertEquals(snapshot.getAllFiles().size(), deltaCommittablesSize + initialTableFilesCount);
+        assertEquals(snapshot.getAllFiles().size(), numFilesAdded + initialTableFilesCount);
+        assertEquals(deltaLog.snapshot().getMetadata().getSchema().toJson(),
+            SchemaConverter.toDeltaDataType(rowTypeToCommit).toJson());
     }
 
     private void validateCurrentTableFiles(

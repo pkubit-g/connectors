@@ -31,37 +31,16 @@ import io.delta.standalone.types.*;
 public class SchemaConverter {
 
     /**
-     * Main method for converting from {@link RowType} into {@link StructType}
-     *
-     * @param rowType Flink's logical type of stream's events
-     * @return DeltaLake's specific type of stream's events
-     */
-    public StructType toDeltaFormat(RowType rowType) {
-        StructField[] fields = rowType.getFields()
-                .stream()
-                .map(rowField -> {
-                    DataType rowFieldType = toDeltaDataType(rowField.getType());
-                    return new StructField(
-                            rowField.getName(),
-                            rowFieldType,
-                            rowField.getType().isNullable());
-                })
-                .toArray(StructField[]::new);
-
-        return new StructType(fields);
-    }
-
-    /**
      * Method containing the actual mapping between Flink's and DeltaLake's types.
      *
      * @param flinkType Flink's logical type
      * @return DeltaLake's data type
      */
-    public DataType toDeltaDataType(LogicalType flinkType) {
+    public static DataType toDeltaDataType(LogicalType flinkType) {
         switch (flinkType.getTypeRoot()) {
             case ARRAY:
                 org.apache.flink.table.types.logical.ArrayType arrayType =
-                        (org.apache.flink.table.types.logical.ArrayType) flinkType;
+                    (org.apache.flink.table.types.logical.ArrayType) flinkType;
                 LogicalType flinkElementType = arrayType.getElementType();
                 DataType deltaElementType = toDeltaDataType(flinkElementType);
                 return new ArrayType(deltaElementType, flinkElementType.isNullable());
@@ -76,7 +55,7 @@ public class SchemaConverter {
                 return new DateType();
             case DECIMAL:
                 org.apache.flink.table.types.logical.DecimalType decimalType =
-                        (org.apache.flink.table.types.logical.DecimalType) flinkType;
+                    (org.apache.flink.table.types.logical.DecimalType) flinkType;
                 return new DecimalType(decimalType.getPrecision(), decimalType.getScale());
             case DOUBLE:
                 return new DoubleType();
@@ -86,7 +65,7 @@ public class SchemaConverter {
                 return new IntegerType();
             case MAP:
                 org.apache.flink.table.types.logical.MapType mapType =
-                        (org.apache.flink.table.types.logical.MapType) flinkType;
+                    (org.apache.flink.table.types.logical.MapType) flinkType;
                 DataType keyType = toDeltaDataType(mapType.getKeyType());
                 DataType valueType = toDeltaDataType(mapType.getValueType());
                 boolean valueCanContainNull = mapType.getValueType().isNullable();
@@ -105,10 +84,21 @@ public class SchemaConverter {
             case VARCHAR:
                 return new StringType();
             case ROW:
-                return toDeltaFormat((RowType) flinkType);
+                RowType rowType = (RowType) flinkType;
+                StructField[] fields = rowType.getFields()
+                    .stream()
+                    .map(rowField -> {
+                        DataType rowFieldType = toDeltaDataType(rowField.getType());
+                        return new StructField(
+                            rowField.getName(),
+                            rowFieldType,
+                            rowField.getType().isNullable());
+                    })
+                    .toArray(StructField[]::new);
+                return new StructType(fields);
             default:
                 throw new UnsupportedOperationException(
-                        "Cannot convert unknown type to Flink: " + flinkType);
+                    "Cannot convert unknown type to Flink: " + flinkType);
         }
     }
 }

@@ -66,7 +66,7 @@ public class TestSchemaConverter {
             ));
 
         // WHEN
-        StructType deltaStructType = new SchemaConverter().toDeltaFormat(flinkRowType);
+        StructType deltaStructType = (StructType) SchemaConverter.toDeltaDataType(flinkRowType);
 
         // THEN
         StructType expectedDeltaStructType = new StructType(
@@ -181,7 +181,7 @@ public class TestSchemaConverter {
             MapType mapType = new MapType(types.flinkKeyType, types.flinkValueType);
 
             // WHEN
-            DataType deltaStructType = new SchemaConverter().toDeltaDataType(mapType);
+            DataType deltaStructType = SchemaConverter.toDeltaDataType(mapType);
 
             // THEN
             DataType expectedDeltaDataType = new io.delta.standalone.types.MapType(

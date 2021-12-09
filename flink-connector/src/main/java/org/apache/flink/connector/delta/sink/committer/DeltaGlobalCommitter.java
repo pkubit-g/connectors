@@ -96,16 +96,16 @@ public class DeltaGlobalCommitter
     /**
      * Indicator whether the committer should try to commit unmatching schema
      */
-    private final boolean canTryUpdateSchema;
+    private final boolean shouldTryUpdateSchema;
 
     public DeltaGlobalCommitter(Configuration conf,
                                 Path basePath,
                                 RowType rowType,
-                                boolean canTryUpdateSchema) {
+                                boolean shouldTryUpdateSchema) {
         this.conf = conf;
         this.basePath = basePath;
         this.rowType = rowType;
-        this.canTryUpdateSchema = canTryUpdateSchema;
+        this.shouldTryUpdateSchema = shouldTryUpdateSchema;
     }
 
     /**
@@ -214,7 +214,7 @@ public class DeltaGlobalCommitter
                     doCommit(
                         transaction,
                         committablesPerCheckpoint.get(checkpointId),
-                        deltaLog.snapshot().getVersion());
+                        deltaLog.tableExists());
                 }
             }
         }
@@ -232,15 +232,15 @@ public class DeltaGlobalCommitter
      * metadata update along with preparing the final set of metrics and perform the actual commit
      * to the {@link DeltaLog}.
      *
-     * @param transaction            {@link OptimisticTransaction} instance that will be used for
-     *                               committing given checkpoint interval
-     * @param committables           list of committables for particular checkpoint interval
-     * @param currentSnapshotVersion version of the latest snapshot for the Delta table queried from
-     *                               the {@link DeltaLog}
+     * @param transaction  {@link OptimisticTransaction} instance that will be used for
+     *                     committing given checkpoint interval
+     * @param committables list of committables for particular checkpoint interval
+     * @param tableExists  indicator whether table already exists or will be created with the next
+     *                     commit
      */
     private void doCommit(OptimisticTransaction transaction,
                           List<DeltaCommittable> committables,
-                          long currentSnapshotVersion) {
+                          boolean tableExists) {
         String appId = committables.get(0).getAppId();
         long checkpointId = committables.get(0).getCheckpointId();
 
@@ -256,7 +256,7 @@ public class DeltaGlobalCommitter
             numOutputBytes += deltaPendingFile.getFileSize();
         }
 
-        handleMetadataUpdate(currentSnapshotVersion, transaction);
+        handleMetadataUpdate(tableExists, transaction);
 
         List<Action> actions = prepareActionsForTransaction(appId, checkpointId, addFileActions);
         Map<String, String> operationMetrics = prepareOperationMetrics(
@@ -279,33 +279,33 @@ public class DeltaGlobalCommitter
      *   <li>then we compare the schema from above metadata with the current table's schema,
      *   <li>resolved metadata object is added to the transaction only when it's the first commit to
      *       the given Delta table or when the schemas are not matching but the sink was provided
-     *       with option {@link DeltaGlobalCommitter#canTryUpdateSchema} set to true (the commit
+     *       with option {@link DeltaGlobalCommitter#shouldTryUpdateSchema} set to true (the commit
      *       may still fail though if the Delta Standalone Writer will determine that the schemas
      *       are not compatible),
-     *   <li>if the schemas are not matching and {@link DeltaGlobalCommitter#canTryUpdateSchema}
+     *   <li>if the schemas are not matching and {@link DeltaGlobalCommitter#shouldTryUpdateSchema}
      *       was set to false then we throw an exception
      *   <li>if the schemas are matching then we do nothing and let the transaction proceed
      * </ol>
      * <p>
      *
-     * @param currentTableVersion current version of the table's snapshot
-     * @param transaction         DeltaLog's transaction object
+     * @param tableExists indicator whether table already exists or will be created with the next
+     *                    commit
+     * @param transaction DeltaLog's transaction object
      */
-    private void handleMetadataUpdate(long currentTableVersion,
+    private void handleMetadataUpdate(boolean tableExists,
                                       OptimisticTransaction transaction) {
-        Metadata transactionMetadata = transaction.metadata();
-
-        Metadata metadataAction = prepareMetadata(transactionMetadata);
-        StructType currentTableSchema = transactionMetadata.getSchema();
-        StructType commitSchema = metadataAction.getSchema();
-        boolean schemasAreMatching = areSchemasEqual(currentTableSchema, commitSchema);
-        if ((currentTableVersion == -1) || (!schemasAreMatching && canTryUpdateSchema)) {
-            transaction.updateMetadata(metadataAction);
+        Metadata currentMetadata = transaction.metadata();
+        StructType currentTableSchema = currentMetadata.getSchema();
+        StructType streamSchema = getStreamSchema();
+        boolean schemasAreMatching = areSchemasEqual(currentTableSchema, streamSchema);
+        if (!tableExists || (!schemasAreMatching && shouldTryUpdateSchema)) {
+            Metadata updatedMetadata = updateMetadata(currentMetadata);
+            transaction.updateMetadata(updatedMetadata);
         } else if (!schemasAreMatching) {
             String printableCurrentTableSchema = currentTableSchema == null ? "null"
                 : currentTableSchema.toPrettyJson();
-            String printableCommitSchema = commitSchema == null ? "null"
-                : commitSchema.toPrettyJson();
+            String printableCommitSchema = streamSchema == null ? "null"
+                : streamSchema.toPrettyJson();
 
             throw new RuntimeException(
                 "DataStream's schema is different from current table's schema. \n" +
@@ -344,23 +344,33 @@ public class DeltaGlobalCommitter
     /**
      * Prepares {@link Metadata} object for current transaction
      *
-     * @param transactionMetadata {@link Metadata} object referring to the metadata of the table's
-     *                            latest version as of this transaction's instantiation
+     * @param currentMetadata {@link Metadata} object referring to the metadata of the table's
+     *                        latest version as of this transaction's instantiation
      * @return {@link Metadata} object for current transaction
      */
-    private Metadata prepareMetadata(Metadata transactionMetadata) {
-        StructType dataStreamSchema = new SchemaConverter().toDeltaFormat(rowType);
+    private Metadata updateMetadata(Metadata currentMetadata) {
+        StructType dataStreamSchema = getStreamSchema();
         return new Metadata
             .Builder()
-            .id(transactionMetadata.getId())
-            .name(transactionMetadata.getName())
-            .description(transactionMetadata.getDescription())
-            .format(transactionMetadata.getFormat())
+            .id(currentMetadata.getId())
+            .name(currentMetadata.getName())
+            .description(currentMetadata.getDescription())
+            .format(currentMetadata.getFormat())
             // below line will be changed in the next PR
-            .partitionColumns(transactionMetadata.getPartitionColumns())
-            .configuration(transactionMetadata.getConfiguration())
+            .partitionColumns(currentMetadata.getPartitionColumns())
+            .configuration(currentMetadata.getConfiguration())
             .schema(dataStreamSchema)
             .build();
+    }
+
+    /**
+     * This method transforms {@link RowType} object containing schema for the current stream
+     * to Delta's {@link StructType}.
+     *
+     * @return {@link StructType} object corresponding to the schema of the events in the stream
+     */
+    private StructType getStreamSchema() {
+        return (StructType) SchemaConverter.toDeltaDataType(rowType);
     }
 
     /**
