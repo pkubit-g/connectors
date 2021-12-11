@@ -37,7 +37,6 @@ import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import io.delta.standalone.DeltaLog;
@@ -88,7 +87,8 @@ public class DeltaGlobalCommitterTestParametrized {
         }
         deltaLog = DeltaLog.forTable(DeltaSinkTestUtils.getHadoopConf(), tablePath.getPath());
         rowTypeToCommit = shouldTryUpdateSchema ?
-            DeltaSinkTestUtils.addNewColumnToSchema() : DeltaSinkTestUtils.TEST_ROW_TYPE;
+            DeltaSinkTestUtils.addNewColumnToSchema(DeltaSinkTestUtils.TEST_ROW_TYPE) :
+            DeltaSinkTestUtils.TEST_ROW_TYPE;
     }
 
     @Test
@@ -131,7 +131,6 @@ public class DeltaGlobalCommitterTestParametrized {
         while (filesIterator.hasNext()) {
             AddFile addFile = filesIterator.next();
             assertTrue(addFile.getSize() > 0);
-            assertFalse(addFile.getPath().isEmpty());
         }
     }
 }

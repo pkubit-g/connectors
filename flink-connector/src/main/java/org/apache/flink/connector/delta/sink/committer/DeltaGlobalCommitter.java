@@ -296,16 +296,25 @@ public class DeltaGlobalCommitter
                                       OptimisticTransaction transaction) {
         Metadata currentMetadata = transaction.metadata();
         StructType currentTableSchema = currentMetadata.getSchema();
-        StructType streamSchema = getStreamSchema();
+        StructType streamSchema = SchemaConverter.toDeltaDataType(rowType);
         boolean schemasAreMatching = areSchemasEqual(currentTableSchema, streamSchema);
         if (!tableExists || (!schemasAreMatching && shouldTryUpdateSchema)) {
-            Metadata updatedMetadata = updateMetadata(currentMetadata);
+            Metadata updatedMetadata = new Metadata
+                .Builder()
+                .id(currentMetadata.getId())
+                .name(currentMetadata.getName())
+                .description(currentMetadata.getDescription())
+                .format(currentMetadata.getFormat())
+                // below line will be changed in the next PR
+                .partitionColumns(currentMetadata.getPartitionColumns())
+                .configuration(currentMetadata.getConfiguration())
+                .schema(streamSchema)
+                .build();
             transaction.updateMetadata(updatedMetadata);
         } else if (!schemasAreMatching) {
             String printableCurrentTableSchema = currentTableSchema == null ? "null"
                 : currentTableSchema.toPrettyJson();
-            String printableCommitSchema = streamSchema == null ? "null"
-                : streamSchema.toPrettyJson();
+            String printableCommitSchema = streamSchema.toPrettyJson();
 
             throw new RuntimeException(
                 "DataStream's schema is different from current table's schema. \n" +
@@ -339,38 +348,6 @@ public class DeltaGlobalCommitter
         actions.add(setTransaction);
         actions.addAll(addFileActions);
         return actions;
-    }
-
-    /**
-     * Prepares {@link Metadata} object for current transaction
-     *
-     * @param currentMetadata {@link Metadata} object referring to the metadata of the table's
-     *                        latest version as of this transaction's instantiation
-     * @return {@link Metadata} object for current transaction
-     */
-    private Metadata updateMetadata(Metadata currentMetadata) {
-        StructType dataStreamSchema = getStreamSchema();
-        return new Metadata
-            .Builder()
-            .id(currentMetadata.getId())
-            .name(currentMetadata.getName())
-            .description(currentMetadata.getDescription())
-            .format(currentMetadata.getFormat())
-            // below line will be changed in the next PR
-            .partitionColumns(currentMetadata.getPartitionColumns())
-            .configuration(currentMetadata.getConfiguration())
-            .schema(dataStreamSchema)
-            .build();
-    }
-
-    /**
-     * This method transforms {@link RowType} object containing schema for the current stream
-     * to Delta's {@link StructType}.
-     *
-     * @return {@link StructType} object corresponding to the schema of the events in the stream
-     */
-    private StructType getStreamSchema() {
-        return (StructType) SchemaConverter.toDeltaDataType(rowType);
     }
 
     /**

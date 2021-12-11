@@ -33,7 +33,7 @@ import io.delta.standalone.types.StructType;
 public class TestSchemaConverter {
 
     @Test
-    public void testConvertFlinkSchemaToIcebergSchema() {
+    public void testConvertFlinkSchemaToDeltaSchema() {
         // GIVEN
         RowType flinkRowType = new RowType(
             Arrays.asList(

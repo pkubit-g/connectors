@@ -31,6 +31,27 @@ import io.delta.standalone.types.*;
 public class SchemaConverter {
 
     /**
+     * Main method for converting from {@link RowType} into {@link StructType}
+     *
+     * @param rowType Flink's logical type of stream's events
+     * @return DeltaLake's specific type of stream's events
+     */
+    public static StructType toDeltaDataType(RowType rowType) {
+        StructField[] fields = rowType.getFields()
+            .stream()
+            .map(rowField -> {
+                DataType rowFieldType = toDeltaDataType(rowField.getType());
+                return new StructField(
+                    rowField.getName(),
+                    rowFieldType,
+                    rowField.getType().isNullable());
+            })
+            .toArray(StructField[]::new);
+
+        return new StructType(fields);
+    }
+
+    /**
      * Method containing the actual mapping between Flink's and DeltaLake's types.
      *
      * @param flinkType Flink's logical type
@@ -84,18 +105,7 @@ public class SchemaConverter {
             case VARCHAR:
                 return new StringType();
             case ROW:
-                RowType rowType = (RowType) flinkType;
-                StructField[] fields = rowType.getFields()
-                    .stream()
-                    .map(rowField -> {
-                        DataType rowFieldType = toDeltaDataType(rowField.getType());
-                        return new StructField(
-                            rowField.getName(),
-                            rowFieldType,
-                            rowField.getType().isNullable());
-                    })
-                    .toArray(StructField[]::new);
-                return new StructType(fields);
+                return toDeltaDataType((RowType) flinkType);
             default:
                 throw new UnsupportedOperationException(
                     "Cannot convert unknown type to Flink: " + flinkType);

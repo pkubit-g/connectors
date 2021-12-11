@@ -109,7 +109,8 @@ public class DeltaGlobalCommitterTest {
             Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
 
         // add new field to the schema
-        RowType updatedSchema = DeltaSinkTestUtils.addNewColumnToSchema();
+        RowType updatedSchema =
+            DeltaSinkTestUtils.addNewColumnToSchema(DeltaSinkTestUtils.TEST_ROW_TYPE);
 
         DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(
             DeltaSinkTestUtils.getHadoopConf(),
@@ -141,7 +142,8 @@ public class DeltaGlobalCommitterTest {
             Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
 
         // new schema drops one of the previous columns
-        RowType updatedSchema = DeltaSinkTestUtils.dropOneColumnFromSchema();
+        RowType updatedSchema =
+            DeltaSinkTestUtils.dropOneColumnFromSchema(DeltaSinkTestUtils.TEST_ROW_TYPE);
         DeltaGlobalCommitter globalCommitter = getTestGlobalCommitter(updatedSchema);
 
         // WHEN
@@ -158,7 +160,8 @@ public class DeltaGlobalCommitterTest {
             Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
 
         // new schema drops one of the previous columns
-        RowType updatedSchema = DeltaSinkTestUtils.dropOneColumnFromSchema();
+        RowType updatedSchema =
+            DeltaSinkTestUtils.dropOneColumnFromSchema(DeltaSinkTestUtils.TEST_ROW_TYPE);
 
         DeltaGlobalCommitter globalCommitter = getTestGlobalCommitter(updatedSchema);
 
