@@ -632,13 +632,11 @@ lazy val flinkConnector = (project in file("flink-connector"))
     publishArtifact in Test := false,
     crossPaths := false,
     libraryDependencies ++= Seq(
-      "org.apache.flink" % "flink-core" % flinkVersion,
-      "org.apache.flink" % "flink-connector-files" % flinkVersion,
-      "org.apache.flink" % "flink-table-common" % flinkVersion,
-      "org.apache.flink" %% "flink-parquet" % flinkVersion,
-      "org.apache.flink" %% "flink-runtime" % flinkVersion,
-      "org.apache.flink" %% "flink-table-runtime-blink" % flinkVersion,
-      "org.apache.hadoop" % "hadoop-client" % hadoopVersion,
+      "org.apache.flink" %% "flink-runtime" % flinkVersion % "provided",
+      "org.apache.flink" %% "flink-table-runtime-blink" % flinkVersion % "provided",
+      "org.apache.flink" % "flink-table-common" % flinkVersion % "provided",
+      "org.apache.flink" %% "flink-parquet" % flinkVersion % "provided",
+      "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
       "org.apache.flink" % "flink-connector-files" % flinkVersion % "test" classifier "tests",
       "org.apache.flink" %% "flink-streaming-java" % flinkVersion % "test",
       "org.apache.flink" % "flink-connector-test-utils" % flinkVersion % "test",
@@ -649,7 +647,7 @@ lazy val flinkConnector = (project in file("flink-connector"))
     sourceGenerators in Compile += Def.task {
       val file = (sourceManaged in Compile).value / "meta" / "Meta.java"
       IO.write(file,
-        s"""package org.apache.flink.connector.delta.sink;
+        s"""package io.delta.flink.sink;
            |
            |public final class Meta {
            |  public static final String VERSION = "${version.value}";
