@@ -266,10 +266,12 @@ public class DeltaGlobalCommitter
             if (!isPartitionColumnsMetadataRetained) {
                 throw new RuntimeException(
                     "Partition columns cannot differ for files in the same checkpointId. " +
-                        "checkpointId=" + checkpointId + " " +
-                        "Partition spec " + deltaPendingFile.getPartitionSpec() +
+                        "checkpointId = " + checkpointId + ", " +
+                        "file = " + deltaPendingFile.getFileName() + ", " +
+                        "partition columns = " +
+                        String.join(",", deltaPendingFile.getPartitionSpec().keySet()) +
                         " does not comply with partition columns from other committables: " +
-                        partitionColumnsSet
+                        String.join(",", partitionColumnsSet)
                 );
             }
 
@@ -326,8 +328,8 @@ public class DeltaGlobalCommitter
         if (tableExists && (!partitionColumns.equals(currentMetadata.getPartitionColumns()))) {
             throw new RuntimeException(
                 "Stream's partition columns are different from table's partitions columns. \n" +
-                    "provided: " + Arrays.toString(partitionColumns.toArray()) + "\n" +
-                    "is different from: " +
+                    "Columns in data files: " + Arrays.toString(partitionColumns.toArray()) + "\n" +
+                    "Columns in table: " +
                     Arrays.toString(currentMetadata.getPartitionColumns().toArray()));
         }
 
@@ -335,15 +337,9 @@ public class DeltaGlobalCommitter
         StructType streamSchema = SchemaConverter.toDeltaDataType(rowType);
         boolean schemasAreMatching = areSchemasEqual(currentTableSchema, streamSchema);
         if (!tableExists || (!schemasAreMatching && shouldTryUpdateSchema)) {
-            Metadata updatedMetadata = new Metadata
-                .Builder()
-                .id(currentMetadata.getId())
-                .name(currentMetadata.getName())
-                .description(currentMetadata.getDescription())
-                .format(currentMetadata.getFormat())
-                .partitionColumns(partitionColumns)
-                .configuration(currentMetadata.getConfiguration())
+            Metadata updatedMetadata = currentMetadata.copyBuilder()
                 .schema(streamSchema)
+                .partitionColumns(partitionColumns)
                 .build();
             transaction.updateMetadata(updatedMetadata);
         } else if (!schemasAreMatching) {
@@ -400,6 +396,7 @@ public class DeltaGlobalCommitter
             operationParameters.put("mode", objectMapper.writeValueAsString(APPEND_MODE));
             // we need to perform mapping to JSON object twice for partition columns. First to map
             // the list to string type and then again to make this string JSON encoded
+            // e.g. java array of ["a", "b"] will be mapped as string "[\"a\",\"c\"]"
             operationParameters.put("partitionBy", objectMapper.writeValueAsString(
                 objectMapper.writeValueAsString(partitionColumns)));
         } catch (JsonProcessingException e) {

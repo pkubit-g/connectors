@@ -65,6 +65,31 @@ public class DeltaGlobalCommitterTest {
         tablePath = new Path(TEMPORARY_FOLDER.newFolder().toURI());
     }
 
+    @Test(expected = RuntimeException.class)
+    public void testWrongPartitionOrderWillFail() throws IOException {
+        //GIVEN
+        DeltaSinkTestUtils.initTestForPartitionedTable(tablePath.getPath());
+        DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(
+            DeltaSinkTestUtils.getHadoopConf(),
+            tablePath,
+            DeltaSinkTestUtils.TEST_ROW_TYPE,
+            false // shouldTryUpdateSchema
+        );
+        // the order of below partition spec is different from the one used when initializing test
+        // table
+        LinkedHashMap<String, String> partitionSpec = new LinkedHashMap<String, String>() {{
+                put("c", "d");
+                put("a", "b");
+            }};
+        List<DeltaCommittable> deltaCommittables =
+            DeltaSinkTestUtils.getListOfDeltaCommittables(3, partitionSpec);
+        List<DeltaGlobalCommittable> globalCommittables =
+            Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
+
+        // WHEN
+        globalCommitter.commit(globalCommittables);
+    }
+
     @Test
     public void testCommitTwice() throws Exception {
         //GIVEN

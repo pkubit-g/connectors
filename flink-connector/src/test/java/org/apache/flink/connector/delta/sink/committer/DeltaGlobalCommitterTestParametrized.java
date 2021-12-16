@@ -108,7 +108,6 @@ public class DeltaGlobalCommitterTestParametrized {
     @Test
     public void testCommitToDeltaTableInAppendMode() {
         //GIVEN
-        List<String> partitionColumns = new ArrayList<>(partitionSpec.keySet());
         DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(
             DeltaSinkTestUtils.getHadoopConf(),
             tablePath,
