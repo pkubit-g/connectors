@@ -624,7 +624,7 @@ lazy val sqlDeltaImport = (project in file("sql-delta-import"))
   )
   .settings(releaseSettings)
 
-val flinkVersion = "1.12.0"
+val flinkVersion = "1.13.0"
 lazy val flinkConnector = (project in file("flink-connector"))
   .settings (
     name := "flink-connector",
@@ -633,13 +633,11 @@ lazy val flinkConnector = (project in file("flink-connector"))
     publishArtifact in Test := false,
     crossPaths := false,
     libraryDependencies ++= Seq(
-      "org.apache.flink" %% "flink-runtime" % flinkVersion % "provided",
-      "org.apache.flink" %% "flink-table-runtime-blink" % flinkVersion % "provided",
-      "org.apache.flink" % "flink-table-common" % flinkVersion % "provided",
       "org.apache.flink" %% "flink-parquet" % flinkVersion % "provided",
+      "org.apache.flink" % "flink-table-common" % flinkVersion % "provided",
       "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
+      "org.apache.flink" %% "flink-table-runtime-blink" % flinkVersion % "provided",
       "org.apache.flink" % "flink-connector-files" % flinkVersion % "test" classifier "tests",
-      "org.apache.flink" %% "flink-streaming-java" % flinkVersion % "test",
       "org.apache.flink" % "flink-connector-test-utils" % flinkVersion % "test",
       "com.github.sbt" % "junit-interface" % "0.12" % Test
     ),
@@ -648,7 +646,7 @@ lazy val flinkConnector = (project in file("flink-connector"))
     sourceGenerators in Compile += Def.task {
       val file = (sourceManaged in Compile).value / "meta" / "Meta.java"
       IO.write(file,
-        s"""package io.delta.flink.sink;
+        s"""package io.delta.flink.sink.internal;
            |
            |public final class Meta {
            |  public static final String VERSION = "${version.value}";

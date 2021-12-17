@@ -228,7 +228,7 @@ existing `org.apache.flink.streaming.api.datastream.DataStream`.
 ```java
 package com.example;
 
-import org.apache.flink.connector.delta.sink.DeltaSink;
+import io.delta.flink.sink.DeltaSink;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.data.RowData;
@@ -256,9 +256,9 @@ partitioned table.
 ```java
 package com.example;
 
-import org.apache.flink.connector.delta.sink.DeltaSink;
-import org.apache.flink.connector.delta.sink.DeltaSinkBuilder;
-import org.apache.flink.connector.delta.sink.DeltaTablePartitionAssigner;
+import io.delta.flink.sink.DeltaSinkBuilder;
+import io.delta.flink.sink.DeltaSink;
+import io.delta.flink.sink.DeltaTablePartitionAssigner;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
@@ -316,7 +316,7 @@ to your build dependencies.
 ```java
 package com.example;
 
-import org.apache.flink.connector.delta.sink.DeltaSink;
+import io.delta.flink.sink.DeltaSink;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.data.RowData;
