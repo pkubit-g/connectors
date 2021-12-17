@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 
 import io.delta.flink.sink.DeltaSink;
 import io.delta.flink.sink.DeltaTablePartitionAssigner;
-import io.delta.flink.sink.committables.DeltaCommittable;
+import io.delta.flink.sink.internal.committables.DeltaCommittable;
 import org.apache.commons.io.FileUtils;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.RestOptions;

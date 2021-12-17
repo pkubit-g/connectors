@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package io.delta.flink.sink.committables;
+package io.delta.flink.sink.internal.committables;
 
 import java.io.Serializable;
 
@@ -42,16 +42,16 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * Lifecycle of instances of this class is as follows:
  * <ol>
  *     <li>Every instance is created in
- *         {@link io.delta.flink.sink.writer.DeltaWriterBucket#prepareCommit}
+ *         {@link io.delta.flink.sink.internal.writer.DeltaWriterBucket#prepareCommit}
  *         method during a pre-commit phase.</li>
  *     <li>When certain checkpointing barriers are reached then generated committables are
  *         snapshotted along with the rest of the application's state.
  *         See Flink's docs for details
  *         @see <a href="https://nightlies.apache.org/flink/flink-docs-master/docs/learn-flink/fault_tolerance/#how-does-state-snapshotting-work" target="_blank">here</a></li>
  *     <li>During commit phase every committable is first delivered to
- *         {@link io.delta.flink.sink.committer.DeltaCommitter#commit}
+ *         {@link io.delta.flink.sink.internal.committer.DeltaCommitter#commit}
  *         and then to
- *         {@link io.delta.flink.sink.committer.DeltaGlobalCommitter#combine}
+ *         {@link io.delta.flink.sink.internal.committer.DeltaGlobalCommitter#combine}
  *         methods when they are being committed.</li>
  *     <li>If there's any failure of the app's execution then Flink may recover previously generated
  *         set of committables that may have not been committed. In such cases those recovered
@@ -76,7 +76,7 @@ public class DeltaCommittable implements Serializable {
     /**
      * Unique identifier of the current checkpoint interval. It's necessary to carry this as a part
      * of committable information in order to guarantee idempotent behaviour of
-     * {@link io.delta.flink.sink.committer.DeltaGlobalCommitter#commit}.
+     * {@link io.delta.flink.sink.internal.committer.DeltaGlobalCommitter#commit}.
      */
     private final long checkpointId;
 

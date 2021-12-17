@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package io.delta.flink.sink.committables;
+package io.delta.flink.sink.internal.committables;
 
 import java.io.IOException;
 import java.util.ArrayList;

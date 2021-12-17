@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package io.delta.flink.sink.committables;
+package io.delta.flink.sink.internal.committables;
 
 import java.util.List;
 
@@ -29,21 +29,21 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * This class is provided to comply with the
  * {@link org.apache.flink.api.connector.sink.GlobalCommitter}
  * interfaces' structure. It's only purpose is to wrap {@link DeltaCommittable} collection during
- * {@link io.delta.flink.sink.committer.DeltaGlobalCommitter#combine} method
+ * {@link io.delta.flink.sink.internal.committer.DeltaGlobalCommitter#combine} method
  * that will be further flattened and processed inside
- * {@link io.delta.flink.sink.committer.DeltaGlobalCommitter#commit} method.
+ * {@link io.delta.flink.sink.internal.committer.DeltaGlobalCommitter#commit} method.
  * <p>
  * Lifecycle of instances of this class is as follows:
  * <ol>
  *     <li>Every instance is created in
- *         {@link io.delta.flink.sink.committer.DeltaGlobalCommitter#combine}
+ *         {@link io.delta.flink.sink.internal.committer.DeltaGlobalCommitter#combine}
  *         method during a global commit phase.</li>
  *     <li>When certain checkpointing barriers are reached then generated committables are
  *         snapshotted along with the rest of the application's state.
  *         See Flink's docs for details
  *         @see <a href="https://nightlies.apache.org/flink/flink-docs-master/docs/learn-flink/fault_tolerance/#how-does-state-snapshotting-work" target="_blank">here</a></li>
  *     <li>Every {@link DeltaGlobalCommittable} instance is delivered to
- *         {@link io.delta.flink.sink.committer.DeltaGlobalCommitter#combine}
+ *         {@link io.delta.flink.sink.internal.committer.DeltaGlobalCommitter#combine}
  *         method when they are being committed to a {@link io.delta.standalone.DeltaLog}.</li>
  *     <li>If there's any failure of the app's execution then Flink may recover previously generated
  *         set of committables that may have not been committed. In such cases those recovered

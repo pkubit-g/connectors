@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package io.delta.flink.sink.writer;
+package io.delta.flink.sink.internal.writer;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -25,8 +25,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import io.delta.flink.sink.committables.DeltaCommittable;
-import io.delta.flink.sink.committer.DeltaCommitter;
+import io.delta.flink.sink.internal.committables.DeltaCommittable;
+import io.delta.flink.sink.internal.committer.DeltaCommitter;
 import io.delta.flink.sink.utils.DeltaSinkTestUtils;
 import io.delta.flink.sink.utils.TestParquetReader;
 import org.apache.flink.core.fs.Path;

@@ -34,7 +34,7 @@ package org.apache.flink.streaming.api.functions.sink.filesystem;
  * Lifecycle of instances of this class is as follows:
  * <ol>
  *     <li>Instances of this class are being created inside
- *         {@link io.delta.flink.sink.writer.DeltaWriterBucket#rollPartFile}
+ *         {@link io.delta.flink.sink.internal.writer.DeltaWriterBucket#rollPartFile}
  *         method every time a bucket processes the first event or if the previously opened file
  *         met conditions for rolling (e.g. size threshold)</li>
  *     <li>It's life span holds as long as the underlying file stays in an in-progress state (so

@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package io.delta.flink.sink.writer;
+package io.delta.flink.sink.internal.writer;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -26,7 +26,7 @@ import java.util.Objects;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
-import io.delta.flink.sink.committables.DeltaCommittable;
+import io.delta.flink.sink.internal.committables.DeltaCommittable;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaBulkBucketWriter;

@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package io.delta.flink.sink.writer;
+package io.delta.flink.sink.internal.writer;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.core.fs.Path;

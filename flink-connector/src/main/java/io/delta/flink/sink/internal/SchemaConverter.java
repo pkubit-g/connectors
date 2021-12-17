@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package io.delta.flink.sink;
+package io.delta.flink.sink.internal;
 
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;

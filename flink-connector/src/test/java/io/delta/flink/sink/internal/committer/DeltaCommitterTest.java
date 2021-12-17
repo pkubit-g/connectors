@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package io.delta.flink.sink.committer;
+package io.delta.flink.sink.internal.committer;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -25,8 +25,8 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 
-import io.delta.flink.sink.committables.DeltaCommittable;
-import io.delta.flink.sink.committables.DeltaCommittableSerializer;
+import io.delta.flink.sink.internal.committables.DeltaCommittable;
+import io.delta.flink.sink.internal.committables.DeltaCommittableSerializer;
 import io.delta.flink.sink.utils.DeltaSinkTestUtils;
 import org.apache.flink.connector.file.sink.utils.FileSinkTestUtils;
 import org.apache.flink.connector.file.sink.utils.NoOpBucketWriter;

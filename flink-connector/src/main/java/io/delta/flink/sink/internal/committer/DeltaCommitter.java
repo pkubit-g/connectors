@@ -16,15 +16,15 @@
  * limitations under the License.
  */
 
-package io.delta.flink.sink.committer;
+package io.delta.flink.sink.internal.committer;
 
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 
 import io.delta.flink.sink.DeltaSink;
-import io.delta.flink.sink.committables.DeltaCommittable;
-import io.delta.flink.sink.writer.DeltaWriter;
+import io.delta.flink.sink.internal.committables.DeltaCommittable;
+import io.delta.flink.sink.internal.writer.DeltaWriter;
 import org.apache.flink.api.connector.sink.Committer;
 import org.apache.flink.connector.file.sink.FileSink;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketWriter;
@@ -34,7 +34,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * Committer implementation for {@link DeltaSink}.
  *
  * <p>This committer is responsible for taking staged part-files, i.e. part-files in "pending"
- * state, created by the {@link io.delta.flink.sink.writer.DeltaWriter}
+ * state, created by the {@link io.delta.flink.sink.internal.writer.DeltaWriter}
  * and put them in "finished" state ready to be committed to the DeltaLog during "global" commit.
  *
  * <p> This class behaves almost in the same way as its equivalent

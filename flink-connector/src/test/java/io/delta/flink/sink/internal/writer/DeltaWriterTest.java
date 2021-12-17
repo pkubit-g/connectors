@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package io.delta.flink.sink.writer;
+package io.delta.flink.sink.internal.writer;
 
 import java.io.File;
 import java.io.IOException;
@@ -31,7 +31,7 @@ import java.util.PriorityQueue;
 import java.util.Queue;
 
 import io.delta.flink.sink.DeltaTablePartitionAssigner;
-import io.delta.flink.sink.committables.DeltaCommittable;
+import io.delta.flink.sink.internal.committables.DeltaCommittable;
 import io.delta.flink.sink.utils.DeltaSinkTestUtils;
 import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.api.connector.sink.SinkWriter;

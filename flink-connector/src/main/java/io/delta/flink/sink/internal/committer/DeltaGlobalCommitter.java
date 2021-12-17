@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package io.delta.flink.sink.committer;
+package io.delta.flink.sink.internal.committer;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,10 +33,10 @@ import javax.annotation.Nullable;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.delta.flink.sink.Meta;
-import io.delta.flink.sink.SchemaConverter;
-import io.delta.flink.sink.committables.DeltaCommittable;
-import io.delta.flink.sink.committables.DeltaGlobalCommittable;
+import io.delta.flink.sink.internal.Meta;
+import io.delta.flink.sink.internal.SchemaConverter;
+import io.delta.flink.sink.internal.committables.DeltaCommittable;
+import io.delta.flink.sink.internal.committables.DeltaGlobalCommittable;
 import org.apache.flink.api.connector.sink.GlobalCommitter;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
