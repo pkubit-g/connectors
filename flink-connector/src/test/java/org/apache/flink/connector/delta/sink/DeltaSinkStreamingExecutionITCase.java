@@ -171,7 +171,6 @@ public class DeltaSinkStreamingExecutionITCase extends StreamingExecutionFileSin
     @Override
     protected JobGraph createJobGraph(String path) {
         StreamExecutionEnvironment env = getTestStreamEnv();
-
         env.addSource(new DeltaStreamingExecutionTestSource(latchId, NUM_RECORDS, triggerFailover))
             .setParallelism(NUM_SOURCES)
             .sinkTo(DeltaSinkTestUtils.createDeltaSink(deltaTablePath, isPartitioned))

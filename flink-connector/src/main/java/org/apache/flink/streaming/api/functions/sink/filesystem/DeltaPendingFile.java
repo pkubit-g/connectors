@@ -112,7 +112,7 @@ public class DeltaPendingFile {
      *
      * @return {@link AddFile} object generated from input
      */
-    public AddFile convertDeltaPendingFileToAddFileAction() {
+    public AddFile toAddFile() {
         LinkedHashMap<String, String> partitionSpec = this.getPartitionSpec();
         long modificationTime = this.getLastUpdateTime();
         String filePath = PartitionPathUtils.generatePartitionPath(partitionSpec) +

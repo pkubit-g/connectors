@@ -92,7 +92,7 @@ public class DeltaSinkBuilder<IN> implements Serializable {
      * those will not match. The update is not guaranteed as they will be still some checks
      * performed whether the updates to the schema are compatible.
      */
-    private boolean canTryUpdateSchema;
+    private boolean shouldTryUpdateSchema;
 
     /**
      * Serializable wrapper for {@link Configuration} object
@@ -111,7 +111,7 @@ public class DeltaSinkBuilder<IN> implements Serializable {
      * the user can specify a bucketCheckInterval and the sink will check
      * periodically and roll the part file if the specified rolling policy says so.
      */
-    private long bucketCheckInterval;
+    private final long bucketCheckInterval;
 
     private final ParquetWriterFactory<IN> writerFactory;
 
@@ -128,7 +128,7 @@ public class DeltaSinkBuilder<IN> implements Serializable {
         BucketAssigner<IN, String> assigner,
         CheckpointRollingPolicy<IN, String> policy,
         RowType rowType,
-        boolean canTryUpdateSchema) {
+        boolean shouldTryUpdateSchema) {
         this(
             basePath,
             conf,
@@ -139,7 +139,7 @@ public class DeltaSinkBuilder<IN> implements Serializable {
             OutputFileConfig.builder().withPartSuffix(".snappy.parquet").build(),
             generateNewAppId(),
             rowType,
-            canTryUpdateSchema
+            shouldTryUpdateSchema
         );
     }
 
@@ -153,7 +153,7 @@ public class DeltaSinkBuilder<IN> implements Serializable {
         OutputFileConfig outputFileConfig,
         String appId,
         RowType rowType,
-        boolean canTryUpdateSchema) {
+        boolean shouldTryUpdateSchema) {
         this.tableBasePath = checkNotNull(basePath);
         this.serializableConfiguration = new SerializableConfiguration(checkNotNull(conf));
         this.bucketCheckInterval = bucketCheckInterval;
@@ -163,7 +163,7 @@ public class DeltaSinkBuilder<IN> implements Serializable {
         this.outputFileConfig = checkNotNull(outputFileConfig);
         this.appId = appId;
         this.rowType = rowType;
-        this.canTryUpdateSchema = canTryUpdateSchema;
+        this.shouldTryUpdateSchema = shouldTryUpdateSchema;
     }
 
     public DeltaSinkBuilder<IN> withRowType(RowType rowType) {
@@ -177,11 +177,22 @@ public class DeltaSinkBuilder<IN> implements Serializable {
             outputFileConfig,
             appId,
             rowType,
-            canTryUpdateSchema);
+            shouldTryUpdateSchema);
     }
 
-    public DeltaSinkBuilder<IN> withCanTryUpdateSchema(final boolean canTryUpdateSchema) {
-        this.canTryUpdateSchema = canTryUpdateSchema;
+    /**
+     * Sets the sink's option whether in case of any differences between stream's schema and Delta
+     * table's schema we should try to update it during commit to the
+     * {@link io.delta.standalone.DeltaLog}. The update is not guaranteed as there will be some
+     * compatibility checks performed.
+     *
+     * @param shouldTryUpdateSchema whether we should try to update table's schema with stream's
+     *                              schema in case those will not match. See
+     *                              {@link DeltaSinkBuilder#shouldTryUpdateSchema} for details.
+     * @return builder for {@link DeltaSink}
+     */
+    public DeltaSinkBuilder<IN> withShouldTryUpdateSchema(final boolean shouldTryUpdateSchema) {
+        this.shouldTryUpdateSchema = shouldTryUpdateSchema;
         return this;
     }
 
@@ -191,7 +202,7 @@ public class DeltaSinkBuilder<IN> implements Serializable {
 
     DeltaGlobalCommitter createGlobalCommitter() {
         return new DeltaGlobalCommitter(
-            serializableConfiguration.conf(), tableBasePath, rowType, canTryUpdateSchema);
+            serializableConfiguration.conf(), tableBasePath, rowType, shouldTryUpdateSchema);
     }
 
     Path getTableBasePath() {
@@ -209,11 +220,6 @@ public class DeltaSinkBuilder<IN> implements Serializable {
     ///////////////////////////////////////////////////////////////////////////
     // FileSink-specific methods
     ///////////////////////////////////////////////////////////////////////////
-
-    public DeltaSinkBuilder<IN> withBucketCheckInterval(final long interval) {
-        this.bucketCheckInterval = interval;
-        return this;
-    }
 
     public DeltaSinkBuilder<IN> withBucketAssigner(BucketAssigner<IN, String> assigner) {
         this.bucketAssigner = checkNotNull(assigner);
@@ -295,8 +301,8 @@ public class DeltaSinkBuilder<IN> implements Serializable {
             BucketAssigner<IN, String> assigner,
             CheckpointRollingPolicy<IN, String> policy,
             RowType rowType,
-            boolean canTryUpdateSchema) {
-            super(basePath, conf, writerFactory, assigner, policy, rowType, canTryUpdateSchema);
+            boolean shouldTryUpdateSchema) {
+            super(basePath, conf, writerFactory, assigner, policy, rowType, shouldTryUpdateSchema);
         }
     }
 }

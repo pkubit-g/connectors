@@ -63,7 +63,31 @@ public class DeltaGlobalCommitterTest {
     @Before
     public void setup() throws IOException {
         tablePath = new Path(TEMPORARY_FOLDER.newFolder().toURI());
+    }
 
+    @Test(expected = RuntimeException.class)
+    public void testWrongPartitionOrderWillFail() throws IOException {
+        //GIVEN
+        DeltaSinkTestUtils.initTestForPartitionedTable(tablePath.getPath());
+        DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(
+            DeltaSinkTestUtils.getHadoopConf(),
+            tablePath,
+            DeltaSinkTestUtils.TEST_ROW_TYPE,
+            false // shouldTryUpdateSchema
+        );
+        // the order of below partition spec is different from the one used when initializing test
+        // table
+        LinkedHashMap<String, String> partitionSpec = new LinkedHashMap<String, String>() {{
+                put("c", "d");
+                put("a", "b");
+            }};
+        List<DeltaCommittable> deltaCommittables =
+            DeltaSinkTestUtils.getListOfDeltaCommittables(3, partitionSpec);
+        List<DeltaGlobalCommittable> globalCommittables =
+            Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
+
+        // WHEN
+        globalCommitter.commit(globalCommittables);
     }
 
     @Test
@@ -100,7 +124,7 @@ public class DeltaGlobalCommitterTest {
     }
 
     @Test
-    public void testCanTryUpdateSchemaSetToTrue() throws Exception {
+    public void testShouldTryUpdateSchemaSetToTrue() throws IOException {
         //GIVEN
         DeltaSinkTestUtils.initTestForPartitionedTable(tablePath.getPath());
         DeltaLog deltaLog = DeltaLog.forTable(
@@ -112,13 +136,14 @@ public class DeltaGlobalCommitterTest {
             Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
 
         // add new field to the schema
-        RowType updatedSchema = DeltaSinkTestUtils.addNewColumnToSchema();
+        RowType updatedSchema =
+            DeltaSinkTestUtils.addNewColumnToSchema(DeltaSinkTestUtils.TEST_ROW_TYPE);
 
         DeltaGlobalCommitter globalCommitter = new DeltaGlobalCommitter(
             DeltaSinkTestUtils.getHadoopConf(),
             tablePath,
             updatedSchema,
-            true // canTryUpdateSchema
+            true // shouldTryUpdateSchema
         );
 
         // WHEN
@@ -128,14 +153,14 @@ public class DeltaGlobalCommitterTest {
         // schema before deltaLog.update() is in old format, but after update it equals to the new
         // format
         assertEquals(deltaLog.snapshot().getMetadata().getSchema().toJson(),
-            new SchemaConverter().toDeltaFormat(DeltaSinkTestUtils.TEST_ROW_TYPE).toJson());
+            SchemaConverter.toDeltaDataType(DeltaSinkTestUtils.TEST_ROW_TYPE).toJson());
         deltaLog.update();
         assertEquals(deltaLog.snapshot().getMetadata().getSchema().toJson(),
-            new SchemaConverter().toDeltaFormat(updatedSchema).toJson());
+            SchemaConverter.toDeltaDataType(updatedSchema).toJson());
     }
 
     @Test(expected = RuntimeException.class)
-    public void testCanTryUpdateSchemaSetToFalse() throws Exception {
+    public void testShouldTryUpdateSchemaSetToFalse() throws Exception {
         //GIVEN
         DeltaSinkTestUtils.initTestForPartitionedTable(tablePath.getPath());
 
@@ -145,7 +170,8 @@ public class DeltaGlobalCommitterTest {
             Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
 
         // new schema drops one of the previous columns
-        RowType updatedSchema = DeltaSinkTestUtils.dropOneColumnFromSchema();
+        RowType updatedSchema =
+            DeltaSinkTestUtils.dropOneColumnFromSchema(DeltaSinkTestUtils.TEST_ROW_TYPE);
         DeltaGlobalCommitter globalCommitter = getTestGlobalCommitter(updatedSchema);
 
         // WHEN
@@ -153,7 +179,7 @@ public class DeltaGlobalCommitterTest {
     }
 
     @Test(expected = RuntimeException.class)
-    public void testCanTryUpdateIncompatibleSchema() throws Exception {
+    public void testShouldTryUpdateIncompatibleSchema() throws Exception {
         //GIVEN
         DeltaSinkTestUtils.initTestForPartitionedTable(tablePath.getPath());
 
@@ -163,7 +189,8 @@ public class DeltaGlobalCommitterTest {
             Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
 
         // new schema drops one of the previous columns
-        RowType updatedSchema = DeltaSinkTestUtils.dropOneColumnFromSchema();
+        RowType updatedSchema =
+            DeltaSinkTestUtils.dropOneColumnFromSchema(DeltaSinkTestUtils.TEST_ROW_TYPE);
 
         DeltaGlobalCommitter globalCommitter = getTestGlobalCommitter(updatedSchema);
 
@@ -198,10 +225,12 @@ public class DeltaGlobalCommitterTest {
         int initialTableFilesCount = deltaLog.snapshot().getAllFiles().size();
         assertEquals(-1, deltaLog.snapshot().getVersion());
 
+        // we are putting newer committables first in the collection on purpose - it will also test
+        // if global committer will commit them in correct order
         List<DeltaCommittable> deltaCommittables = DeltaSinkTestUtils.getListOfDeltaCommittables(
-            numAddedFiles1, new LinkedHashMap<>(), 1);
+            numAddedFiles2, 2);
         deltaCommittables.addAll(DeltaSinkTestUtils.getListOfDeltaCommittables(
-            numAddedFiles2, new LinkedHashMap<>(), 2));
+            numAddedFiles1, 1));
         List<DeltaGlobalCommittable> globalCommittables =
             Collections.singletonList(new DeltaGlobalCommittable(deltaCommittables));
 
@@ -222,7 +251,7 @@ public class DeltaGlobalCommitterTest {
     }
 
     @Test
-    public void testCommittablesFromDifferentCheckpointIntervalOneOutdated() throws IOException {
+    public void testCommittablesFromDifferentCheckpointIntervalOneOutdated() {
         // GIVEN
         // although it does not make any sense for real world scenarios that the retried set of
         // committables is different from the previous one however for this test it better to
@@ -236,13 +265,11 @@ public class DeltaGlobalCommitterTest {
         assertEquals(-1, deltaLog.snapshot().getVersion());
 
         List<DeltaCommittable> deltaCommittables1FirstTrial =
-            DeltaSinkTestUtils.getListOfDeltaCommittables(
-                numAddedFiles1FirstTrial, new LinkedHashMap<>(), 1);
+            DeltaSinkTestUtils.getListOfDeltaCommittables(numAddedFiles1FirstTrial, 1);
         List<DeltaCommittable> deltaCommittables1SecondTrial =
-            DeltaSinkTestUtils.getListOfDeltaCommittables(
-                numAddedFiles1SecondTrial, new LinkedHashMap<>(), 1);
+            DeltaSinkTestUtils.getListOfDeltaCommittables(numAddedFiles1SecondTrial, 1);
         List<DeltaCommittable> deltaCommittables2 = DeltaSinkTestUtils.getListOfDeltaCommittables(
-            numAddedFiles2, new LinkedHashMap<>(), 2);
+            numAddedFiles2, 2);
         List<DeltaCommittable> deltaCommittablesCombined = new ArrayList<>(Collections.emptyList());
         deltaCommittablesCombined.addAll(deltaCommittables1SecondTrial);
         deltaCommittablesCombined.addAll(deltaCommittables2);
@@ -379,7 +406,7 @@ public class DeltaGlobalCommitterTest {
             DeltaSinkTestUtils.getHadoopConf(),
             tablePath,
             schema,
-            false // canTryUpdateSchema
+            false // shouldTryUpdateSchema
         );
     }
 

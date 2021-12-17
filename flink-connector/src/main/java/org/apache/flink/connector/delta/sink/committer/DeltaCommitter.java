@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.connector.sink.Committer;
 import org.apache.flink.connector.delta.sink.DeltaSink;
 import org.apache.flink.connector.delta.sink.committables.DeltaCommittable;
@@ -66,6 +67,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  *         recovered committables from previous commit stage to be re-committed.</li>
  * </ol>
  */
+@Internal
 public class DeltaCommitter implements Committer<DeltaCommittable> {
 
     ///////////////////////////////////////////////////////////////////////////

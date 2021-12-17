@@ -174,10 +174,10 @@ public class DeltaWriterBucketTest {
         // WHEN
         writeData(bucketWriter, testRows);
         List<DeltaCommittable> deltaCommittables = onCheckpointActions(
-                bucketWriter,
-                bucketPath,
-                false // doCommit
-            );
+            bucketWriter,
+            bucketPath,
+            false // doCommit
+        );
 
         // THEN
         assertEquals(deltaCommittables.size(), 1);
@@ -281,19 +281,19 @@ public class DeltaWriterBucketTest {
     // serde test utils
     ///////////////////////////////////////////////////
 
-    private DeltaWriterBucketState serializeAndDeserialize(DeltaWriterBucketState bucketState)
-        throws IOException {
-        DeltaWriterBucketStateSerializer serializer =
-            new DeltaWriterBucketStateSerializer();
-        byte[] data = serializer.serialize(bucketState);
-        return serializer.deserialize(serializer.getVersion(), data);
-    }
-
     private void assertBucketStateEquals(
         DeltaWriterBucketState bucketState, DeltaWriterBucketState deserialized) {
         assertEquals(bucketState.getBucketId(), deserialized.getBucketId());
         assertEquals(bucketState.getBucketPath(), deserialized.getBucketPath());
         assertEquals(bucketState.getAppId(), deserialized.getAppId());
         assertEquals(bucketState.getCheckpointId(), deserialized.getCheckpointId());
+    }
+
+    private DeltaWriterBucketState serializeAndDeserialize(DeltaWriterBucketState bucketState)
+        throws IOException {
+        DeltaWriterBucketStateSerializer serializer =
+            new DeltaWriterBucketStateSerializer();
+        byte[] data = serializer.serialize(bucketState);
+        return serializer.deserialize(serializer.getVersion(), data);
     }
 }

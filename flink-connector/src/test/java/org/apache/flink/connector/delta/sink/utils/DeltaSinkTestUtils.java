@@ -99,20 +99,16 @@ public class DeltaSinkTestUtils {
         return CONVERTER.toInternal(Row.of(name, surname, age));
     }
 
-    public static RowType addNewColumnToSchema() {
-        List<RowType.RowField> fields = new ArrayList<>(
-            DeltaSinkTestUtils.TEST_ROW_TYPE.getFields());
+    public static RowType addNewColumnToSchema(RowType schema) {
+        List<RowType.RowField> fields = new ArrayList<>(schema.getFields());
         fields.add(new RowType.RowField("someNewField", new IntType()));
         return new RowType(fields);
     }
 
-    public static RowType dropOneColumnFromSchema() {
+    public static RowType dropOneColumnFromSchema(RowType schema) {
         List<RowType.RowField> fields = new ArrayList<>(
-            DeltaSinkTestUtils.TEST_ROW_TYPE
-                .getFields()
-                .subList(0, DeltaSinkTestUtils.TEST_ROW_TYPE.getFields().size() - 2)
+            schema.getFields().subList(0, schema.getFields().size() - 2)
         );
-        fields.add(new RowType.RowField("someNewField", new IntType()));
         return new RowType(fields);
     }
 
@@ -186,6 +182,10 @@ public class DeltaSinkTestUtils {
 
     static final String TEST_APP_ID = UUID.randomUUID().toString();
     static final long TEST_CHECKPOINT_ID = new Random().nextInt(10);
+
+    public static List<DeltaCommittable> getListOfDeltaCommittables(int size, long checkpointId) {
+        return getListOfDeltaCommittables(size, new LinkedHashMap<>(), checkpointId);
+    }
 
     public static List<DeltaCommittable> getListOfDeltaCommittables(
         int size, LinkedHashMap<String, String> partitionSpec) {

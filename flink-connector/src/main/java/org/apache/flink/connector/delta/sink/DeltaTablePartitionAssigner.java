@@ -24,6 +24,8 @@ import java.util.LinkedHashMap;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
 import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.SimpleVersionedStringSerializer;
+import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.utils.PartitionPathUtils;
 
 /**
@@ -88,5 +90,19 @@ public class DeltaTablePartitionAssigner<T> implements BucketAssigner<T, String>
          */
         LinkedHashMap<String, String> generatePartitionValues(
             T element, BucketAssigner.Context context);
+    }
+
+    public class DeltaRowDataPartitionComputer implements DeltaPartitionComputer<RowData> {
+
+        RowType rowType;
+        public DeltaRowDataPartitionComputer(RowType rowType) {
+            this.rowType = rowType;
+        }
+
+        @Override
+        public LinkedHashMap<String, String> generatePartitionValues(RowData element, Context context) {
+            rowType.getFields()
+            return null;
+        }
     }
 }

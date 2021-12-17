@@ -18,11 +18,22 @@
 
 package org.apache.flink.connector.delta.sink.committer;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import javax.annotation.Nullable;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.api.connector.sink.GlobalCommitter;
 import org.apache.flink.connector.delta.sink.Meta;
 import org.apache.flink.connector.delta.sink.SchemaConverter;
@@ -65,6 +76,7 @@ import io.delta.standalone.types.StructType;
  *         recovered committables from previous commit stage to be re-committed.</li>
  * </ol>
  */
+@Internal
 public class DeltaGlobalCommitter
     implements GlobalCommitter<DeltaCommittable, DeltaGlobalCommittable> {
 
@@ -89,16 +101,16 @@ public class DeltaGlobalCommitter
     /**
      * Indicator whether the committer should try to commit unmatching schema
      */
-    private final boolean canTryUpdateSchema;
+    private final boolean shouldTryUpdateSchema;
 
     public DeltaGlobalCommitter(Configuration conf,
                                 Path basePath,
                                 RowType rowType,
-                                boolean canTryUpdateSchema) {
+                                boolean shouldTryUpdateSchema) {
         this.conf = conf;
         this.basePath = basePath;
         this.rowType = rowType;
-        this.canTryUpdateSchema = canTryUpdateSchema;
+        this.shouldTryUpdateSchema = shouldTryUpdateSchema;
     }
 
     /**
@@ -207,7 +219,7 @@ public class DeltaGlobalCommitter
                     doCommit(
                         transaction,
                         committablesPerCheckpoint.get(checkpointId),
-                        deltaLog.snapshot().getVersion());
+                        deltaLog.tableExists());
                 }
             }
         }
@@ -225,15 +237,15 @@ public class DeltaGlobalCommitter
      * metadata update along with preparing the final set of metrics and perform the actual commit
      * to the {@link DeltaLog}.
      *
-     * @param transaction {@link OptimisticTransaction} instance that will be used for committing
-     *                     given checkpoint interval
+     * @param transaction  {@link OptimisticTransaction} instance that will be used for
+     *                     committing given checkpoint interval
      * @param committables list of committables for particular checkpoint interval
-     * @param currentSnapshotVersion version of the latest snapshot for the Delta table queried from
-     *                               the {@link DeltaLog}
+     * @param tableExists  indicator whether table already exists or will be created with the next
+     *                     commit
      */
     private void doCommit(OptimisticTransaction transaction,
                           List<DeltaCommittable> committables,
-                          long currentSnapshotVersion) {
+                          boolean tableExists) {
         String appId = committables.get(0).getAppId();
         long checkpointId = committables.get(0).getCheckpointId();
 
@@ -250,18 +262,18 @@ public class DeltaGlobalCommitter
             if (partitionColumnsSet == null) {
                 partitionColumnsSet = currentPartitionCols;
             }
-
             boolean isPartitionColumnsMetadataRetained = compareKeysOfLinkedSets(
                 currentPartitionCols,
                 partitionColumnsSet);
-
             if (!isPartitionColumnsMetadataRetained) {
                 throw new RuntimeException(
                     "Partition columns cannot differ for files in the same checkpointId. " +
-                        "checkpointId=" + checkpointId + " " +
-                        "Partition spec " + deltaPendingFile.getPartitionSpec() +
+                        "checkpointId = " + checkpointId + ", " +
+                        "file = " + deltaPendingFile.getFileName() + ", " +
+                        "partition columns = " +
+                        String.join(",", deltaPendingFile.getPartitionSpec().keySet()) +
                         " does not comply with partition columns from other committables: " +
-                        partitionColumnsSet
+                        String.join(",", partitionColumnsSet)
                 );
             }
 
@@ -271,10 +283,9 @@ public class DeltaGlobalCommitter
 
         List<String> partitionColumns = partitionColumnsSet == null
             ? Collections.emptyList() : new ArrayList<>(partitionColumnsSet);
+        handleMetadataUpdate(tableExists, transaction, partitionColumns);
 
-        handleMetadataUpdate(currentSnapshotVersion, transaction, partitionColumns);
         List<Action> actions = prepareActionsForTransaction(appId, checkpointId, addFileActions);
-
         Map<String, String> operationMetrics = prepareOperationMetrics(
             addFileActions.size(),
             numOutputRows,
@@ -298,49 +309,45 @@ public class DeltaGlobalCommitter
      *   <li>then we compare the schema from above metadata with the current table's schema,
      *   <li>resolved metadata object is added to the transaction only when it's the first commit to
      *       the given Delta table or when the schemas are not matching but the sink was provided
-     *       with option {@link DeltaGlobalCommitter#canTryUpdateSchema} set to true (the commit
+     *       with option {@link DeltaGlobalCommitter#shouldTryUpdateSchema} set to true (the commit
      *       may still fail though if the Delta Standalone Writer will determine that the schemas
      *       are not compatible),
-     *   <li>if the schemas are not matching and {@link DeltaGlobalCommitter#canTryUpdateSchema}
+     *   <li>if the schemas are not matching and {@link DeltaGlobalCommitter#shouldTryUpdateSchema}
      *       was set to false then we throw an exception
      *   <li>if the schemas are matching then we do nothing and let the transaction proceed
      * </ol>
      * <p>
      *
-     * @param currentTableVersion current version of the table's snapshot
-     * @param transaction         DeltaLog's transaction object
-     * @param partitionColumns    list of partitions for the current data stream
+     * @param tableExists      indicator whether table already exists or will be created with the
+     *                         next commit
+     * @param transaction      DeltaLog's transaction object
+     * @param partitionColumns list of partitions for the current data stream
      */
-    private void handleMetadataUpdate(long currentTableVersion,
+    private void handleMetadataUpdate(boolean tableExists,
                                       OptimisticTransaction transaction,
                                       List<String> partitionColumns) {
-        Metadata transactionMetadata = transaction.metadata();
-        if ((currentTableVersion != -1) &&
-            (!partitionColumns.equals(transactionMetadata.getPartitionColumns()))) {
-            String printableTablePartitionColumns;
-            if (transactionMetadata.getPartitionColumns() != null) {
-                printableTablePartitionColumns = Arrays.toString(
-                    transactionMetadata.getPartitionColumns().toArray());
-            } else {
-                printableTablePartitionColumns = "null";
-            }
+        Metadata currentMetadata = transaction.metadata();
+        if (tableExists && (!partitionColumns.equals(currentMetadata.getPartitionColumns()))) {
             throw new RuntimeException(
                 "Stream's partition columns are different from table's partitions columns. \n" +
-                    "provided: " + Arrays.toString(partitionColumns.toArray()) + "\n" +
-                    "is different from: " + printableTablePartitionColumns);
+                    "Columns in data files: " + Arrays.toString(partitionColumns.toArray()) + "\n" +
+                    "Columns in table: " +
+                    Arrays.toString(currentMetadata.getPartitionColumns().toArray()));
         }
 
-        Metadata metadataAction = prepareMetadata(partitionColumns);
-        StructType currentTableSchema = transactionMetadata.getSchema();
-        StructType commitSchema = metadataAction.getSchema();
-        boolean schemasAreMatching = areSchemasEqual(currentTableSchema, commitSchema);
-        if ((currentTableVersion == -1) || (!schemasAreMatching && canTryUpdateSchema)) {
-            transaction.updateMetadata(metadataAction);
+        StructType currentTableSchema = currentMetadata.getSchema();
+        StructType streamSchema = SchemaConverter.toDeltaDataType(rowType);
+        boolean schemasAreMatching = areSchemasEqual(currentTableSchema, streamSchema);
+        if (!tableExists || (!schemasAreMatching && shouldTryUpdateSchema)) {
+            Metadata updatedMetadata = currentMetadata.copyBuilder()
+                .schema(streamSchema)
+                .partitionColumns(partitionColumns)
+                .build();
+            transaction.updateMetadata(updatedMetadata);
         } else if (!schemasAreMatching) {
             String printableCurrentTableSchema = currentTableSchema == null ? "null"
                 : currentTableSchema.toPrettyJson();
-            String printableCommitSchema = commitSchema == null ? "null"
-                : commitSchema.toPrettyJson();
+            String printableCommitSchema = streamSchema.toPrettyJson();
 
             throw new RuntimeException(
                 "DataStream's schema is different from current table's schema. \n" +
@@ -377,21 +384,6 @@ public class DeltaGlobalCommitter
     }
 
     /**
-     * Prepares {@link Metadata} object for current transaction
-     *
-     * @param partitionColumns partition columns for data in current transaction
-     * @return {@link Metadata} object for current transaction
-     */
-    private Metadata prepareMetadata(List<String> partitionColumns) {
-        StructType dataStreamSchema = new SchemaConverter().toDeltaFormat(rowType);
-        return new Metadata
-            .Builder()
-            .partitionColumns(partitionColumns)
-            .schema(dataStreamSchema)
-            .build();
-    }
-
-    /**
      * Prepares {@link Operation} object for current transaction
      *
      * @param partitionColumns partition columns for data in current transaction
@@ -406,6 +398,7 @@ public class DeltaGlobalCommitter
             operationParameters.put("mode", objectMapper.writeValueAsString(APPEND_MODE));
             // we need to perform mapping to JSON object twice for partition columns. First to map
             // the list to string type and then again to make this string JSON encoded
+            // e.g. java array of ["a", "b"] will be mapped as string "[\"a\",\"c\"]"
             operationParameters.put("partitionBy", objectMapper.writeValueAsString(
                 objectMapper.writeValueAsString(partitionColumns)));
         } catch (JsonProcessingException e) {
@@ -446,9 +439,9 @@ public class DeltaGlobalCommitter
      * Prepares operation metrics to be passed to the constructor of {@link Operation} object for
      * current transaction.
      *
-     * @param numAddedFiles   number of added files for current transaction
-     * @param numOutputRows   number of rows written for current transaction
-     * @param numOutputBytes  size in bytes of the written contents for current transaction
+     * @param numAddedFiles  number of added files for current transaction
+     * @param numOutputRows  number of rows written for current transaction
+     * @param numOutputBytes size in bytes of the written contents for current transaction
      * @return resolved operation metrics for current transaction
      */
     private Map<String, String> prepareOperationMetrics(int numAddedFiles,
@@ -458,8 +451,7 @@ public class DeltaGlobalCommitter
         // number of removed files will be supported for different operation modes
         operationMetrics.put(Operation.Metrics.numRemovedFiles, "0");
         operationMetrics.put(Operation.Metrics.numAddedFiles, String.valueOf(numAddedFiles));
-        operationMetrics.put(
-            Operation.Metrics.numOutputRows, String.valueOf(numOutputRows));
+        operationMetrics.put(Operation.Metrics.numOutputRows, String.valueOf(numOutputRows));
         operationMetrics.put(Operation.Metrics.numOutputBytes, String.valueOf(numOutputBytes));
         return operationMetrics;
     }

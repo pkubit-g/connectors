@@ -74,6 +74,7 @@ public class DeltaWriterTest {
     @Parameterized.Parameter(0)
     public Boolean isPartitioned;
 
+    // counter for the records produced by given test instance
     private int testRecordsCount = 0;
 
     @Test

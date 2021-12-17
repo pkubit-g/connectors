@@ -18,6 +18,7 @@
 
 package org.apache.flink.connector.delta.sink;
 
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
 
@@ -28,6 +29,7 @@ import io.delta.standalone.types.*;
  * DeltaLake's specific {@link StructType} which is used for schema-matching comparisons
  * during {@link io.delta.standalone.DeltaLog} commits.
  */
+@Internal
 public class SchemaConverter {
 
     /**
@@ -36,7 +38,7 @@ public class SchemaConverter {
      * @param rowType Flink's logical type of stream's events
      * @return DeltaLake's specific type of stream's events
      */
-    public StructType toDeltaFormat(RowType rowType) {
+    public static StructType toDeltaDataType(RowType rowType) {
         StructField[] fields = rowType.getFields()
                 .stream()
                 .map(rowField -> {
@@ -57,14 +59,8 @@ public class SchemaConverter {
      * @param flinkType Flink's logical type
      * @return DeltaLake's data type
      */
-    public DataType toDeltaDataType(LogicalType flinkType) {
+    public static DataType toDeltaDataType(LogicalType flinkType) {
         switch (flinkType.getTypeRoot()) {
-            case ARRAY:
-                org.apache.flink.table.types.logical.ArrayType arrayType =
-                        (org.apache.flink.table.types.logical.ArrayType) flinkType;
-                LogicalType flinkElementType = arrayType.getElementType();
-                DataType deltaElementType = toDeltaDataType(flinkElementType);
-                return new ArrayType(deltaElementType, flinkElementType.isNullable());
             case BIGINT:
                 return new LongType();
             case BINARY:
@@ -84,19 +80,11 @@ public class SchemaConverter {
                 return new FloatType();
             case INTEGER:
                 return new IntegerType();
-            case MAP:
-                org.apache.flink.table.types.logical.MapType mapType =
-                        (org.apache.flink.table.types.logical.MapType) flinkType;
-                DataType keyType = toDeltaDataType(mapType.getKeyType());
-                DataType valueType = toDeltaDataType(mapType.getValueType());
-                boolean valueCanContainNull = mapType.getValueType().isNullable();
-                return new MapType(keyType, valueType, valueCanContainNull);
             case NULL:
                 return new NullType();
             case SMALLINT:
                 return new ShortType();
             case TIMESTAMP_WITHOUT_TIME_ZONE:
-            case TIMESTAMP_WITH_TIME_ZONE:
             case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                 return new TimestampType();
             case TINYINT:
@@ -104,11 +92,9 @@ public class SchemaConverter {
             case CHAR:
             case VARCHAR:
                 return new StringType();
-            case ROW:
-                return toDeltaFormat((RowType) flinkType);
             default:
                 throw new UnsupportedOperationException(
-                        "Cannot convert unknown type to Flink: " + flinkType);
+                        "Unsupported type: " + flinkType);
         }
     }
 }

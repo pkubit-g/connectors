@@ -298,7 +298,7 @@ public class DeltaSink<IN>
             assigner,
             OnCheckpointRollingPolicy.build(),
             rowType,
-            false // canTryUpdateSchema
+            false // shouldTryUpdateSchema
         );
     }
 }
