@@ -629,7 +629,6 @@ lazy val flinkConnector = (project in file("flink-connector"))
   .settings (
     name := "flink-connector",
     commonSettings,
-    publishArtifact := scalaBinaryVersion.value == "2.12",
     publishArtifact in Test := false,
     crossPaths := false,
     libraryDependencies ++= Seq(
@@ -657,4 +656,4 @@ lazy val flinkConnector = (project in file("flink-connector"))
     }
   )
   .settings(skipReleaseSettings)
-  .dependsOn(standalone)
+  .dependsOn(standaloneCosmetic % "provided")

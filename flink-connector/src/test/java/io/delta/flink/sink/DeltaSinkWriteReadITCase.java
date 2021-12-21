@@ -194,7 +194,7 @@ public class DeltaSinkWriteReadITCase {
      * Runs Flink job in a daemon thread.
      * <p>
      * This workaround is needed because if we try to first run the Flink job and then query the
-     * table with Delta Standalone Reader (DSR) then we are hitting "closes classloader exception"
+     * table with Delta Standalone Reader (DSR) then we are hitting "closed classloader exception"
      * which in short means that finished Flink job closes the classloader for the classes that DSR
      * tries to reuse.
      *
