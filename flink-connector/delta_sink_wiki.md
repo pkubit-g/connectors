@@ -55,11 +55,8 @@ You can add the Flink Connector library as a dependency using your favorite buil
 that it expects packages:
 
 - `delta-standalone`
-- `flink-runtime`
-- `flink-table-runtime-blink` (only for Flink <= 1.13.x)
-- `flink-table-runtime` (only for Flink >= 1.14.x)
-- `flink-table-common`
 - `flink-parquet`
+- `flink-table-common`
 - `hadoop-client`
 
 to be provided. Please see the following build files for more details.
@@ -68,11 +65,14 @@ to be provided. Please see the following build files for more details.
 
 Please replace the versions of the dependencies with the ones you are using.
 
-Scala 2.12:
-
 ```xml
-
 <project>
+    <properties>
+        <scala.main.version>2.12</scala.main.version>
+        <flink-version>1.12.0</flink-version>
+        <hadoop-version>3.1.0</hadoop-version>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>io.delta</groupId>
@@ -81,67 +81,12 @@ Scala 2.12:
         </dependency>
         <dependency>
             <groupId>io.delta</groupId>
-            <artifactId>delta-standalone_2.11</artifactId>
+            <artifactId>delta-standalone_${scala.main.version}</artifactId>
             <version>0.2.1-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
-            <artifactId>flink-runtime</artifactId>
-            <version>${flink-version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-table-runtime-blink_2.11</artifactId>
-            <version>${flink-version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-table-common</artifactId>
-            <version>${flink-version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-parquet_2.11</artifactId>
-            <version>${flink-version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-client</artifactId>
-            <version>3.1.0</version>
-        </dependency>
-    </dependencies>
-</project>
-```
-
-Scala 2.11:
-
-```xml
-
-<project>
-    <dependencies>
-        <dependency>
-            <groupId>io.delta</groupId>
-            <artifactId>flink-connector</artifactId>
-            <version>0.2.1-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>io.delta</groupId>
-            <artifactId>delta-standalone_2.11</artifactId>
-            <version>0.2.1-SNAPSHOT</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-runtime</artifactId>
-            <version>${flink-version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-table-runtime-blink_2.11</artifactId>
-            <version>${flink-version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-parquet_2.11</artifactId>
+            <artifactId>flink-parquet_${scala.main.version}</artifactId>
             <version>${flink-version}</version>
         </dependency>
         <dependency>
@@ -158,46 +103,6 @@ Scala 2.11:
 </project>
 ```
 
-NOTE: if you want to use Flink >= 1.14.0 then instead
-
-```xml
-
-<dependencies>
-    ...
-    <dependency>
-        <groupId>org.apache.flink</groupId>
-        <artifactId>flink-table-runtime-blink_2.12</artifactId>
-        <version>${flink-version}</version>
-    </dependency>
-    <dependency>
-        <groupId>org.apache.flink</groupId>
-        <artifactId>flink-runtime_2.12</artifactId>
-        <version>${flink-version}</version>
-    </dependency>
-    ...
-</dependencies>
-```
-
-you should provide:
-
-```xml
-
-<dependencies>
-    ...
-    <dependency>
-        <groupId>org.apache.flink</groupId>
-        <artifactId>flink-table-runtime_2.12</artifactId>
-        <version>${flink-version}</version>
-    </dependency>
-    <dependency>
-        <groupId>org.apache.flink</groupId>
-        <artifactId>flink-runtime</artifactId>
-        <version>${flink-version}</version>
-    </dependency>
-    ...
-</dependencies>
-```
-
 ### SBT
 
 Please replace the versions of the dependencies with the ones you are using.
@@ -205,11 +110,9 @@ Please replace the versions of the dependencies with the ones you are using.
 ```
 libraryDependencies ++= Seq(
   "io.delta" %% "flink-connector" % "0.2.1-SNAPSHOT",
-  "io.delta" %% "delta-standalone" % "0.2.1-SNAPSHOT",
-  "org.apache.flink" %% "flink-runtime" % flinkVersion,
-  "org.apache.flink" %% "flink-table-runtime-blink" % flinkVersion,
-  "org.apache.flink" % "flink-table-common" % flinkVersion,
+  "io.delta" %% "delta-standalone" % "0.2.1-SNAPSHOT",  
   "org.apache.flink" %% "flink-parquet" % flinkVersion,
+  "org.apache.flink" % "flink-table-common" % flinkVersion,
   "org.apache.hadoop" % "hadoop-client" % hadoopVersion)
 ```
 
@@ -233,14 +136,15 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
+import org.apache.hadoop.conf.Configuration;
 
 public class DeltaSinkExample {
 
     public DataStream<RowData> createDeltaSink(DataStream<RowData> stream,
                                                String deltaTablePath,
                                                RowType rowType) {
-        DeltaSink<RowData> deltaSink =
-            DeltaSink.forDeltaFormat(new Path(deltaTablePath), rowType).build();
+        DeltaSink<RowData> deltaSink = DeltaSink.forRowData(
+            new Path(deltaTablePath), new Configuration(), rowType).build();
         stream.sinkTo(deltaSink);
         return stream;
     }
@@ -280,8 +184,8 @@ public class DeltaSinkExample {
         DeltaTablePartitionAssigner<RowData> partitionAssigner =
             new DeltaTablePartitionAssigner<>(new MultiplePartitioningColumnComputer());
 
-        DeltaSinkBuilder<RowData> deltaSinkBuilder =
-            DeltaSink.forDeltaFormat(new Path(deltaTablePath), ROW_TYPE);
+        DeltaSinkBuilder<RowData> deltaSinkBuilder = DeltaSink.forRowData(
+            new Path(deltaTablePath), new Configuration(), ROW_TYPE);
         deltaSinkBuilder.withBucketAssigner(partitionAssigner);
         DeltaSink<RowData> deltaSink = deltaSinkBuilder.build();
 
@@ -346,8 +250,8 @@ public class DeltaSinkExample {
     }
 
     void run() throws Exception {
-        DeltaSink<RowData> deltaSink =
-            DeltaSink.forDeltaFormat(new Path(TABLE_PATH), ROW_TYPE).build();
+        DeltaSink<RowData> deltaSink = DeltaSink.forRowData(
+            new Path(TABLE_PATH), new Configuration(), ROW_TYPE).build();
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.fromCollection(getTestRowData(100))
             .sinkTo(deltaSink);
