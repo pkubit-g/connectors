@@ -8,6 +8,9 @@ import org.apache.flink.runtime.minicluster.MiniClusterConfiguration;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
+/**
+ * Internal class providing utility methods to run local Flink job in memory.
+ */
 public interface DeltaSinkLocalJobRunner {
 
     default MiniCluster getMiniCluster() {

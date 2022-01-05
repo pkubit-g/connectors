@@ -26,6 +26,9 @@ import org.apache.flink.types.Row;
 
 import java.util.concurrent.ThreadLocalRandom;
 
+/**
+ * Internal class providing mock implementation for example stream source.
+ */
 public class DeltaSinkExampleSourceFunction extends RichParallelSourceFunction<RowData> {
 
     static int NEXT_ROW_INTERVAL_MILLIS = 800;
