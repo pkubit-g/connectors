@@ -21,7 +21,6 @@ package io.delta.flink.sink;
 import java.util.LinkedHashMap;
 import javax.annotation.Nullable;
 
-import io.delta.flink.sink.DeltaTablePartitionAssigner;
 import io.delta.flink.sink.utils.DeltaSinkTestUtils;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
 import org.apache.flink.table.data.RowData;

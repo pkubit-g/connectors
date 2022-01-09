@@ -26,13 +26,11 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-import io.delta.flink.sink.DeltaSink;
-import org.apache.flink.annotation.Internal;
+import io.delta.flink.sink.DeltaTablePartitionAssigner;
+import io.delta.flink.sink.internal.committables.DeltaCommittable;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.api.connector.sink.SinkWriter;
-import io.delta.flink.sink.DeltaTablePartitionAssigner;
-import io.delta.flink.sink.internal.committables.DeltaCommittable;
 import org.apache.flink.connector.file.sink.writer.FileWriter;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
@@ -46,11 +44,11 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
- * A {@link SinkWriter} implementation for {@link DeltaSink}.
+ * A {@link SinkWriter} implementation for {@link io.delta.flink.sink.DeltaSink}.
  *
  * <p>
  * It writes data to and manages the different active {@link DeltaWriterBucket buckets} in the
- * {@link DeltaSink}.
+ * {@link io.delta.flink.sink.DeltaSink}.
  * <p>
  * Most of the logic for this class was sourced from {@link FileWriter} as the behaviour is very
  * similar. The main differences are use of custom implementations for some member classes and also
@@ -60,7 +58,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  * Lifecycle of instances of this class is as follows:
  * <ol>
  *     <li>Every instance is being created via
- *         {@link DeltaSink#createWriter} method</li>
+ *         {@link io.delta.flink.sink.DeltaSink#createWriter} method</li>
  *     <li>Writers' life span is the same as the application's (unless the worker node gets
  *         unresponding and the job manager needs to create a new instance to satisfy the
  *         parallelism)</li>
@@ -71,7 +69,6 @@ import static org.apache.flink.util.Preconditions.checkState;
  *
  * @param <IN> The type of input elements.
  */
-@Internal
 public class DeltaWriter<IN>
     implements SinkWriter<IN, DeltaCommittable, DeltaWriterBucketState>,
     Sink.ProcessingTimeService.ProcessingTimeCallback {

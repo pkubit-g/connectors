@@ -22,21 +22,20 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
-import org.apache.flink.api.connector.sink.Committer;
-import org.apache.flink.api.connector.sink.GlobalCommitter;
-import org.apache.flink.api.connector.sink.Sink;
-import org.apache.flink.api.connector.sink.SinkWriter;
 import io.delta.flink.sink.internal.committables.DeltaCommittable;
 import io.delta.flink.sink.internal.committables.DeltaGlobalCommittable;
 import io.delta.flink.sink.internal.committer.DeltaGlobalCommitter;
 import io.delta.flink.sink.internal.writer.DeltaWriter;
 import io.delta.flink.sink.internal.writer.DeltaWriterBucketState;
+import org.apache.flink.api.connector.sink.Committer;
+import org.apache.flink.api.connector.sink.GlobalCommitter;
+import org.apache.flink.api.connector.sink.Sink;
+import org.apache.flink.api.connector.sink.SinkWriter;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.formats.parquet.ParquetWriterFactory;
 import org.apache.flink.formats.parquet.row.ParquetRowDataBuilder;
-import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
 import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.BasePathBucketAssigner;
 import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.OnCheckpointRollingPolicy;
 import org.apache.flink.table.data.RowData;
@@ -254,35 +253,10 @@ public class DeltaSink<IN>
      * @param rowType  Flink's logical type to indicate the structure of the events in the stream
      * @return builder for the DeltaSink
      */
-    public static DeltaSinkBuilder<RowData> forDeltaFormat(
+    public static DeltaSinkBuilder<RowData> forRowData(
         final Path basePath,
         final Configuration conf,
         final RowType rowType
-    ) {
-        return forDeltaFormat(
-            basePath, conf, rowType, new BasePathBucketAssigner<>()
-        );
-    }
-
-    /**
-     * Convenience method for creating {@link DeltaSink} to a partitioned DeltaLake's table.
-     *
-     * @param basePath root path of the DeltaLake's table
-     * @param conf     Hadoop's conf object that will be used for creating instances of
-     *                 {@link io.delta.standalone.DeltaLog} and will be also passed to the
-     *                 {@link ParquetRowDataBuilder} to create {@link ParquetWriterFactory}
-     * @param rowType  Flink's logical type to indicate the structure of the events in the stream
-     * @param assigner {@link BucketAssigner} object containing the partition assignment behaviour.
-     *                 It is advised to use {@link DeltaTablePartitionAssigner} for most of the
-     *                 cases, however for advanced partition assignment behaviour users can provide
-     *                 their own implementation of {@link BucketAssigner}.
-     * @return builder for the DeltaSink
-     */
-    public static DeltaSinkBuilder<RowData> forDeltaFormat(
-        final Path basePath,
-        final Configuration conf,
-        final RowType rowType,
-        BucketAssigner<RowData, String> assigner
     ) {
         conf.set("parquet.compression", "SNAPPY");
         ParquetWriterFactory<RowData> writerFactory = ParquetRowDataBuilder.createWriterFactory(
@@ -295,7 +269,7 @@ public class DeltaSink<IN>
             basePath,
             conf,
             writerFactory,
-            assigner,
+            new BasePathBucketAssigner<>(),
             OnCheckpointRollingPolicy.build(),
             rowType,
             false // shouldTryUpdateSchema

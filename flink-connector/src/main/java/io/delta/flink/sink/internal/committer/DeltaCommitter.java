@@ -22,11 +22,10 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 
-import org.apache.flink.annotation.Internal;
-import org.apache.flink.api.connector.sink.Committer;
 import io.delta.flink.sink.DeltaSink;
 import io.delta.flink.sink.internal.committables.DeltaCommittable;
 import io.delta.flink.sink.internal.writer.DeltaWriter;
+import org.apache.flink.api.connector.sink.Committer;
 import org.apache.flink.connector.file.sink.FileSink;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketWriter;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -67,7 +66,6 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  *         recovered committables from previous commit stage to be re-committed.</li>
  * </ol>
  */
-@Internal
 public class DeltaCommitter implements Committer<DeltaCommittable> {
 
     ///////////////////////////////////////////////////////////////////////////

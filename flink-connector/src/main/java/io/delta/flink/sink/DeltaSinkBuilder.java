@@ -22,7 +22,6 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.UUID;
 
-import org.apache.flink.api.connector.sink.Sink;
 import io.delta.flink.sink.internal.committables.DeltaCommittable;
 import io.delta.flink.sink.internal.committables.DeltaCommittableSerializer;
 import io.delta.flink.sink.internal.committables.DeltaGlobalCommittable;
@@ -32,6 +31,7 @@ import io.delta.flink.sink.internal.committer.DeltaGlobalCommitter;
 import io.delta.flink.sink.internal.writer.DeltaWriter;
 import io.delta.flink.sink.internal.writer.DeltaWriterBucketState;
 import io.delta.flink.sink.internal.writer.DeltaWriterBucketStateSerializer;
+import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
@@ -89,7 +89,7 @@ public class DeltaSinkBuilder<IN> implements Serializable {
 
     /**
      * Indicator whether we should try to update table's schema with stream's schema in case
-     * those will not match. The update is not guaranteed as they will be still some checks
+     * those will not match. The update is not guaranteed as there will be still some checks
      * performed whether the updates to the schema are compatible.
      */
     private boolean shouldTryUpdateSchema;
@@ -164,20 +164,6 @@ public class DeltaSinkBuilder<IN> implements Serializable {
         this.appId = appId;
         this.rowType = rowType;
         this.shouldTryUpdateSchema = shouldTryUpdateSchema;
-    }
-
-    public DeltaSinkBuilder<IN> withRowType(RowType rowType) {
-        return new DeltaSinkBuilder<>(
-            tableBasePath,
-            serializableConfiguration.conf(),
-            bucketCheckInterval,
-            writerFactory,
-            bucketAssigner,
-            rollingPolicy,
-            outputFileConfig,
-            appId,
-            rowType,
-            shouldTryUpdateSchema);
     }
 
     /**

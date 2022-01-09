@@ -18,8 +18,6 @@
 
 package io.delta.flink.sink.internal.writer;
 
-import io.delta.flink.sink.DeltaSink;
-import org.apache.flink.annotation.Internal;
 import org.apache.flink.core.fs.Path;
 
 /**
@@ -36,7 +34,7 @@ import org.apache.flink.core.fs.Path;
  * but with some modifications like:
  * <ol>
  *   <li>removed snapshotting in-progress file's state because
- *       {@link DeltaSink} is supposed to always roll part
+ *       {@link io.delta.flink.sink.DeltaSink} is supposed to always roll part
  *       files on checkpoint so there is no need to recover any in-progress files' states</li>
  *   <li>extends the state by adding application's unique identifier to guarantee the idempotent
  *       file writes and commits to the {@link io.delta.standalone.DeltaLog}
@@ -48,10 +46,9 @@ import org.apache.flink.core.fs.Path;
  *     finish phase of each checkpoint interval and serialized as a part of snapshotted app's state.
  *     <li>It can be also created by the Flink framework itself during failure/snapshot recovery
  *         when it's deserialized from the snapshotted state and provided as input param collection
- *         to {@link DeltaSink#createWriter}</li>
+ *         to {@link io.delta.flink.sink.DeltaSink#createWriter}</li>
  * </ol>
  */
-@Internal
 public class DeltaWriterBucketState {
 
     private final String bucketId;

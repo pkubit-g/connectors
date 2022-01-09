@@ -33,13 +33,11 @@ import javax.annotation.Nullable;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.delta.flink.sink.DeltaSink;
-import org.apache.flink.annotation.Internal;
-import org.apache.flink.api.connector.sink.GlobalCommitter;
 import io.delta.flink.sink.internal.Meta;
 import io.delta.flink.sink.internal.SchemaConverter;
 import io.delta.flink.sink.internal.committables.DeltaCommittable;
 import io.delta.flink.sink.internal.committables.DeltaGlobalCommittable;
+import org.apache.flink.api.connector.sink.GlobalCommitter;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
 import org.apache.flink.table.types.logical.RowType;
@@ -56,7 +54,7 @@ import io.delta.standalone.types.StructType;
 
 /**
  * A {@link GlobalCommitter} implementation for
- * {@link DeltaSink}.
+ * {@link io.delta.flink.sink.DeltaSink}.
  * <p>
  * It commits written files to the DeltaLog and provides exactly once semantics by guaranteeing
  * idempotence behaviour of the commit phase. It means that when given the same set of
@@ -77,7 +75,6 @@ import io.delta.standalone.types.StructType;
  *         recovered committables from previous commit stage to be re-committed.</li>
  * </ol>
  */
-@Internal
 public class DeltaGlobalCommitter
     implements GlobalCommitter<DeltaCommittable, DeltaGlobalCommittable> {
 

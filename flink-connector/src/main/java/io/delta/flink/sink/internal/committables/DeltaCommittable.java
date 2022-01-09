@@ -20,8 +20,6 @@ package io.delta.flink.sink.internal.committables;
 
 import java.io.Serializable;
 
-import io.delta.flink.sink.DeltaSink;
-import org.apache.flink.annotation.Internal;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -29,7 +27,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * Committable object that carries the information about files written to the file system
  * during particular checkpoint interval.
  * <p>
- * As {@link DeltaSink} implements both
+ * As {@link io.delta.flink.sink.DeltaSink} implements both
  * {@link org.apache.flink.api.connector.sink.Committer} and
  * {@link org.apache.flink.api.connector.sink.GlobalCommitter} and
  * then its committable must provide all metadata for committing data on both levels.
@@ -62,7 +60,6 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  *         no longer recovered and exist only in the previously snapshotted states.</li>
  * </ol>
  */
-@Internal
 public class DeltaCommittable implements Serializable {
 
     private final DeltaPendingFile deltaPendingFile;

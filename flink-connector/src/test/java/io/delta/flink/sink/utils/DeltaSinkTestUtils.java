@@ -31,12 +31,12 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
-import org.apache.commons.io.FileUtils;
-import org.apache.flink.configuration.Configuration;
-import org.apache.flink.configuration.RestOptions;
 import io.delta.flink.sink.DeltaSink;
 import io.delta.flink.sink.DeltaTablePartitionAssigner;
 import io.delta.flink.sink.internal.committables.DeltaCommittable;
+import org.apache.commons.io.FileUtils;
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.RestOptions;
 import org.apache.flink.connector.file.sink.utils.FileSinkTestUtils;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
@@ -122,37 +122,33 @@ public class DeltaSinkTestUtils {
 
     public static LinkedHashMap<String, String> getTestPartitionSpec() {
         return new LinkedHashMap<String, String>() {{
-                put("a", "b");
-                put("c", "d");
+                put("col1", "val1");
+                put("col2", "val2");
             }};
     }
 
     public static final String TEST_DELTA_TABLE_INITIAL_STATE_NP_DIR =
-        "test-data/test-non-partitioned-delta-table-initial-state";
-    public static final String TEST_DELTA_TABLE_INITIAL_STATE_NP_FULL_PATH =
-        DeltaSinkTestUtils.class
-            .getClassLoader()
-            .getResource(TEST_DELTA_TABLE_INITIAL_STATE_NP_DIR)
-            .getPath();
+        "/test-data/test-non-partitioned-delta-table-initial-state";
     public static final String TEST_DELTA_TABLE_INITIAL_STATE_P_DIR =
-        "test-data/test-partitioned-delta-table-initial-state";
-    public static final String TEST_DELTA_TABLE_INITIAL_STATE_P_FULL_PATH =
-        DeltaSinkTestUtils.class
-            .getClassLoader()
-            .getResource(TEST_DELTA_TABLE_INITIAL_STATE_P_DIR)
-            .getPath();
+        "/test-data/test-partitioned-delta-table-initial-state";
 
     public static void initTestForNonPartitionedTable(String targetTablePath)
         throws IOException {
+        File resourcesDirectory = new File("src/test/resources");
+        String initialTablePath =
+            resourcesDirectory.getAbsolutePath() + TEST_DELTA_TABLE_INITIAL_STATE_NP_DIR;
         FileUtils.copyDirectory(
-            new File(TEST_DELTA_TABLE_INITIAL_STATE_NP_FULL_PATH),
+            new File(initialTablePath),
             new File(targetTablePath));
     }
 
     public static void initTestForPartitionedTable(String targetTablePath)
         throws IOException {
+        File resourcesDirectory = new File("src/test/resources");
+        String initialTablePath =
+            resourcesDirectory.getAbsolutePath() + TEST_DELTA_TABLE_INITIAL_STATE_P_DIR;
         FileUtils.copyDirectory(
-            new File(TEST_DELTA_TABLE_INITIAL_STATE_P_FULL_PATH),
+            new File(initialTablePath),
             new File(targetTablePath));
     }
 
@@ -338,14 +334,15 @@ public class DeltaSinkTestUtils {
                                                      boolean isTablePartitioned) {
         if (isTablePartitioned) {
             return DeltaSink
-                .forDeltaFormat(
+                .forRowData(
                     new Path(deltaTablePath),
                     DeltaSinkTestUtils.getHadoopConf(),
-                    DeltaSinkTestUtils.TEST_ROW_TYPE,
-                    getTestPartitionAssigner()).build();
+                    DeltaSinkTestUtils.TEST_ROW_TYPE
+                ).withBucketAssigner(getTestPartitionAssigner())
+                .build();
         }
         return DeltaSink
-            .forDeltaFormat(
+            .forRowData(
                 new Path(deltaTablePath),
                 DeltaSinkTestUtils.getHadoopConf(),
                 DeltaSinkTestUtils.TEST_ROW_TYPE).build();
@@ -354,8 +351,8 @@ public class DeltaSinkTestUtils {
     public static DeltaTablePartitionAssigner<RowData> getTestPartitionAssigner() {
         DeltaTablePartitionAssigner.DeltaPartitionComputer<RowData> partitionComputer =
             (element, context) -> new LinkedHashMap<String, String>() {{
-                    put("a", Integer.toString(ThreadLocalRandom.current().nextInt(0, 2)));
-                    put("c", Integer.toString(ThreadLocalRandom.current().nextInt(0, 2)));
+                    put("col1", Integer.toString(ThreadLocalRandom.current().nextInt(0, 2)));
+                    put("col2", Integer.toString(ThreadLocalRandom.current().nextInt(0, 2)));
                 }};
         return new DeltaTablePartitionAssigner<>(partitionComputer);
     }

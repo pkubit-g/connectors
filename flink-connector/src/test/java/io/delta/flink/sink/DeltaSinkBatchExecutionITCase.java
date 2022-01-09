@@ -25,12 +25,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.LongStream;
 
-import io.delta.flink.sink.DeltaSink;
+import io.delta.flink.sink.utils.DeltaSinkTestUtils;
+import io.delta.flink.sink.utils.TestParquetReader;
 import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ExecutionOptions;
-import io.delta.flink.sink.utils.DeltaSinkTestUtils;
-import io.delta.flink.sink.utils.TestParquetReader;
 import org.apache.flink.connector.file.sink.BatchExecutionFileSinkITCase;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.minicluster.MiniCluster;
