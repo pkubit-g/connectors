@@ -628,7 +628,7 @@ lazy val sqlDeltaImport = (project in file("sql-delta-import"))
   )
   .settings(releaseSettings)
 
-val flinkVersion = "1.12.0"
+val flinkVersion = "1.13.0"
 lazy val flinkConnector = (project in file("flink-connector"))
   .settings (
     name := "flink-connector",
@@ -641,6 +641,7 @@ lazy val flinkConnector = (project in file("flink-connector"))
       "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
       "org.apache.flink" % "flink-connector-files" % flinkVersion % "test" classifier "tests",
       "org.apache.flink" %% "flink-table-runtime-blink" % flinkVersion % "test",
+      "org.apache.flink" %% "flink-table-planner-blink" % flinkVersion % "test",
       "org.apache.flink" % "flink-connector-test-utils" % flinkVersion % "test",
       "org.apache.flink" %% "flink-clients" % flinkVersion % "test",
       "com.github.sbt" % "junit-interface" % "0.12" % Test

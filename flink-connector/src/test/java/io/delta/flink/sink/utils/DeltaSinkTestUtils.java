@@ -60,6 +60,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import io.delta.standalone.DeltaLog;
+
 public class DeltaSinkTestUtils {
 
     ///////////////////////////////////////////////////////////////////////////
@@ -150,6 +152,26 @@ public class DeltaSinkTestUtils {
         FileUtils.copyDirectory(
             new File(initialTablePath),
             new File(targetTablePath));
+    }
+
+    /**
+     * In this method we check in short time intervals for the total time of 10 seconds whether
+     * the DeltaLog for the table has been already created by the Flink job running in the deamon
+     * thread
+     *
+     * @param deltaLog {@link DeltaLog} instance for test table
+     * @throws InterruptedException when the thread is interrupted when waiting for the log to be
+     *                              created
+     */
+    public static void waitUntilDeltaLogExists(DeltaLog deltaLog) throws InterruptedException {
+        int i = 0;
+        while (deltaLog.snapshot().getVersion() < 0) {
+            if (i > 20) throw new RuntimeException(
+                "Timeout. DeltaLog for table has not been initialized");
+            i++;
+            Thread.sleep(500);
+            deltaLog.update();
+        }
     }
 
     ///////////////////////////////////////////////////////////////////////////

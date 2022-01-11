@@ -72,7 +72,8 @@ public class DeltaSinkBatchExecutionITCase extends BatchExecutionFileSinkITCase 
         // GIVEN
         DeltaLog deltaLog = DeltaLog.forTable(DeltaSinkTestUtils.getHadoopConf(), deltaTablePath);
         List<AddFile> initialDeltaFiles = deltaLog.snapshot().getAllFiles();
-        int initialTableRecordsCount = TestParquetReader.readAndValidateAllTableRecords(deltaLog);
+        int initialTableRecordsCount = TestParquetReader.readAndValidateAllTableRecords(
+            deltaLog, DeltaSinkTestUtils.TEST_ROW_TYPE);
         long initialVersion = deltaLog.snapshot().getVersion();
         assertEquals(initialDeltaFiles.size(), 2);
 

@@ -134,7 +134,7 @@ public class DeltaSinkWriteReadITCase {
         // THEN
         DeltaLog deltaLog =
             DeltaLog.forTable(new org.apache.hadoop.conf.Configuration(), deltaTablePath);
-        waitUntilDeltaLogExists(deltaLog);
+        DeltaSinkTestUtils.waitUntilDeltaLogExists(deltaLog);
         validate(deltaLog.snapshot(), testRow);
     }
 
@@ -172,26 +172,6 @@ public class DeltaSinkWriteReadITCase {
         }
         // THEN
         // expect nothing
-    }
-
-    /**
-     * In this method we check in short time intervals for the total time of 10 seconds whether
-     * the DeltaLog for the table has been already created by the Flink job running in the deamon
-     * thread
-     *
-     * @param deltaLog {@link DeltaLog} instance for test table
-     * @throws InterruptedException when the thread is interrupted when waiting for the log to be
-     *                              created
-     */
-    private void waitUntilDeltaLogExists(DeltaLog deltaLog) throws InterruptedException {
-        int i = 0;
-        while (deltaLog.snapshot().getVersion() < 0) {
-            if (i > 20) throw new RuntimeException(
-                "Timeout. DeltaLog for table has not been initialized");
-            i++;
-            Thread.sleep(500);
-            deltaLog.update();
-        }
     }
 
     /**
