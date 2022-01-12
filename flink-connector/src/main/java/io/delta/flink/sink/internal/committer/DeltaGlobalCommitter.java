@@ -42,6 +42,8 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.hadoop.conf.Configuration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.delta.standalone.DeltaLog;
 import io.delta.standalone.Operation;
@@ -77,6 +79,8 @@ import io.delta.standalone.types.StructType;
  */
 public class DeltaGlobalCommitter
     implements GlobalCommitter<DeltaCommittable, DeltaGlobalCommittable> {
+
+    private static final Logger LOG = LoggerFactory.getLogger(DeltaGlobalCommitter.class);
 
     private static final String APPEND_MODE = "Append";
     private static final String ENGINE_INFO = "flink-delta-connector/" + Meta.VERSION;
@@ -252,6 +256,11 @@ public class DeltaGlobalCommitter
         long numOutputRows = 0;
         long numOutputBytes = 0;
         for (DeltaCommittable deltaCommittable : committables) {
+            LOG.info("Committing file to the Delta table: " +
+                "appId=" + deltaCommittable.getAppId() +
+                " checkpointId=" + deltaCommittable.getCheckpointId() +
+                " deltaPendingFile=" + deltaCommittable.getDeltaPendingFile()
+            );
             DeltaPendingFile deltaPendingFile = deltaCommittable.getDeltaPendingFile();
             AddFile action = deltaPendingFile.toAddFile();
             addFileActions.add(action);

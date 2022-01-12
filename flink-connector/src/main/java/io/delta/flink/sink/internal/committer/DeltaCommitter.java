@@ -28,6 +28,8 @@ import io.delta.flink.sink.internal.writer.DeltaWriter;
 import org.apache.flink.api.connector.sink.Committer;
 import org.apache.flink.connector.file.sink.FileSink;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketWriter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -68,6 +70,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 public class DeltaCommitter implements Committer<DeltaCommittable> {
 
+    private static final Logger LOG = LoggerFactory.getLogger(DeltaCommitter.class);
+
     ///////////////////////////////////////////////////////////////////////////
     // FileSink-specific
     ///////////////////////////////////////////////////////////////////////////
@@ -95,6 +99,11 @@ public class DeltaCommitter implements Committer<DeltaCommittable> {
     @Override
     public List<DeltaCommittable> commit(List<DeltaCommittable> committables) throws IOException {
         for (DeltaCommittable committable : committables) {
+            LOG.info("Committing delta committable locally: " +
+                "appId=" + committable.getAppId() +
+                " checkpointId=" + committable.getCheckpointId() +
+                " deltaPendingFile=" + committable.getDeltaPendingFile()
+            );
             bucketWriter.recoverPendingFile(
                 committable.getDeltaPendingFile().getPendingFile()).commitAfterRecovery();
         }

@@ -20,6 +20,8 @@ package io.delta.flink.sink.internal.committables;
 
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -55,9 +57,18 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 public class DeltaGlobalCommittable {
 
+    private static final Logger LOG = LoggerFactory.getLogger(DeltaGlobalCommittable.class);
+
     private final List<DeltaCommittable> deltaCommittables;
 
     public DeltaGlobalCommittable(List<DeltaCommittable> deltaCommittables) {
+        for(DeltaCommittable committable: deltaCommittables) {
+            LOG.info("Creating global committable object with committable for: " +
+                "appId=" + committable.getAppId() +
+                " checkpointId=" + committable.getCheckpointId() +
+                " deltaPendingFile=" + committable.getDeltaPendingFile()
+            );
+        }
         this.deltaCommittables = checkNotNull(deltaCommittables);
     }
 
