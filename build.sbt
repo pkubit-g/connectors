@@ -702,7 +702,7 @@ lazy val flinkConnector = (project in file("flink-connector"))
      * Generate javadoc with `unidoc` command, outputs to `flink-connector/target/javaunidoc`
      * e.g. build/sbt flinkConnector/unidoc
      */
-    javacOptions in (JavaUnidoc, unidoc) := Seq(
+    JavaUnidoc / unidoc / javacOptions := Seq(
       "-public",
       "-windowtitle", "Flink Connector" + version.value.replaceAll("-SNAPSHOT", "") + " JavaDoc",
       "-noqualifier", "java.lang",
@@ -710,13 +710,13 @@ lazy val flinkConnector = (project in file("flink-connector"))
       "-tag", "implNote:a:Implementation Note:",
       "-Xdoclint:all"
     ),
-    unidocAllSources in(JavaUnidoc, unidoc) := {
-      (unidocAllSources in(JavaUnidoc, unidoc)).value
+    JavaUnidoc / unidoc /  unidocAllSources := {
+      (JavaUnidoc / unidoc / unidocAllSources).value
         // include only relevant flink-connector classes
         .map(_.filter(_.getCanonicalPath.contains("/flink-connector/")))
         // exclude internal classes
         .map(_.filterNot(_.getCanonicalPath.contains("/internal/")))
     },
     // Ensure unidoc is run with tests. Must be cleaned before test for unidoc to be generated.
-    (test in Test) := ((test in Test) dependsOn unidoc.in(Compile)).value
+    (Test / test) := ((Test / test) dependsOn (Compile / unidoc)).value
   )
