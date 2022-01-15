@@ -42,6 +42,8 @@ import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.hadoop.conf.Configuration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 import io.delta.standalone.DeltaLog;
@@ -73,33 +75,6 @@ import io.delta.standalone.DeltaLog;
  *      {@link DeltaGlobalCommitter} implementing the commit to the {@link DeltaLog} at the final
  *      stage of each checkpoint.</li>
  * </ul>
- * <p>
- * The relations and lifecycle of objects within given {@link DeltaSink} are as follow
- * <ul>
- *     <li>{@link DeltaSink} is the main class exposing the user-facing methods for creating the
- *         sink</li>
- *     <li>{@link DeltaSinkBuilder} is the builder class for {@link DeltaSink} objects. It
- *         exposes all main configuration settings for creating the sink.</li>
- *     <li>{@link DeltaWriter} is the main interface for Flink's {@link Sink} topology performing
- *         the single unit of work on an event-level and generating the committables that will be
- *         used during commit stage. In our case {@link DeltaWriter} delegates the the actual work
- *         to underlying {@link io.delta.flink.sink.internal.writer.DeltaWriterBucket}
- *         objects. The relation between the writer and its buckets is that the writer manages a
- *         collection of the buckets for which it received the events during given checkpoint
- *         interval. Here one bucket writer corresponds to a one partition in a Delta Lake's table.
- *         So in a given checkpoint interval one writer can have zero, one or multiple buckets.</li>
- *     <li>{@link io.delta.flink.sink.internal.writer.DeltaWriterBucket} is being created
- *         always inside {@link DeltaWriter} instance and corresponds to a one partition in Delta
- *         Lake's table (the partition's path and bucket's output path are matching). It is provided
- *         by the {@link DeltaWriter} with incoming stream's events and passes those events
- *         to a particular</li>
- *         {@link org.apache.flink.streaming.api.functions.sink.filesystem.DeltaBulkPartWriter}
- *         instance that contains underlying logic for flushing data to the OS. Besides that it
- *         manages metadata of the written files and records (both directly and indirectly by using
- *         {@link org.apache.flink.streaming.api.functions.sink.filesystem.DeltaInProgressPart})
- *         and uses those metadata to generate committables' information during a pre-commit
- *         phase.</li>
- * </ul>
  *
  * @param <IN> Type of the elements in the input of the sink that are also the elements to be
  *             written to its output
@@ -113,6 +88,8 @@ import io.delta.standalone.DeltaLog;
  */
 public class DeltaSink<IN>
     implements Sink<IN, DeltaCommittable, DeltaWriterBucketState, DeltaGlobalCommittable> {
+
+    private static final Logger LOG = LoggerFactory.getLogger(DeltaSink.class);
 
     private final DeltaSinkBuilder<IN> sinkBuilder;
 
@@ -146,6 +123,10 @@ public class DeltaSink<IN>
         long nextCheckpointId = restoreOrGetNextCheckpointId(states);
         DeltaWriter<IN> writer = sinkBuilder.createWriter(context, appId, nextCheckpointId);
         writer.initializeState(states);
+        LOG.info("Created new writer for: " +
+            "appId=" + appId +
+            " nextCheckpointId=" + nextCheckpointId
+        );
         return writer;
     }
 

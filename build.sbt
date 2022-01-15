@@ -633,13 +633,15 @@ lazy val flinkConnector = (project in file("flink-connector"))
     publishArtifact in Test := false,
     crossPaths := false,
     libraryDependencies ++= Seq(
-      "org.apache.flink" %% "flink-parquet" % flinkVersion % "provided",
-      "org.apache.flink" % "flink-table-common" % flinkVersion % "provided",
-      "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided",
-      "org.apache.flink" %% "flink-table-runtime-blink" % flinkVersion % "provided",
-      "org.apache.flink" % "flink-connector-files" % flinkVersion % "test" classifier "tests",
-      "org.apache.flink" % "flink-connector-test-utils" % flinkVersion % "test",
-      "com.github.sbt" % "junit-interface" % "0.12" % Test
+      "org.apache.flink" %% "flink-parquet" % flinkVersion % "provided" excludeAll ExclusionRule("org.slf4j", "slf4j-api"),
+      "org.apache.flink" % "flink-table-common" % flinkVersion % "provided" excludeAll ExclusionRule("org.slf4j", "slf4j-api"),
+      "org.apache.hadoop" % "hadoop-client" % hadoopVersion % "provided" excludeAll ExclusionRule("org.slf4j", "slf4j-api"),
+      "org.apache.flink" % "flink-connector-files" % flinkVersion % "test" classifier "tests" excludeAll ExclusionRule("org.slf4j", "slf4j-api"),
+      "org.apache.flink" %% "flink-table-runtime-blink" % flinkVersion % "test" excludeAll ExclusionRule("org.slf4j", "slf4j-api"),
+      "org.apache.flink" %% "flink-table-planner-blink" % flinkVersion % "test" excludeAll ExclusionRule("org.slf4j", "slf4j-api"),
+      "org.apache.flink" % "flink-connector-test-utils" % flinkVersion % "test" excludeAll ExclusionRule("org.slf4j", "slf4j-api"),
+      "org.apache.flink" %% "flink-clients" % flinkVersion % "test" excludeAll ExclusionRule("org.slf4j", "slf4j-api"),
+      "com.github.sbt" % "junit-interface" % "0.12" % Test excludeAll ExclusionRule("org.slf4j", "slf4j-api")
     ),
     // generating source java class with version number to be passed during commit to the DeltaLog as engine info
     // (part of transaction's metadata)

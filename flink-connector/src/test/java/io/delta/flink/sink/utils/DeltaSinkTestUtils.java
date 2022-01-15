@@ -60,6 +60,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import io.delta.standalone.DeltaLog;
+
 public class DeltaSinkTestUtils {
 
     ///////////////////////////////////////////////////////////////////////////
@@ -101,7 +103,7 @@ public class DeltaSinkTestUtils {
 
     public static RowType addNewColumnToSchema(RowType schema) {
         List<RowType.RowField> fields = new ArrayList<>(schema.getFields());
-        fields.add(new RowType.RowField("someNewField", new IntType()));
+        fields.add(new RowType.RowField("col4", new IntType()));
         return new RowType(fields);
     }
 
@@ -131,25 +133,67 @@ public class DeltaSinkTestUtils {
         "/test-data/test-non-partitioned-delta-table-initial-state";
     public static final String TEST_DELTA_TABLE_INITIAL_STATE_P_DIR =
         "/test-data/test-partitioned-delta-table-initial-state";
+    public static final String TEST_DELTA_TABLE_INITIAL_STATE_TABLE_API_DIR =
+        "/test-data/test-table-api";
 
     public static void initTestForNonPartitionedTable(String targetTablePath)
         throws IOException {
+        initTestTable(TEST_DELTA_TABLE_INITIAL_STATE_NP_DIR, targetTablePath);
+    }
+
+    public static void initTestForPartitionedTable(String targetTablePath)
+        throws IOException {
+        initTestTable(TEST_DELTA_TABLE_INITIAL_STATE_P_DIR, targetTablePath);
+    }
+
+    public static void initTestForTableApiTable(String targetTablePath)
+        throws IOException {
+        initTestTable(TEST_DELTA_TABLE_INITIAL_STATE_TABLE_API_DIR, targetTablePath);
+    }
+
+    private static void initTestTable(String sourceTablePath, String targetTablePath)
+        throws IOException {
         File resourcesDirectory = new File("src/test/resources");
         String initialTablePath =
-            resourcesDirectory.getAbsolutePath() + TEST_DELTA_TABLE_INITIAL_STATE_NP_DIR;
+            resourcesDirectory.getAbsolutePath() + sourceTablePath;
         FileUtils.copyDirectory(
             new File(initialTablePath),
             new File(targetTablePath));
     }
 
-    public static void initTestForPartitionedTable(String targetTablePath)
-        throws IOException {
-        File resourcesDirectory = new File("src/test/resources");
-        String initialTablePath =
-            resourcesDirectory.getAbsolutePath() + TEST_DELTA_TABLE_INITIAL_STATE_P_DIR;
-        FileUtils.copyDirectory(
-            new File(initialTablePath),
-            new File(targetTablePath));
+    /**
+     * In this method we check in short time intervals for the total time of 10 seconds whether
+     * the DeltaLog for the table has been already created by the Flink job running in the deamon
+     * thread.
+     *
+     * @param deltaLog {@link DeltaLog} instance for test table
+     * @throws InterruptedException when the thread is interrupted when waiting for the log to be
+     *                              created
+     */
+    public static void waitUntilDeltaLogExists(DeltaLog deltaLog) throws InterruptedException {
+        waitUntilDeltaLogExists(deltaLog, 0L);
+    }
+
+    /**
+     * In this method we check in short time intervals for the total time of 10 seconds whether
+     * the DeltaLog for the table has been already created by the Flink job running in the deamon
+     * thread and whether the table version is equal or higher than specified.
+     *
+     * @param deltaLog {@link DeltaLog} instance for test table
+     * @param minVersion minimum version of the table
+     * @throws InterruptedException when the thread is interrupted when waiting for the log to be
+     *                              created
+     */
+    public static void waitUntilDeltaLogExists(DeltaLog deltaLog, Long minVersion)
+        throws InterruptedException {
+        int i = 0;
+        while (deltaLog.snapshot().getVersion() < minVersion) {
+            if (i > 20) throw new RuntimeException(
+                "Timeout. DeltaLog for table has not been initialized");
+            i++;
+            Thread.sleep(500);
+            deltaLog.update();
+        }
     }
 
     ///////////////////////////////////////////////////////////////////////////
