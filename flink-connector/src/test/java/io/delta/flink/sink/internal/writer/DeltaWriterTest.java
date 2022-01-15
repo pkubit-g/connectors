@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.PriorityQueue;
 import java.util.Queue;
 
-import io.delta.flink.sink.DeltaSink;
 import io.delta.flink.sink.DeltaTablePartitionAssigner;
 import io.delta.flink.sink.internal.committables.DeltaCommittable;
 import io.delta.flink.sink.utils.DeltaSinkTestUtils;
@@ -259,7 +258,7 @@ public class DeltaWriterTest {
     /**
      * This is a simplified test method for only restoring the buckets and it will
      * not restore writer's nextCheckpointId correctly as in case of
-     * {@link DeltaSink#createWriter}
+     * {@link io.delta.flink.sink.DeltaSink#createWriter}
      */
     private DeltaWriter<RowData> restoreWriter(
         Path basePath,
