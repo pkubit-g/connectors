@@ -14,10 +14,10 @@ import java.util.LinkedHashMap;
 /**
  * Demonstrates how the Flink Delta Sink can be used to write data to a partitioned Delta table.
  *
- * If you run this example then application will spawn example local Flink job generating data to the underlying
- * Delta table under directory of "/src/main/resources/example_table". The job will be run in a daemon thread while
- * in the main app's thread there will Delta Standalone Reader application reading and printing all the data to the
- * std out.
+ * If you run this example then application will spawn example local Flink job generating data to
+ * the underlying Delta table under directory of "src/main/resources/example_table". The job will be
+ * run in a daemon thread while in the main app's thread there will Delta Standalone application
+ * reading and printing all the data to the std out.
  */
 public class DeltaSinkPartitionedTableExample extends DeltaSinkExampleBase {
 

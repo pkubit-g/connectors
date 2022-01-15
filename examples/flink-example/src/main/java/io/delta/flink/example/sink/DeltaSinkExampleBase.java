@@ -39,9 +39,7 @@ public abstract class DeltaSinkExampleBase implements DeltaSinkLocalJobRunner {
         printDeltaTableRows(tablePath);
     }
 
-    DeltaSink<RowData> getDeltaSink(String tablePath) {
-        throw new RuntimeException("Not implemented");
-    }
+    abstract DeltaSink<RowData> getDeltaSink(String tablePath)
 
     private StreamExecutionEnvironment getFlinkStreamExecutionEnvironment(String tablePath) {
         DeltaSink<RowData> deltaSink = getDeltaSink(tablePath);

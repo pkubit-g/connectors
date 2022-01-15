@@ -6,17 +6,17 @@ Official Delta Lake connector for [Apache Flink](https://flink.apache.org/).
 
 # Introduction
 
-Flink Delta Lake Connector is a JVM library to read and write data from Apache Flink applications' to a Delta Lake
-tables utilizing [Delta Standalone JVM library](https://github.com/delta-io/connectors). It includes
+Flink Delta Lake Connector is a JVM library to read and write data from Apache Flink applications to Delta Lake tables
+utilizing [Delta Standalone JVM library](https://github.com/delta-io/connectors#delta-standalone). It includes
 
-- Sink for writing data from Apache Flink to a Delta tables
+- Sink for writing data from Apache Flink to a Delta table
 - Source for reading Delta Lake's table using Apache Flink (still in progress)
 
 NOTE:
 
 - currently only sink is supported which means that this connectors supports only writing to a Delta table and is not
-  able to read from it,
-- Flink DeltaSink provides exactly-one delivery guarantees
+  able to read from it
+- Flink DeltaSink provides exactly-once delivery guarantees
 - depending on the version of the connector you can use it with following Apache Flink versions:
   
   | connector's version  | Flink's version |
@@ -201,7 +201,7 @@ public class DeltaSinkExample {
 No, currently we are supporting only writing to a Delta Lake table. `DeltaSource` with the support for reading data from
 Delta's tables will be added in future releases.
 
-#### Can I use this connector to append data to a Delta Lake Table?
+#### Can I use this connector to append data to a Delta Lake table?
 
 Yes, you can use this connector to append data to either an existing or a new Delta Lake Table (if there is no existing
 Delta Log in a given path then it will be created by the connector).
@@ -215,7 +215,7 @@ No, currently only append is supported, other modes may be added in future relea
 If you are using DataStream API then you have to provide a
 `org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner` instance while building the sink instace. You
 are free to roll out your own implementation of bucket assigner or use utility one provided by the connector
-as `delta.io.flink.DeltaTablePartitionAssigner`.
+as `delta.io.flink.DeltaTablePartitionAssigner` ([see example implementation](../examples/flink-example/src/main/java/io/delta/flink/example/sink/DeltaSinkPartitionedTableExample.java)).
 
 #### Why do I need to specify the table schema? Shouldn’t it exist in the underlying Delta table metadata or cannot be extracted from the stream's metadata?
 
@@ -226,8 +226,8 @@ order not to violate the integrity of the table.
 #### What if I change the underlying Delta table schema ?
 
 Next commit (after mentioned schema change) performed from the DeltaSink to a DeltaLog will fail unless you will
-set `shouldTryUpdateSchema` param to true. In such case DeltaStandaloneWriter will try to merge both schemas and check
-for their compatibility. If this check will fail (e.g. the change consisted of removing a column) so will the DeltaLog's
+set `shouldTryUpdateSchema` param to true. In such case DeltaStandalone will try to merge both schemas and check for
+their compatibility. If this check will fail (e.g. the change consisted of removing a column) so will the DeltaLog's
 commit which will cause failure of the Flink job.
 
 ## Local Development & Testing

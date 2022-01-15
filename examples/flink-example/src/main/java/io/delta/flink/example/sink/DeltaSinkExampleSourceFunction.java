@@ -28,6 +28,10 @@ import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Internal class providing mock implementation for example stream source.
+ * <p>
+ * This streaming source will be generating events of type {@link DeltaSinkExample.ROW_TYPE} with
+ * interval of {@link DeltaSinkExampleSourceFunction.NEXT_ROW_INTERVAL_MILLIS} that will be further
+ * fed to the Flink job until the parent process is stopped.
  */
 public class DeltaSinkExampleSourceFunction extends RichParallelSourceFunction<RowData> {
 
