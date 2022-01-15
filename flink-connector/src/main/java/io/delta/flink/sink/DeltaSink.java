@@ -25,6 +25,7 @@ import java.util.Optional;
 import io.delta.flink.sink.internal.committables.DeltaCommittable;
 import io.delta.flink.sink.internal.committables.DeltaGlobalCommittable;
 import io.delta.flink.sink.internal.committer.DeltaGlobalCommitter;
+import io.delta.flink.sink.internal.logging.Logging;
 import io.delta.flink.sink.internal.writer.DeltaWriter;
 import io.delta.flink.sink.internal.writer.DeltaWriterBucketState;
 import org.apache.flink.api.connector.sink.Committer;
@@ -42,8 +43,6 @@ import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.hadoop.conf.Configuration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 import io.delta.standalone.DeltaLog;
@@ -87,9 +86,7 @@ import io.delta.standalone.DeltaLog;
  * from FileSink.
  */
 public class DeltaSink<IN>
-    implements Sink<IN, DeltaCommittable, DeltaWriterBucketState, DeltaGlobalCommittable> {
-
-    private static final Logger LOG = LoggerFactory.getLogger(DeltaSink.class);
+    implements Sink<IN, DeltaCommittable, DeltaWriterBucketState, DeltaGlobalCommittable>, Logging {
 
     private final DeltaSinkBuilder<IN> sinkBuilder;
 
@@ -123,7 +120,7 @@ public class DeltaSink<IN>
         long nextCheckpointId = restoreOrGetNextCheckpointId(states);
         DeltaWriter<IN> writer = sinkBuilder.createWriter(context, appId, nextCheckpointId);
         writer.initializeState(states);
-        LOG.info("Created new writer for: " +
+        getLogger().info("Created new writer for: " +
             "appId=" + appId +
             " nextCheckpointId=" + nextCheckpointId
         );

@@ -24,12 +24,11 @@ import java.util.List;
 
 import io.delta.flink.sink.DeltaSink;
 import io.delta.flink.sink.internal.committables.DeltaCommittable;
+import io.delta.flink.sink.internal.logging.Logging;
 import io.delta.flink.sink.internal.writer.DeltaWriter;
 import org.apache.flink.api.connector.sink.Committer;
 import org.apache.flink.connector.file.sink.FileSink;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketWriter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -68,9 +67,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  *         recovered committables from previous commit stage to be re-committed.</li>
  * </ol>
  */
-public class DeltaCommitter implements Committer<DeltaCommittable> {
-
-    private static final Logger LOG = LoggerFactory.getLogger(DeltaCommitter.class);
+public class DeltaCommitter implements Committer<DeltaCommittable>, Logging {
 
     ///////////////////////////////////////////////////////////////////////////
     // FileSink-specific
@@ -99,7 +96,7 @@ public class DeltaCommitter implements Committer<DeltaCommittable> {
     @Override
     public List<DeltaCommittable> commit(List<DeltaCommittable> committables) throws IOException {
         for (DeltaCommittable committable : committables) {
-            LOG.info("Committing delta committable locally: " +
+            getLogger().info("Committing delta committable locally: " +
                 "appId=" + committable.getAppId() +
                 " checkpointId=" + committable.getCheckpointId() +
                 " deltaPendingFile=" + committable.getDeltaPendingFile()
