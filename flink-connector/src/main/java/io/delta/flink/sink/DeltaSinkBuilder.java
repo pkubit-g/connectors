@@ -105,7 +105,7 @@ public class DeltaSinkBuilder<IN> implements Serializable {
 
     /**
      * Interval for triggering {@link Sink.ProcessingTimeService} within
-     * {@link io.delta.flink.sink.internal.writer.DeltaWriter} instance.
+     * {@code io.delta.flink.sink.internal.writer.DeltaWriter} instance.
      * <p>
      * In some scenarios, the open buckets are required to change based on time. In these cases,
      * the user can specify a bucketCheckInterval and the sink will check

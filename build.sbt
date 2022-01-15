@@ -716,6 +716,8 @@ lazy val flinkConnector = (project in file("flink-connector"))
         .map(_.filter(_.getCanonicalPath.contains("/flink-connector/")))
         // exclude internal classes
         .map(_.filterNot(_.getCanonicalPath.contains("/internal/")))
+        // exclude flink package
+        .map(_.filterNot(_.getCanonicalPath.contains("org/apache/flink/")))
     },
     // Ensure unidoc is run with tests. Must be cleaned before test for unidoc to be generated.
     (Test / test) := ((Test / test) dependsOn (Compile / unidoc)).value
