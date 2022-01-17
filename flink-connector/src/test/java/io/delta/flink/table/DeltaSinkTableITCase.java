@@ -31,6 +31,8 @@ import org.apache.flink.api.common.RuntimeExecutionMode;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.table.api.EnvironmentSettings;
+import org.apache.flink.table.api.TableEnvironment;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.table.types.logical.IntType;
 import org.apache.flink.table.types.logical.RowType;
@@ -62,15 +64,20 @@ public class DeltaSinkTableITCase {
     ));
 
     @Parameterized.Parameters(
-        name = "isPartitioned = {0}, includeOptionalOptions = {1}, useStaticPartition = {2}"
+        name = "isPartitioned = {0}, " +
+            "includeOptionalOptions = {1}, " +
+            "useStaticPartition = {2}, " +
+            "useBoundedMode = {3}"
     )
     public static Collection<Object[]> params() {
         return Arrays.asList(
-            new Object[]{false, false, false},
-            new Object[]{false, true, false},
-            new Object[]{true, false, false},
-            new Object[]{true, false, true}
-        );
+            // isPartitioned, includeOptionalOptions, useStaticPartition, useBoundedMode
+            new Object[]{false, false, false, false},
+            new Object[]{false, true, false, false},
+            new Object[]{true, false, false, false},
+            new Object[]{true, false, true, false});
+            // can uncomment below line only when connector is updated to Flink >= 1.14
+            // new Object[]{false, false, false, true}
     }
 
     @Parameterized.Parameter(0)
@@ -82,9 +89,10 @@ public class DeltaSinkTableITCase {
     @Parameterized.Parameter(2)
     public Boolean useStaticPartition;
 
+    @Parameterized.Parameter(3)
+    public Boolean useBoundedMode;
+
     private String deltaTablePath;
-    protected StreamExecutionEnvironment streamEnv;
-    protected StreamTableEnvironment tableEnv;
     protected RowType testRowType = TEST_ROW_TYPE;
 
     @Before
@@ -109,7 +117,11 @@ public class DeltaSinkTableITCase {
         List<AddFile> initialDeltaFiles = deltaLog.snapshot().getAllFiles();
 
         // WHEN
-        runFlinkJobInBackground();
+        if (useBoundedMode) {
+            runFlinkJob();
+        } else {
+            runFlinkJobInBackground();
+        }
         DeltaSinkTestUtils.waitUntilDeltaLogExists(deltaLog, deltaLog.snapshot().getVersion() + 1);
 
         // THEN
@@ -160,8 +172,16 @@ public class DeltaSinkTableITCase {
     }
 
     private void runFlinkJob() throws ExecutionException, InterruptedException {
-        streamEnv = getTestStreamEnv();
-        tableEnv = StreamTableEnvironment.create(streamEnv);
+        TableEnvironment tableEnv;
+        if (useBoundedMode) {
+            EnvironmentSettings settings = EnvironmentSettings
+                .newInstance()
+                .inBatchMode()
+                .build();
+            tableEnv = TableEnvironment.create(settings);
+        } else {
+            tableEnv = StreamTableEnvironment.create(getTestStreamEnv());
+        }
 
         final String testSourceTableName = "test_source_table";
         String sourceSql = buildSourceTableSql(testSourceTableName, 10);
@@ -181,7 +201,7 @@ public class DeltaSinkTableITCase {
         }
     }
 
-    private static StreamExecutionEnvironment getTestStreamEnv() {
+    private StreamExecutionEnvironment getTestStreamEnv() {
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         env.getConfig().setRestartStrategy(RestartStrategies.noRestart());
         env.setRuntimeMode(RuntimeExecutionMode.STREAMING);
@@ -191,6 +211,7 @@ public class DeltaSinkTableITCase {
 
     private String buildSourceTableSql(String testSourceTableName, int rows) {
         String additionalCol = includeOptionalOptions ? ", col4 INT " : "";
+        String rowLimit = useBoundedMode ? "'number-of-rows' = '1'," : "";
         return String.format(
             "CREATE TABLE %s ("
                 + " col1 VARCHAR,"
@@ -199,7 +220,8 @@ public class DeltaSinkTableITCase {
                 + additionalCol
                 + ") WITH ("
                 + " 'connector' = 'datagen',"
-                + " 'rows-per-second' = '1'"
+                + rowLimit
+                + " 'rows-per-second' = '20'"
                 + ")",
             testSourceTableName, rows);
     }
@@ -225,7 +247,7 @@ public class DeltaSinkTableITCase {
                 + ") "
                 + partitionedClause
                 + "WITH ("
-                + " 'connector' = 'deltalake',"
+                + " 'connector' = 'delta',"
                 + optionalTableOptions
                 + " 'table-path' = '%s'"
                 + ")",
