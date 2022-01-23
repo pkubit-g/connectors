@@ -60,7 +60,7 @@ public class DeltaGlobalCommittable implements Logging {
 
     public DeltaGlobalCommittable(List<DeltaCommittable> deltaCommittables) {
         for (DeltaCommittable committable : deltaCommittables) {
-            getLogger().info("Creating global committable object with committable for: " +
+            logInfo("Creating global committable object with committable for: " +
                 "appId=" + committable.getAppId() +
                 " checkpointId=" + committable.getCheckpointId() +
                 " deltaPendingFile=" + committable.getDeltaPendingFile()

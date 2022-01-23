@@ -120,7 +120,7 @@ public class DeltaSink<IN>
         long nextCheckpointId = restoreOrGetNextCheckpointId(states);
         DeltaWriter<IN> writer = sinkBuilder.createWriter(context, appId, nextCheckpointId);
         writer.initializeState(states);
-        getLogger().info("Created new writer for: " +
+        logInfo("Created new writer for: " +
             "appId=" + appId +
             " nextCheckpointId=" + nextCheckpointId
         );

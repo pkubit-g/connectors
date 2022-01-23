@@ -96,7 +96,7 @@ public class DeltaCommitter implements Committer<DeltaCommittable>, Logging {
     @Override
     public List<DeltaCommittable> commit(List<DeltaCommittable> committables) throws IOException {
         for (DeltaCommittable committable : committables) {
-            getLogger().info("Committing delta committable locally: " +
+            logInfo("Committing delta committable locally: " +
                 "appId=" + committable.getAppId() +
                 " checkpointId=" + committable.getCheckpointId() +
                 " deltaPendingFile=" + committable.getDeltaPendingFile()

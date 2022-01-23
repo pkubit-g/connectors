@@ -313,8 +313,8 @@ public class DeltaWriter<IN>
                 continue;
             }
 
-            if (getLogger().isDebugEnabled()) {
-                getLogger().debug("Restoring: {}", state);
+            if (isDebugEnabled()) {
+                logDebug("Restoring: {}", state);
             }
 
             DeltaWriterBucket<IN> restoredBucket =

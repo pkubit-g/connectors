@@ -82,7 +82,7 @@ public class DeltaCommittable implements Serializable, Logging {
     public DeltaCommittable(DeltaPendingFile deltaPendingFile,
                             String appId,
                             long checkpointId) {
-        getLogger().info("Creating committable object for: " +
+        logInfo("Creating committable object for: " +
             "appId=" + appId +
             " checkpointId=" + checkpointId +
             " deltaPendingFile=" + deltaPendingFile

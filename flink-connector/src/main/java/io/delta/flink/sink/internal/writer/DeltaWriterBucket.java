@@ -173,8 +173,8 @@ public class DeltaWriterBucket<IN> implements Logging {
         if (deltaInProgressPart != null) {
             if (rollingPolicy.shouldRollOnCheckpoint(deltaInProgressPart.getBulkPartWriter())
                 || flush) {
-                if (getLogger().isDebugEnabled()) {
-                    getLogger().debug(
+                if (isDebugEnabled()) {
+                    logDebug(
                         "Closing in-progress part file for bucket id={} on checkpoint.",
                         bucketId);
                 }
@@ -238,8 +238,8 @@ public class DeltaWriterBucket<IN> implements Logging {
 
         final Path partFilePath = assembleNewPartPath();
 
-        if (getLogger().isDebugEnabled()) {
-            getLogger().debug(
+        if (isDebugEnabled()) {
+            logDebug(
                 "Opening new part file \"{}\" for bucket id={}.",
                 partFilePath.getName(),
                 bucketId);
@@ -249,7 +249,7 @@ public class DeltaWriterBucket<IN> implements Logging {
             (DeltaBulkPartWriter<IN, String>) bucketWriter.openNewInProgressFile(
                 bucketId, partFilePath, currentTime);
 
-        getLogger().debug(
+        logDebug(
             "Successfully opened new part file \"{}\" for bucket id={}.",
             partFilePath.getName(),
             bucketId);
@@ -317,8 +317,8 @@ public class DeltaWriterBucket<IN> implements Logging {
     void write(IN element, long currentTime) throws IOException {
         if (deltaInProgressPart == null || rollingPolicy.shouldRollOnEvent(
             deltaInProgressPart.getBulkPartWriter(), element)) {
-            if (getLogger().isDebugEnabled()) {
-                getLogger().debug(
+            if (isDebugEnabled()) {
+                logDebug(
                     "Opening new part file for bucket id={} due to element {}.",
                     bucketId,
                     element);
@@ -346,8 +346,8 @@ public class DeltaWriterBucket<IN> implements Logging {
         bucket.closePartFile();
         pendingFiles.addAll(bucket.pendingFiles);
 
-        if (getLogger().isDebugEnabled()) {
-            getLogger().debug("Merging buckets for bucket id={}", bucketId);
+        if (isDebugEnabled()) {
+            logDebug("Merging buckets for bucket id={}", bucketId);
         }
     }
 
@@ -370,8 +370,8 @@ public class DeltaWriterBucket<IN> implements Logging {
             deltaInProgressPart.getBulkPartWriter(), timestamp)) {
             InProgressFileWriter<IN, String> inProgressPart =
                 deltaInProgressPart.getBulkPartWriter();
-            if (getLogger().isDebugEnabled()) {
-                getLogger().debug(
+            if (isDebugEnabled()) {
+                logDebug(
                     "Bucket {} closing in-progress part file for part file id={} due to " +
                         "processing time rolling policy (in-progress file created @ {}," +
                         " last updated @ {} and current time is {}).",

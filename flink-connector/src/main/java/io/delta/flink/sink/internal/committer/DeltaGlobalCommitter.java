@@ -220,7 +220,7 @@ public class DeltaGlobalCommitter
                         committablesPerCheckpoint.get(checkpointId),
                         deltaLog.tableExists());
                 } else {
-                    getLogger().info(String.format(
+                    logInfo(String.format(
                         "Skipping already committed transaction (appId='%s', checkpointId='%s')",
                         appId, checkpointId));
                 }
@@ -259,9 +259,9 @@ public class DeltaGlobalCommitter
 
         StringBuilder logFiles = new StringBuilder();
         for (DeltaCommittable deltaCommittable : committables) {
-            logFiles.append("\ndeltaPendingFile=").append(deltaCommittable.getDeltaPendingFile());
+            logFiles.append(" deltaPendingFile=").append(deltaCommittable.getDeltaPendingFile());
         }
-        getLogger().info("Files to be committed to the Delta table: " +
+        logInfo("Files to be committed to the Delta table: " +
             "appId=" + appId +
             " checkpointId=" + checkpointId +
             " files:" + logFiles
@@ -309,11 +309,11 @@ public class DeltaGlobalCommitter
             operationMetrics
         );
 
-        getLogger().info(String.format(
+        logInfo(String.format(
             "Attempting to commit transaction (appId='%s', checkpointId='%s')",
             appId, checkpointId));
         transaction.commit(actions, operation, ENGINE_INFO);
-        getLogger().info(String.format(
+        logInfo(String.format(
             "Successfully committed transaction (appId='%s', checkpointId='%s')",
             appId, checkpointId));
     }
