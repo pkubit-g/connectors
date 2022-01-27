@@ -20,10 +20,15 @@ package io.delta.flink.sink;
 
 import java.io.Serializable;
 import java.util.LinkedHashMap;
+import java.util.List;
 
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
 import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.SimpleVersionedStringSerializer;
+import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.types.logical.LogicalType;
+import org.apache.flink.table.types.logical.LogicalTypeRoot;
+import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.utils.PartitionPathUtils;
 
 /**
@@ -49,7 +54,7 @@ public class DeltaTablePartitionAssigner<T> implements BucketAssigner<T, String>
     }
 
     @Override
-    public String getBucketId(T element, Context context) {
+    public String getBucketId(T element, BucketAssigner.Context context) {
         LinkedHashMap<String, String> partitionValues =
             this.partitionComputer.generatePartitionValues(element, context);
         return PartitionPathUtils.generatePartitionPath(partitionValues);
@@ -82,11 +87,85 @@ public class DeltaTablePartitionAssigner<T> implements BucketAssigner<T, String>
          * '/some_path/table_1/date=2020-01-01/country=x'.
          *
          * @param element input record.
-         * @param context {@link Context} that can be used during partition's
+         * @param context {@link BucketAssigner.Context} that can be used during partition's
          *                assignment
          * @return partition values.
          */
         LinkedHashMap<String, String> generatePartitionValues(
-            T element, Context context);
+            T element, BucketAssigner.Context context);
+    }
+
+    /**
+     * Implementation of {@link DeltaPartitionComputer} for stream which elements are instances of
+     * {@link RowData}.
+     * <p>
+     * This partition computer resolves partition values by extracting them from element's fields
+     * by provided partitions' names. This behaviour can be overridden by providing static values
+     * for partitions' fields.
+     */
+    public static class DeltaRowDataPartitionComputer implements DeltaPartitionComputer<RowData> {
+
+        private final LinkedHashMap<String, String> staticPartitionSpec;
+        RowType rowType;
+        List<String> partitionKeys;
+
+        /**
+         * Creates instance of partition computer for {@link RowData}
+         *
+         * @param rowType       logical schema of the records in the stream/table
+         * @param partitionKeys list of partition column names in the order they should be applied
+         *                      when creating a destination path
+         */
+        public DeltaRowDataPartitionComputer(RowType rowType,
+                                             List<String> partitionKeys) {
+            this.rowType = rowType;
+            this.partitionKeys = partitionKeys;
+            this.staticPartitionSpec = new LinkedHashMap<>();
+        }
+
+        /**
+         * Creates instance of partition computer for {@link RowData}
+         *
+         * @param rowType             logical schema of the records in the stream/table
+         * @param partitionKeys       list of partition column names in the order they should be
+         *                            applied when creating a destination path
+         * @param staticPartitionSpec static values for partitions that should not be derived from
+         *                            the content of the records
+         */
+        public DeltaRowDataPartitionComputer(RowType rowType,
+                                             List<String> partitionKeys,
+                                             LinkedHashMap<String, String> staticPartitionSpec) {
+            this.rowType = rowType;
+            this.partitionKeys = partitionKeys;
+            this.staticPartitionSpec = staticPartitionSpec;
+        }
+
+        @Override
+        public LinkedHashMap<String, String> generatePartitionValues(RowData element,
+                                                                     Context context) {
+            LinkedHashMap<String, String> partitionValues = new LinkedHashMap<>();
+
+            for (String partitionKey : partitionKeys) {
+                int keyIndex = rowType.getFieldIndex(partitionKey);
+                LogicalType keyType = rowType.getTypeAt(keyIndex);
+
+                if (staticPartitionSpec.containsKey(partitionKey)) {
+                    partitionValues.put(partitionKey, staticPartitionSpec.get(partitionKey));
+                } else if (keyType.getTypeRoot() == LogicalTypeRoot.VARCHAR) {
+                    partitionValues.put(partitionKey, element.getString(keyIndex).toString());
+                } else if (keyType.getTypeRoot() == LogicalTypeRoot.INTEGER) {
+                    partitionValues.put(partitionKey, String.valueOf(element.getInt(keyIndex)));
+                } else if (keyType.getTypeRoot() == LogicalTypeRoot.BIGINT) {
+                    partitionValues.put(partitionKey, String.valueOf(element.getLong(keyIndex)));
+                } else if (keyType.getTypeRoot() == LogicalTypeRoot.SMALLINT) {
+                    partitionValues.put(partitionKey, String.valueOf(element.getShort(keyIndex)));
+                } else if (keyType.getTypeRoot() == LogicalTypeRoot.TINYINT) {
+                    partitionValues.put(partitionKey, String.valueOf(element.getByte(keyIndex)));
+                } else {
+                    throw new RuntimeException("Type not supported " + keyType.getTypeRoot());
+                }
+            }
+            return partitionValues;
+        }
     }
 }
