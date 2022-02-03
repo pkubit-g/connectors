@@ -681,7 +681,11 @@ lazy val flinkConnector = (project in file("flink-connector"))
       "org.apache.flink" % ("flink-table-runtime-blink_" + flinkScalaVersion(scalaBinaryVersion.value)) % flinkVersion % "test",
       "org.apache.flink" % "flink-connector-test-utils" % flinkVersion % "test",
       "org.apache.flink" % ("flink-clients_" + flinkScalaVersion(scalaBinaryVersion.value)) % flinkVersion % "test",
-      "com.github.sbt" % "junit-interface" % "0.12" % Test
+      "com.github.sbt" % "junit-interface" % "0.12" % Test,
+
+      // Compiler plugins
+      // -- Bump up the genjavadoc version explicitly to 0.18 to work with Scala 2.12
+      compilerPlugin("com.typesafe.genjavadoc" %% "genjavadoc-plugin" % "0.18" cross CrossVersion.full)
     ),
     // generating source java class with version number to be passed during commit to the DeltaLog as engine info
     // (part of transaction's metadata)
@@ -715,9 +719,9 @@ lazy val flinkConnector = (project in file("flink-connector"))
         // include only relevant flink-connector classes
         .map(_.filter(_.getCanonicalPath.contains("/flink-connector/")))
         // exclude internal classes
-        .map(_.filterNot(_.getCanonicalPath.contains("/internal/")))
+        // .map(_.filterNot(_.getCanonicalPath.contains("/internal/")))
         // exclude flink package
-        .map(_.filterNot(_.getCanonicalPath.contains("org/apache/flink/")))
+        // .map(_.filterNot(_.getCanonicalPath.contains("org/apache/flink/")))
     },
     // Ensure unidoc is run with tests. Must be cleaned before test for unidoc to be generated.
     (Test / test) := ((Test / test) dependsOn (Compile / unidoc)).value
