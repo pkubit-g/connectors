@@ -254,7 +254,6 @@ public class DeltaWriter<IN>
             context.timestamp(),
             context.currentWatermark(),
             processingTimeService.getCurrentProcessingTime());
-
         final String bucketId = bucketAssigner.getBucketId(element, bucketerContext);
         final DeltaWriterBucket<IN> bucket = getOrCreateBucketForBucketId(bucketId);
         bucket.write(element, processingTimeService.getCurrentProcessingTime());

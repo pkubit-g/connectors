@@ -109,6 +109,29 @@ public class DeltaTablePartitionAssigner<T> implements BucketAssigner<T, String>
         RowType rowType;
         List<String> partitionKeys;
 
+        /**
+         * Creates instance of partition computer for {@link RowData}
+         *
+         * @param rowType       logical schema of the records in the stream/table
+         * @param partitionKeys list of partition column names in the order they should be applied
+         *                      when creating a destination path
+         */
+        public DeltaRowDataPartitionComputer(RowType rowType,
+                                             List<String> partitionKeys) {
+            this.rowType = rowType;
+            this.partitionKeys = partitionKeys;
+            this.staticPartitionSpec = new LinkedHashMap<>();
+        }
+
+        /**
+         * Creates instance of partition computer for {@link RowData}
+         *
+         * @param rowType             logical schema of the records in the stream/table
+         * @param partitionKeys       list of partition column names in the order they should be
+         *                            applied when creating a destination path
+         * @param staticPartitionSpec static values for partitions that should not be derived from
+         *                            the content of the records
+         */
         public DeltaRowDataPartitionComputer(RowType rowType,
                                              List<String> partitionKeys,
                                              LinkedHashMap<String, String> staticPartitionSpec) {
@@ -132,6 +155,12 @@ public class DeltaTablePartitionAssigner<T> implements BucketAssigner<T, String>
                     partitionValues.put(partitionKey, element.getString(keyIndex).toString());
                 } else if (keyType.getTypeRoot() == LogicalTypeRoot.INTEGER) {
                     partitionValues.put(partitionKey, String.valueOf(element.getInt(keyIndex)));
+                } else if (keyType.getTypeRoot() == LogicalTypeRoot.BIGINT) {
+                    partitionValues.put(partitionKey, String.valueOf(element.getLong(keyIndex)));
+                } else if (keyType.getTypeRoot() == LogicalTypeRoot.SMALLINT) {
+                    partitionValues.put(partitionKey, String.valueOf(element.getShort(keyIndex)));
+                } else if (keyType.getTypeRoot() == LogicalTypeRoot.TINYINT) {
+                    partitionValues.put(partitionKey, String.valueOf(element.getByte(keyIndex)));
                 } else {
                     throw new RuntimeException("Type not supported " + keyType.getTypeRoot());
                 }

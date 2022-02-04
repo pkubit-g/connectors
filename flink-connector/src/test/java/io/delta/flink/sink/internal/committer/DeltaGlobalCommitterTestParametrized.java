@@ -25,8 +25,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.regex.Pattern;
 
-import io.delta.flink.sink.internal.SchemaConverter;
 import io.delta.flink.sink.internal.committables.DeltaCommittable;
 import io.delta.flink.sink.internal.committables.DeltaGlobalCommittable;
 import io.delta.flink.sink.utils.DeltaSinkTestUtils;
@@ -44,6 +44,7 @@ import static org.junit.Assert.assertTrue;
 import io.delta.standalone.DeltaLog;
 import io.delta.standalone.Snapshot;
 import io.delta.standalone.actions.AddFile;
+import io.delta.standalone.actions.CommitInfo;
 import io.delta.standalone.data.CloseableIterator;
 
 /**
@@ -56,7 +57,7 @@ public class DeltaGlobalCommitterTestParametrized {
     public static final TemporaryFolder TEMPORARY_FOLDER = new TemporaryFolder();
 
     @Parameterized.Parameters(
-        name = "shouldTryUpdateSchema = {0}, " +
+        name = "mergeSchema = {0}, " +
             "initializeTableBeforeCommit = {1}, " +
             "partitionSpec = {2}, "
     )
@@ -74,7 +75,7 @@ public class DeltaGlobalCommitterTestParametrized {
     }
 
     @Parameterized.Parameter(0)
-    public boolean shouldTryUpdateSchema;
+    public boolean mergeSchema;
 
     @Parameterized.Parameter(1)
     public boolean initializeTableBeforeCommit;
@@ -99,7 +100,7 @@ public class DeltaGlobalCommitterTestParametrized {
             }
         }
         deltaLog = DeltaLog.forTable(DeltaSinkTestUtils.getHadoopConf(), tablePath.getPath());
-        rowTypeToCommit = shouldTryUpdateSchema ?
+        rowTypeToCommit = mergeSchema ?
             DeltaSinkTestUtils.addNewColumnToSchema(DeltaSinkTestUtils.TEST_ROW_TYPE) :
             DeltaSinkTestUtils.TEST_ROW_TYPE;
     }
@@ -111,7 +112,7 @@ public class DeltaGlobalCommitterTestParametrized {
             DeltaSinkTestUtils.getHadoopConf(),
             tablePath,
             rowTypeToCommit,
-            shouldTryUpdateSchema);
+            mergeSchema);
         List<DeltaCommittable> deltaCommittables =
             DeltaSinkTestUtils.getListOfDeltaCommittables(3, partitionSpec);
         List<DeltaGlobalCommittable> globalCommittables =
@@ -123,6 +124,16 @@ public class DeltaGlobalCommitterTestParametrized {
         // THEN
         validateCurrentSnapshotState(deltaCommittables.size());
         validateCurrentTableFiles(deltaLog.update(), partitionSpec);
+        validateEngineInfo(deltaLog);
+    }
+
+    private void validateEngineInfo(DeltaLog deltaLog){
+        CommitInfo commitInfo = deltaLog.getCommitInfoAt(deltaLog.snapshot().getVersion());
+        String engineInfo = commitInfo.getEngineInfo().orElse("");
+
+        String expectedEngineInfoPattern =
+            "flink-engine/[0-9]+\\.[0-9]+\\.[0-9]+-flink-delta-connector/[0-9]+\\.[0-9]+\\.[0-9]+";
+        assertTrue(Pattern.compile(expectedEngineInfoPattern).matcher(engineInfo).find());
     }
 
     private void validateCurrentSnapshotState(int numFilesAdded) {

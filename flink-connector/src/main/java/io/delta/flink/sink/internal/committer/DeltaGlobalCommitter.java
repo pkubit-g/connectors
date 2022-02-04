@@ -37,6 +37,7 @@ import io.delta.flink.sink.internal.Meta;
 import io.delta.flink.sink.internal.SchemaConverter;
 import io.delta.flink.sink.internal.committables.DeltaCommittable;
 import io.delta.flink.sink.internal.committables.DeltaGlobalCommittable;
+import io.delta.flink.sink.internal.logging.Logging;
 import org.apache.flink.api.connector.sink.GlobalCommitter;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
@@ -79,7 +80,8 @@ public class DeltaGlobalCommitter
     implements GlobalCommitter<DeltaCommittable, DeltaGlobalCommittable>, Logging {
 
     private static final String APPEND_MODE = "Append";
-    private static final String ENGINE_INFO = "flink-delta-connector/" + Meta.VERSION;
+    private static final String ENGINE_INFO = "flink-engine/" + Meta.FLINK_VERSION +
+        " flink-delta-connector/" + Meta.CONNECTOR_VERSION;
 
     /**
      * Hadoop configuration that is passed to {@link DeltaLog} instance when creating it
@@ -99,16 +101,16 @@ public class DeltaGlobalCommitter
     /**
      * Indicator whether the committer should try to commit unmatching schema
      */
-    private final boolean shouldTryUpdateSchema;
+    private final boolean mergeSchema;
 
     public DeltaGlobalCommitter(Configuration conf,
                                 Path basePath,
                                 RowType rowType,
-                                boolean shouldTryUpdateSchema) {
+                                boolean mergeSchema) {
         this.conf = conf;
         this.basePath = basePath;
         this.rowType = rowType;
-        this.shouldTryUpdateSchema = shouldTryUpdateSchema;
+        this.mergeSchema = mergeSchema;
     }
 
     /**
@@ -327,10 +329,10 @@ public class DeltaGlobalCommitter
      *   <li>then we compare the schema from above metadata with the current table's schema,
      *   <li>resolved metadata object is added to the transaction only when it's the first commit to
      *       the given Delta table or when the schemas are not matching but the sink was provided
-     *       with option {@link DeltaGlobalCommitter#shouldTryUpdateSchema} set to true (the commit
+     *       with option {@link DeltaGlobalCommitter#mergeSchema} set to true (the commit
      *       may still fail though if the Delta Standalone Writer will determine that the schemas
      *       are not compatible),
-     *   <li>if the schemas are not matching and {@link DeltaGlobalCommitter#shouldTryUpdateSchema}
+     *   <li>if the schemas are not matching and {@link DeltaGlobalCommitter#mergeSchema}
      *       was set to false then we throw an exception
      *   <li>if the schemas are matching then we do nothing and let the transaction proceed
      * </ol>
@@ -356,7 +358,7 @@ public class DeltaGlobalCommitter
         StructType currentTableSchema = currentMetadata.getSchema();
         StructType streamSchema = SchemaConverter.toDeltaDataType(rowType);
         boolean schemasAreMatching = areSchemasEqual(currentTableSchema, streamSchema);
-        if (!tableExists || (!schemasAreMatching && shouldTryUpdateSchema)) {
+        if (!tableExists || (!schemasAreMatching && mergeSchema)) {
             Metadata updatedMetadata = currentMetadata.copyBuilder()
                 .schema(streamSchema)
                 .partitionColumns(partitionColumns)

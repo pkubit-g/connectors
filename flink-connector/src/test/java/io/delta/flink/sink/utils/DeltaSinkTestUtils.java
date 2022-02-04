@@ -133,22 +133,29 @@ public class DeltaSinkTestUtils {
         "/test-data/test-non-partitioned-delta-table-initial-state";
     public static final String TEST_DELTA_TABLE_INITIAL_STATE_P_DIR =
         "/test-data/test-partitioned-delta-table-initial-state";
+    public static final String TEST_DELTA_TABLE_INITIAL_STATE_TABLE_API_DIR =
+        "/test-data/test-table-api";
 
     public static void initTestForNonPartitionedTable(String targetTablePath)
         throws IOException {
-        File resourcesDirectory = new File("src/test/resources");
-        String initialTablePath =
-            resourcesDirectory.getAbsolutePath() + TEST_DELTA_TABLE_INITIAL_STATE_NP_DIR;
-        FileUtils.copyDirectory(
-            new File(initialTablePath),
-            new File(targetTablePath));
+        initTestTable(TEST_DELTA_TABLE_INITIAL_STATE_NP_DIR, targetTablePath);
     }
 
     public static void initTestForPartitionedTable(String targetTablePath)
         throws IOException {
+        initTestTable(TEST_DELTA_TABLE_INITIAL_STATE_P_DIR, targetTablePath);
+    }
+
+    public static void initTestForTableApiTable(String targetTablePath)
+        throws IOException {
+        initTestTable(TEST_DELTA_TABLE_INITIAL_STATE_TABLE_API_DIR, targetTablePath);
+    }
+
+    private static void initTestTable(String sourceTablePath, String targetTablePath)
+        throws IOException {
         File resourcesDirectory = new File("src/test/resources");
         String initialTablePath =
-            resourcesDirectory.getAbsolutePath() + TEST_DELTA_TABLE_INITIAL_STATE_P_DIR;
+            resourcesDirectory.getAbsolutePath() + sourceTablePath;
         FileUtils.copyDirectory(
             new File(initialTablePath),
             new File(targetTablePath));
@@ -374,9 +381,9 @@ public class DeltaSinkTestUtils {
                 .forRowData(
                     new Path(deltaTablePath),
                     DeltaSinkTestUtils.getHadoopConf(),
-                    DeltaSinkTestUtils.TEST_ROW_TYPE)
-                .withBucketAssigner(getTestPartitionAssigner())
-                    .build();
+                    DeltaSinkTestUtils.TEST_ROW_TYPE
+                ).withBucketAssigner(getTestPartitionAssigner())
+                .build();
         }
         return DeltaSink
             .forRowData(

@@ -21,7 +21,7 @@ package org.apache.flink.streaming.api.functions.sink.filesystem;
 import io.delta.flink.sink.DeltaSink;
 
 /**
- * Wrapper class for part files in the {@link io.delta.flink.sink.DeltaSink}.
+ * Wrapper class for part files in the {@link DeltaSink}.
  * Part files are files that are currently "opened" for writing new data.
  * Similar behaviour might be observed in the {@link org.apache.flink.connector.file.sink.FileSink}
  * however as opposite to the FileSink, in DeltaSink we need to keep the name of the file

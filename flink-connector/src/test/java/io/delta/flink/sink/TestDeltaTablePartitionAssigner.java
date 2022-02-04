@@ -18,12 +18,24 @@
 
 package io.delta.flink.sink;
 
+import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import javax.annotation.Nullable;
 
 import io.delta.flink.sink.utils.DeltaSinkTestUtils;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
 import org.apache.flink.table.data.RowData;
+import org.apache.flink.table.data.util.DataFormatConverters;
+import org.apache.flink.table.types.logical.BigIntType;
+import org.apache.flink.table.types.logical.DoubleType;
+import org.apache.flink.table.types.logical.IntType;
+import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.table.types.logical.SmallIntType;
+import org.apache.flink.table.types.logical.TinyIntType;
+import org.apache.flink.table.types.logical.VarCharType;
+import org.apache.flink.table.types.utils.TypeConversions;
+import org.apache.flink.types.Row;
 import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 
@@ -74,6 +86,115 @@ public class TestDeltaTablePartitionAssigner {
         // THEN
         String expectedPartitionsPath = "name=a/age=3/";
         assertEquals(expectedPartitionsPath, partitionsPath);
+    }
+
+    @Test
+    public void testRowDataPartitionComputer() {
+        // GIVEN
+        TestContext context = new TestContext();
+        RowType testRowType = new RowType(Arrays.asList(
+            new RowType.RowField("partition_col1", new VarCharType(VarCharType.MAX_LENGTH)),
+            new RowType.RowField("partition_col2", new IntType()),
+            new RowType.RowField("partition_col3", new BigIntType()),
+            new RowType.RowField("partition_col4", new SmallIntType()),
+            new RowType.RowField("partition_col5", new TinyIntType()),
+            new RowType.RowField("col5", new VarCharType()),
+            new RowType.RowField("col6", new IntType())
+        ));
+        DataFormatConverters.DataFormatConverter<RowData, Row> converter =
+            DataFormatConverters.getConverterForDataType(
+                TypeConversions.fromLogicalToDataType(testRowType)
+            );
+        List<String> partitionCols =
+            Arrays.asList("partition_col1", "partition_col2", "partition_col3", "partition_col4",
+                "partition_col5");
+
+        DeltaTablePartitionAssigner.DeltaRowDataPartitionComputer partitionComputer =
+            new DeltaTablePartitionAssigner.DeltaRowDataPartitionComputer(
+                testRowType, partitionCols);
+
+        RowData record = converter.toInternal(
+            Row.of("1", Integer.MAX_VALUE, Long.MAX_VALUE, Short.MAX_VALUE, Byte.MAX_VALUE,
+                "some_val", 2));
+
+        // WHEN
+        LinkedHashMap<String, String> partitionValues =
+            partitionComputer.generatePartitionValues(record, context);
+
+        // THEN
+        LinkedHashMap<String, String> expected = new LinkedHashMap<String, String>() {{
+            put("partition_col1", "1");
+            put("partition_col2", String.valueOf(Integer.MAX_VALUE));
+            put("partition_col3", String.valueOf(Long.MAX_VALUE));
+            put("partition_col4", String.valueOf(Short.MAX_VALUE));
+            put("partition_col5", String.valueOf(Byte.MAX_VALUE));
+        }};
+
+        assertEquals(expected, partitionValues);
+    }
+
+    @Test
+    public void testRowDataPartitionComputerWithStaticPartitionValues() {
+        // GIVEN
+        TestContext context = new TestContext();
+        RowType testRowType = new RowType(Arrays.asList(
+            new RowType.RowField("partition_col1", new VarCharType(VarCharType.MAX_LENGTH)),
+            new RowType.RowField("partition_col2", new IntType()),
+            new RowType.RowField("col5", new VarCharType()),
+            new RowType.RowField("col6", new IntType())
+        ));
+        DataFormatConverters.DataFormatConverter<RowData, Row> converter =
+            DataFormatConverters.getConverterForDataType(
+                TypeConversions.fromLogicalToDataType(testRowType)
+            );
+        List<String> partitionCols = Arrays.asList("partition_col1", "partition_col2");
+        LinkedHashMap staticPartitionValues = new LinkedHashMap<String, String>() {{
+                put("partition_col2", String.valueOf(5));
+            }};
+
+        DeltaTablePartitionAssigner.DeltaRowDataPartitionComputer partitionComputer =
+            new DeltaTablePartitionAssigner.DeltaRowDataPartitionComputer(
+                testRowType, partitionCols);
+
+        RowData record = converter.toInternal(Row.of("1", 2, "some_val", 2));
+
+        // WHEN
+        LinkedHashMap<String, String> partitionValues =
+            partitionComputer.generatePartitionValues(record, context);
+
+        // THEN
+        LinkedHashMap<String, String> expected = new LinkedHashMap<String, String>() {{
+            put("partition_col1", "1");
+            put("partition_col2", String.valueOf(2));
+        }};
+
+        assertEquals(expected, partitionValues);
+    }
+
+    @Test(expected = RuntimeException.class)
+    public void testRowDataPartitionComputerNotAllowedType() {
+        // GIVEN
+        TestContext context = new TestContext();
+        RowType testRowType = new RowType(Arrays.asList(
+            new RowType.RowField("partition_col1", new DoubleType()),
+            new RowType.RowField("col5", new VarCharType()),
+            new RowType.RowField("col6", new IntType())
+        ));
+        DataFormatConverters.DataFormatConverter<RowData, Row> converter =
+            DataFormatConverters.getConverterForDataType(
+                TypeConversions.fromLogicalToDataType(testRowType)
+            );
+        List<String> partitionCols = Arrays.asList("partition_col1");
+
+        DeltaTablePartitionAssigner.DeltaRowDataPartitionComputer partitionComputer =
+            new DeltaTablePartitionAssigner.DeltaRowDataPartitionComputer(
+                testRowType, partitionCols);
+
+        RowData record = converter.toInternal(Row.of(Double.MAX_VALUE, "some_val", 2));
+
+        // WHEN
+        LinkedHashMap<String, String> partitionValues =
+            partitionComputer.generatePartitionValues(record, context);
     }
 
     ///////////////////////////////////////////////////////////////////////////

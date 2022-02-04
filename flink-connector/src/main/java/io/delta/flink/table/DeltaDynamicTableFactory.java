@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.delta.flink.table;
 
 import java.io.File;
@@ -14,14 +31,23 @@ import org.apache.flink.configuration.ReadableConfig;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.table.catalog.ResolvedSchema;
 import org.apache.flink.table.connector.sink.DynamicTableSink;
+import org.apache.flink.table.connector.source.DynamicTableSource;
 import org.apache.flink.table.factories.DynamicTableSinkFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.hadoop.conf.Configuration;
 
+/**
+ * Creates a {@link DynamicTableSource} instance representing DeltaLake table.
+ *
+ * <p>
+ * This implementation automatically resolves all necessary object for creating instance of
+ * {@link io.delta.flink.sink.DeltaSink} except Delta table's path that needs to be provided
+ * explicitly.
+ */
 public class DeltaDynamicTableFactory implements DynamicTableSinkFactory {
 
-    public static final String IDENTIFIER = "deltalake";
+    public static final String IDENTIFIER = "delta";
 
     @Override
     public String factoryIdentifier() {
@@ -39,15 +65,15 @@ public class DeltaDynamicTableFactory implements DynamicTableSinkFactory {
         Configuration conf = resolveHadoopConf(tableOptions);
         RowType rowType = (RowType) tableSchema.toSinkRowDataType().getLogicalType();
 
-        Boolean shouldTryUpdateSchema = tableOptions
-            .getOptional(DeltaTableConnectorOptions.SHOULD_TRY_UPDATE_SCHEMA)
-            .orElse(DeltaTableConnectorOptions.SHOULD_TRY_UPDATE_SCHEMA.defaultValue());
+        Boolean mergeSchema = tableOptions
+            .getOptional(DeltaTableConnectorOptions.MERGE_SCHEMA)
+            .orElse(DeltaTableConnectorOptions.MERGE_SCHEMA.defaultValue());
 
         return new DeltaDynamicTableSink(
             new Path(tableOptions.get(DeltaTableConnectorOptions.TABLE_PATH)),
             conf,
             rowType,
-            shouldTryUpdateSchema,
+            mergeSchema,
             context.getCatalogTable()
         );
     }
@@ -63,7 +89,7 @@ public class DeltaDynamicTableFactory implements DynamicTableSinkFactory {
     public Set<ConfigOption<?>> optionalOptions() {
         final Set<ConfigOption<?>> options = new HashSet<>();
         options.add(DeltaTableConnectorOptions.HADOOP_CONF_DIR);
-        options.add(DeltaTableConnectorOptions.SHOULD_TRY_UPDATE_SCHEMA);
+        options.add(DeltaTableConnectorOptions.MERGE_SCHEMA);
         return options;
     }
 

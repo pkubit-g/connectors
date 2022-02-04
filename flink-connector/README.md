@@ -226,7 +226,7 @@ order not to violate the integrity of the table.
 #### What if I change the underlying Delta table schema ?
 
 Next commit (after mentioned schema change) performed from the DeltaSink to a DeltaLog will fail unless you will
-set `shouldTryUpdateSchema` param to true. In such case DeltaStandaloneWriter will try to merge both schemas and check
+set `mergeSchema` param to true. In such case DeltaStandaloneWriter will try to merge both schemas and check
 for their compatibility. If this check will fail (e.g. the change consisted of removing a column) so will the DeltaLog's
 commit which will cause failure of the Flink job.
 

@@ -38,8 +38,8 @@ public class DeltaTableConnectorOptions {
             .noDefaultValue()
             .withDescription("Hadoop's conf object");
 
-    public static final ConfigOption<Boolean> SHOULD_TRY_UPDATE_SCHEMA =
-        ConfigOptions.key("should-try-update-schema")
+    public static final ConfigOption<Boolean> MERGE_SCHEMA =
+        ConfigOptions.key("merge-schema")
             .booleanType()
             .defaultValue(false)
             .withDescription("Indicator whether we should try to update table's schema with " +
