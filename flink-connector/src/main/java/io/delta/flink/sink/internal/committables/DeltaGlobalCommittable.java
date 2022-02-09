@@ -22,7 +22,7 @@ import java.util.List;
 
 import io.delta.flink.sink.committables.AbstractDeltaCommittable;
 import io.delta.flink.sink.committables.AbstractDeltaGlobalCommittable;
-import io.delta.flink.sink.logging.Logging;
+import io.delta.flink.sink.internal.logging.Logging;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**

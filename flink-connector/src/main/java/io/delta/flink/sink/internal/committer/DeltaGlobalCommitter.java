@@ -36,11 +36,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.delta.flink.sink.committables.AbstractDeltaCommittable;
 import io.delta.flink.sink.committables.AbstractDeltaGlobalCommittable;
 import io.delta.flink.sink.committer.AbstractDeltaGlobalCommitter;
-import io.delta.flink.sink.internal.Meta;
 import io.delta.flink.sink.internal.SchemaConverter;
 import io.delta.flink.sink.internal.committables.DeltaCommittable;
 import io.delta.flink.sink.internal.committables.DeltaGlobalCommittable;
-import io.delta.flink.sink.logging.Logging;
+import io.delta.flink.sink.internal.logging.Logging;
 import org.apache.flink.api.connector.sink.GlobalCommitter;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.functions.sink.filesystem.DeltaPendingFile;
@@ -82,8 +81,9 @@ import io.delta.standalone.types.StructType;
 public class DeltaGlobalCommitter implements AbstractDeltaGlobalCommitter, Logging {
 
     private static final String APPEND_MODE = "Append";
-    private static final String ENGINE_INFO = "flink-engine/" + Meta.FLINK_VERSION +
-        " flink-delta-connector/" + Meta.CONNECTOR_VERSION;
+    private static final String ENGINE_INFO =
+        "flink-engine/" + io.delta.flink.sink.internal.committer.Meta.FLINK_VERSION +
+        " flink-delta-connector/" + io.delta.flink.sink.internal.committer.Meta.CONNECTOR_VERSION;
 
     /**
      * Hadoop configuration that is passed to {@link DeltaLog} instance when creating it

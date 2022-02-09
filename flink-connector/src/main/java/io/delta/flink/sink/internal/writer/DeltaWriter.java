@@ -28,7 +28,7 @@ import javax.annotation.Nullable;
 
 import io.delta.flink.sink.DeltaTablePartitionAssigner;
 import io.delta.flink.sink.committables.AbstractDeltaCommittable;
-import io.delta.flink.sink.logging.Logging;
+import io.delta.flink.sink.internal.logging.Logging;
 import io.delta.flink.sink.writer.AbstractDeltaWriter;
 import io.delta.flink.sink.writer.AbstractDeltaWriterBucketState;
 import org.apache.flink.annotation.VisibleForTesting;
