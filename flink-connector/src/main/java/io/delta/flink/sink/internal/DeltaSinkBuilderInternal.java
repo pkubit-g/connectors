@@ -23,16 +23,15 @@ import java.io.Serializable;
 import java.util.UUID;
 
 import io.delta.flink.sink.DeltaSink;
-import io.delta.flink.sink.committables.AbstractDeltaCommittable;
-import io.delta.flink.sink.committables.AbstractDeltaGlobalCommittable;
+import io.delta.flink.sink.internal.committables.DeltaCommittable;
 import io.delta.flink.sink.internal.committables.DeltaCommittableSerializer;
+import io.delta.flink.sink.internal.committables.DeltaGlobalCommittable;
 import io.delta.flink.sink.internal.committables.DeltaGlobalCommittableSerializer;
 import io.delta.flink.sink.internal.committer.DeltaCommitter;
 import io.delta.flink.sink.internal.committer.DeltaGlobalCommitter;
 import io.delta.flink.sink.internal.writer.DeltaWriter;
+import io.delta.flink.sink.internal.writer.DeltaWriterBucketState;
 import io.delta.flink.sink.internal.writer.DeltaWriterBucketStateSerializer;
-import io.delta.flink.sink.writer.AbstractDeltaWriter;
-import io.delta.flink.sink.writer.AbstractDeltaWriterBucketState;
 import org.apache.flink.api.connector.sink.Committer;
 import org.apache.flink.api.connector.sink.GlobalCommitter;
 import org.apache.flink.api.connector.sink.Sink;
@@ -186,11 +185,11 @@ public class DeltaSinkBuilderInternal<IN> implements Serializable {
         return this;
     }
 
-    Committer<AbstractDeltaCommittable> createCommitter() throws IOException {
+    Committer<DeltaCommittable> createCommitter() throws IOException {
         return new DeltaCommitter(createBucketWriter());
     }
 
-    GlobalCommitter<AbstractDeltaCommittable, AbstractDeltaGlobalCommittable>
+    GlobalCommitter<DeltaCommittable, DeltaGlobalCommittable>
         createGlobalCommitter() {
         return new DeltaGlobalCommitter(
             serializableConfiguration.conf(), tableBasePath, rowType, mergeSchema);
@@ -232,7 +231,7 @@ public class DeltaSinkBuilderInternal<IN> implements Serializable {
         return new DeltaSinkInternal<IN>(this);
     }
 
-    AbstractDeltaWriter<IN> createWriter(Sink.InitContext context,
+    DeltaWriter<IN> createWriter(Sink.InitContext context,
                                          String appId,
                                          long nextCheckpointId) throws IOException {
         return new DeltaWriter<IN>(
@@ -247,27 +246,25 @@ public class DeltaSinkBuilderInternal<IN> implements Serializable {
             nextCheckpointId);
     }
 
-    SimpleVersionedSerializer<AbstractDeltaWriterBucketState> getWriterStateSerializer()
+    SimpleVersionedSerializer<DeltaWriterBucketState> getWriterStateSerializer()
         throws IOException {
         return new DeltaWriterBucketStateSerializer();
     }
 
-    SimpleVersionedSerializer<AbstractDeltaCommittable> getCommittableSerializer()
+    SimpleVersionedSerializer<DeltaCommittable> getCommittableSerializer()
         throws IOException {
         BucketWriter<IN, String> bucketWriter = createBucketWriter();
 
-        return (SimpleVersionedSerializer<AbstractDeltaCommittable>)
-                   (SimpleVersionedSerializer<?>) new DeltaCommittableSerializer(
+        return new DeltaCommittableSerializer(
                        bucketWriter.getProperties().getPendingFileRecoverableSerializer());
     }
 
-    SimpleVersionedSerializer<AbstractDeltaGlobalCommittable> getGlobalCommittableSerializer()
+    SimpleVersionedSerializer<DeltaGlobalCommittable> getGlobalCommittableSerializer()
         throws IOException {
         BucketWriter<IN, String> bucketWriter = createBucketWriter();
 
-        return (SimpleVersionedSerializer<AbstractDeltaGlobalCommittable>)
-                   (SimpleVersionedSerializer<?>) new DeltaGlobalCommittableSerializer(
-                       bucketWriter.getProperties().getPendingFileRecoverableSerializer());
+        return new DeltaGlobalCommittableSerializer(
+            bucketWriter.getProperties().getPendingFileRecoverableSerializer());
     }
 
     private DeltaBulkBucketWriter<IN, String> createBucketWriter() throws IOException {

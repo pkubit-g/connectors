@@ -33,9 +33,6 @@ import javax.annotation.Nullable;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.delta.flink.sink.committables.AbstractDeltaCommittable;
-import io.delta.flink.sink.committables.AbstractDeltaGlobalCommittable;
-import io.delta.flink.sink.committer.AbstractDeltaGlobalCommitter;
 import io.delta.flink.sink.internal.SchemaConverter;
 import io.delta.flink.sink.internal.committables.DeltaCommittable;
 import io.delta.flink.sink.internal.committables.DeltaGlobalCommittable;
@@ -78,7 +75,8 @@ import io.delta.standalone.types.StructType;
  *         recovered committables from previous commit stage to be re-committed.</li>
  * </ol>
  */
-public class DeltaGlobalCommitter implements AbstractDeltaGlobalCommitter, Logging {
+public class DeltaGlobalCommitter
+    implements GlobalCommitter<DeltaCommittable, DeltaGlobalCommittable>, Logging {
 
     private static final String APPEND_MODE = "Append";
     private static final String ENGINE_INFO =
@@ -130,8 +128,8 @@ public class DeltaGlobalCommitter implements AbstractDeltaGlobalCommitter, Loggi
      * @return same as input
      */
     @Override
-    public List<AbstractDeltaGlobalCommittable> filterRecoveredCommittables(
-        List<AbstractDeltaGlobalCommittable> globalCommittables) {
+    public List<DeltaGlobalCommittable> filterRecoveredCommittables(
+        List<DeltaGlobalCommittable> globalCommittables) {
         return globalCommittables;
     }
 
@@ -146,7 +144,7 @@ public class DeltaGlobalCommitter implements AbstractDeltaGlobalCommitter, Loggi
      * @return {@link DeltaGlobalCommittable} serving as a wrapper class for received committables
      */
     @Override
-    public DeltaGlobalCommittable combine(List<AbstractDeltaCommittable> committables) {
+    public DeltaGlobalCommittable combine(List<DeltaCommittable> committables) {
         return new DeltaGlobalCommittable(committables);
     }
 
@@ -207,14 +205,11 @@ public class DeltaGlobalCommitter implements AbstractDeltaGlobalCommitter, Loggi
      * @return always empty collection as we do not want any retry behaviour
      */
     @Override
-    public List<AbstractDeltaGlobalCommittable> commit(
-            List<AbstractDeltaGlobalCommittable> globalCommittables) {
-        List<DeltaGlobalCommittable> globalCommittablesCasted =
-                (List<DeltaGlobalCommittable>) (List<?>) globalCommittables;
-        String appId = resolveAppId(globalCommittablesCasted);
+    public List<DeltaGlobalCommittable> commit(List<DeltaGlobalCommittable> globalCommittables) {
+        String appId = resolveAppId(globalCommittables);
         if (appId != null) { // means there are committables to process
             SortedMap<Long, List<DeltaCommittable>> committablesPerCheckpoint =
-                groupCommittablesByCheckpointInterval(globalCommittablesCasted);
+                groupCommittablesByCheckpointInterval(globalCommittables);
             DeltaLog deltaLog = DeltaLog.forTable(conf, basePath.getPath());
 
             for (long checkpointId : committablesPerCheckpoint.keySet()) {

@@ -22,12 +22,11 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
-import io.delta.flink.sink.committables.AbstractDeltaCommittable;
-import io.delta.flink.sink.committables.AbstractDeltaGlobalCommittable;
+import io.delta.flink.sink.internal.committables.DeltaCommittable;
+import io.delta.flink.sink.internal.committables.DeltaGlobalCommittable;
 import io.delta.flink.sink.internal.logging.Logging;
 import io.delta.flink.sink.internal.writer.DeltaWriter;
 import io.delta.flink.sink.internal.writer.DeltaWriterBucketState;
-import io.delta.flink.sink.writer.AbstractDeltaWriterBucketState;
 import org.apache.flink.api.connector.sink.Committer;
 import org.apache.flink.api.connector.sink.GlobalCommitter;
 import org.apache.flink.api.connector.sink.Sink;
@@ -76,9 +75,9 @@ import io.delta.standalone.DeltaLog;
  * comment marker inside class files to decouple DeltaLake's specific code from parts borrowed
  * from FileSink.
  */
-public class DeltaSinkInternal<IN> implements Sink<IN, AbstractDeltaCommittable,
-                                                      AbstractDeltaWriterBucketState,
-                                                      AbstractDeltaGlobalCommittable>, Logging {
+public class DeltaSinkInternal<IN>
+    implements Sink<IN, DeltaCommittable, DeltaWriterBucketState, DeltaGlobalCommittable>,
+                   Logging {
 
     private final DeltaSinkBuilderInternal<IN> sinkBuilder;
 
@@ -105,16 +104,15 @@ public class DeltaSinkInternal<IN> implements Sink<IN, AbstractDeltaCommittable,
      * @throws IOException When the recoverable writer cannot be instantiated.
      */
     @Override
-    public SinkWriter<IN, AbstractDeltaCommittable, AbstractDeltaWriterBucketState> createWriter(
+    public SinkWriter<IN, DeltaCommittable, DeltaWriterBucketState> createWriter(
         InitContext context,
-        List<AbstractDeltaWriterBucketState> states
+        List<DeltaWriterBucketState> states
     ) throws IOException {
-        String appId = restoreOrCreateAppId((List<DeltaWriterBucketState>) (List<?>) states);
+        String appId = restoreOrCreateAppId(states);
         long nextCheckpointId =
-            restoreOrGetNextCheckpointId((List<DeltaWriterBucketState>) (List<?>) states);
-        DeltaWriter<IN> writer =
-            (DeltaWriter<IN>) sinkBuilder.createWriter(context, appId, nextCheckpointId);
-        writer.initializeState((List<DeltaWriterBucketState>) (List<?>) states);
+            restoreOrGetNextCheckpointId(states);
+        DeltaWriter<IN> writer = sinkBuilder.createWriter(context, appId, nextCheckpointId);
+        writer.initializeState(states);
         logInfo("Created new writer for: " +
                     "appId=" + appId +
                     " nextCheckpointId=" + nextCheckpointId
@@ -178,7 +176,7 @@ public class DeltaSinkInternal<IN> implements Sink<IN, AbstractDeltaCommittable,
     }
 
     @Override
-    public Optional<SimpleVersionedSerializer<AbstractDeltaWriterBucketState>>
+    public Optional<SimpleVersionedSerializer<DeltaWriterBucketState>>
         getWriterStateSerializer() {
         try {
             return Optional.of(sinkBuilder.getWriterStateSerializer());
@@ -188,12 +186,12 @@ public class DeltaSinkInternal<IN> implements Sink<IN, AbstractDeltaCommittable,
     }
 
     @Override
-    public Optional<Committer<AbstractDeltaCommittable>> createCommitter() throws IOException {
+    public Optional<Committer<DeltaCommittable>> createCommitter() throws IOException {
         return Optional.of(sinkBuilder.createCommitter());
     }
 
     @Override
-    public Optional<SimpleVersionedSerializer<AbstractDeltaCommittable>>
+    public Optional<SimpleVersionedSerializer<DeltaCommittable>>
         getCommittableSerializer() {
         try {
             return Optional.of(sinkBuilder.getCommittableSerializer());
@@ -203,13 +201,13 @@ public class DeltaSinkInternal<IN> implements Sink<IN, AbstractDeltaCommittable,
     }
 
     @Override
-    public Optional<GlobalCommitter<AbstractDeltaCommittable, AbstractDeltaGlobalCommittable>>
+    public Optional<GlobalCommitter<DeltaCommittable, DeltaGlobalCommittable>>
         createGlobalCommitter() {
         return Optional.of(sinkBuilder.createGlobalCommitter());
     }
 
     @Override
-    public Optional<SimpleVersionedSerializer<AbstractDeltaGlobalCommittable>>
+    public Optional<SimpleVersionedSerializer<DeltaGlobalCommittable>>
         getGlobalCommittableSerializer() {
         try {
             return Optional.of(sinkBuilder.getGlobalCommittableSerializer());
