@@ -35,6 +35,10 @@ import org.apache.hadoop.conf.Configuration;
 /**
  * A builder class for {@link DeltaSink}.
  * <p>
+ * For most common use cases use {@link DeltaSink#forRowData} utility method to instantiate the
+ * sink. This builder should be used only if you need to provide custom writer factory instance
+ * or configure some low level settings for the sink.
+ * <p>
  * Example how to use this class for the stream of {@link RowData}:
  * <pre>
  *     RowType rowType = ...;
@@ -95,9 +99,9 @@ public class DeltaSinkBuilder<IN> extends DeltaSinkBuilderInternal<IN> {
      *
      * @param basePath            path to a Delta table
      * @param conf                Hadoop's conf object
-     * @param bucketCheckInterval interval for triggering {@link Sink.ProcessingTimeService} within
-     *                            internal {@code io.delta.flink.sink.internal.writer.DeltaWriter}
-     *                            instance
+     * @param bucketCheckInterval interval (in milliseconds) for triggering
+     *                            {@link Sink.ProcessingTimeService} within internal
+     *                            {@code io.delta.flink.sink.internal.writer.DeltaWriter} instance
      * @param writerFactory       a factory that in runtime is used to create instances of
      *                            {@link org.apache.flink.api.common.serialization.BulkWriter}
      * @param assigner            {@link BucketAssigner} used with a Delta sink to determine the

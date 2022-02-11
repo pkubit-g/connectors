@@ -35,6 +35,12 @@ import io.delta.standalone.DeltaLog;
  * Parquet format and commits those files to the {@link DeltaLog}. This sink achieves exactly-once
  * semantics for both {@code BATCH} and {@code STREAMING}.
  * <p>
+ * For most use cases users should use {@link DeltaSink#forRowData} utility method to instantiate
+ * the sink which provides proper writer factory implementation for the stream of {@link RowData}.
+ * In some narrow cases users may use {@link DeltaSinkBuilder} directly e.g. in order to provide
+ * custom implementation of writer factory, but it would require to pass all configuration options
+ * as well.
+ * <p>
  * To create new instance of the sink for stream of {@link RowData}:
  * <pre>
  *     DataStream&lt;RowData&gt; stream = ...;
