@@ -21,6 +21,7 @@ package io.delta.flink.sink;
 import java.util.UUID;
 
 import io.delta.flink.sink.internal.DeltaSinkBuilderInternal;
+import io.delta.flink.sink.internal.DeltaTablePartitionAssigner;
 import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.formats.parquet.ParquetWriterFactory;
@@ -181,12 +182,29 @@ public class DeltaSinkBuilder<IN> extends DeltaSinkBuilderInternal<IN> {
 
     /**
      * Sets bucket assigner responsible for mapping events to its partitions.
+     * NOTE: it is not needed to set both {@link DeltaSinkBuilder#withBucketAssigner} and
+     * {@link DeltaSinkBuilder#withPartitionComputer}.
      *
      * @param assigner bucket assigner instance for this sink
      * @return builder for {@link DeltaSink}
      */
     public DeltaSinkBuilder<IN> withBucketAssigner(BucketAssigner<IN, String> assigner) {
         super.withBucketAssigner(assigner);
+        return this;
+    }
+
+    /**
+     * Sets partition computer responsible for mapping events to its partitions.
+     * <p>
+     * NOTE: it is not needed to set both {@link DeltaSinkBuilder#withBucketAssigner} and
+     * {@link DeltaSinkBuilder#withPartitionComputer}.
+     *
+     * @param computer partition computer instance that will be used to instantiate proper
+     *                 {@link BucketAssigner} object
+     * @return builder for {@link DeltaSink}
+     */
+    public DeltaSinkBuilder<IN> withPartitionComputer(DeltaPartitionComputer<IN> computer) {
+        super.withBucketAssigner(new DeltaTablePartitionAssigner<>(computer));
         return this;
     }
 

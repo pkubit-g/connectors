@@ -26,8 +26,9 @@ import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
+import io.delta.flink.sink.DeltaPartitionComputer;
 import io.delta.flink.sink.DeltaSink;
-import io.delta.flink.sink.DeltaTablePartitionAssigner;
+import io.delta.flink.sink.internal.DeltaTablePartitionAssigner;
 import io.delta.flink.sink.internal.committables.DeltaCommittable;
 import io.delta.flink.sink.internal.committables.DeltaGlobalCommittable;
 import org.apache.commons.io.FileUtils;
@@ -360,7 +361,7 @@ public class DeltaSinkTestUtils {
     }
 
     public static DeltaTablePartitionAssigner<RowData> getTestPartitionAssigner() {
-        DeltaTablePartitionAssigner.DeltaPartitionComputer<RowData> partitionComputer =
+        DeltaPartitionComputer<RowData> partitionComputer =
             (element, context) -> new LinkedHashMap<String, String>() {{
                     put("col1", Integer.toString(ThreadLocalRandom.current().nextInt(0, 2)));
                     put("col2", Integer.toString(ThreadLocalRandom.current().nextInt(0, 2)));

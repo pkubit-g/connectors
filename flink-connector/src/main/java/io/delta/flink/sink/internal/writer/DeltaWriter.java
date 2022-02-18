@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-import io.delta.flink.sink.DeltaTablePartitionAssigner;
+import io.delta.flink.sink.internal.DeltaTablePartitionAssigner;
 import io.delta.flink.sink.internal.committables.DeltaCommittable;
 import io.delta.flink.sink.internal.logging.Logging;
 import org.apache.flink.annotation.VisibleForTesting;

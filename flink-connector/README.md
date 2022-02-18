@@ -137,16 +137,16 @@ public class DeltaSinkExample {
 
 #### 2. Sink Creation for partitioned tables
 
-In this example we show how to create a `DeltaSink` and
-implement `io.delta.flink.DeltaTablePartitionAssigner` that will enable writing data to a
-partitioned table.
+In this example we show how to create a `DeltaSink` for `org.apache.flink.table.data.RowData` and
+that will be writing data to a partitioned table using one partitioning column `surname`.
 
 ```java
 package com.example;
 
+import io.delta.flink.sink.DeltaPartitionComputer;
 import io.delta.flink.sink.DeltaSink;
 import io.delta.flink.sink.DeltaSinkBuilder;
-import io.delta.flink.sink.DeltaTablePartitionAssigner;
+import io.delta.flink.sink.internal.DeltaTablePartitionAssigner;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
@@ -157,40 +157,26 @@ import java.util.LinkedHashMap;
 
 public class DeltaSinkExample {
 
-    public static final RowType ROW_TYPE = new RowType(Arrays.asList(
-        new RowType.RowField("name", new VarCharType(VarCharType.MAX_LENGTH)),
-        new RowType.RowField("surname", new VarCharType(VarCharType.MAX_LENGTH)),
-        new RowType.RowField("age", new IntType())
-    ));
+  public static final RowType ROW_TYPE = new RowType(Arrays.asList(
+          new RowType.RowField("name", new VarCharType(VarCharType.MAX_LENGTH)),
+          new RowType.RowField("surname", new VarCharType(VarCharType.MAX_LENGTH)),
+          new RowType.RowField("age", new IntType())
+  ));
 
-    public DataStream<RowData> createDeltaSink(DataStream<RowData> stream,
-                                               String deltaTablePath) {
-        DeltaTablePartitionAssigner<RowData> partitionAssigner =
-            new DeltaTablePartitionAssigner<>(new MultiplePartitioningColumnComputer());
+  public DataStream<RowData> createDeltaSink(DataStream<RowData> stream,
+                                             String deltaTablePath) {
+    List<String> partitionCols = Arrays.asList("surname");  
+    DeltaPartitionComputer<RowData> partitionComputer =
+            DeltaPartitionComputer.forRowData(ROW_TYPE, partitionCols);
 
-        DeltaSinkBuilder<RowData> deltaSinkBuilder = DeltaSink.forRowData(
+    DeltaSinkBuilder<RowData> deltaSinkBuilder = DeltaSink.forRowData(
             new Path(deltaTablePath), new Configuration(), ROW_TYPE);
-        deltaSinkBuilder.withBucketAssigner(partitionAssigner);
-        DeltaSink<RowData> deltaSink = deltaSinkBuilder.build();
+    deltaSinkBuilder.withPartitionComputer(partitionComputer);
+    DeltaSink<RowData> deltaSink = deltaSinkBuilder.build();
 
-        stream.sinkTo(deltaSink);
-        return stream;
-    }
-
-    static class MultiplePartitioningColumnComputer implements
-        DeltaTablePartitionAssigner.DeltaPartitionComputer<RowData> {
-
-        @Override
-        public LinkedHashMap<String, String> generatePartitionValues(
-            RowData element, BucketAssigner.Context context) {
-            String name = element.getString(0).toString();
-            int age = element.getInt(2);
-            LinkedHashMap<String, String> partitionSpec = new LinkedHashMap<>();
-            partitionSpec.put("name", name);
-            partitionSpec.put("age", Integer.toString(age));
-            return partitionSpec;
-        }
-    }
+    stream.sinkTo(deltaSink);
+    return stream;
+  }
 }
 ```
 

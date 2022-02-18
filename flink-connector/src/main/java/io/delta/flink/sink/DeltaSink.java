@@ -58,16 +58,14 @@ import io.delta.standalone.DeltaLog;
  *
  *     // sets a sink to a partitioned Delta table
  *     List&lt;String&gt; partitionCols = ...; // list of partition columns' names
- *     DeltaTablePartitionAssigner.DeltaRowDataPartitionComputer rowDataPartitionComputer =
- *         new DeltaTablePartitionAssigner.DeltaRowDataPartitionComputer(rowType, partitionCols);
- *     DeltaTablePartitionAssigner&lt;RowData&gt; partitionAssigner =
- *          new DeltaTablePartitionAssigner&lt;&gt;(myPartitionComputer);
+ *     DeltaPartitionComputer&lt;RowData&gt; rowDataPartitionComputer =
+ *         DeltaPartitionComputer.forRowData(rowType, partitionCols);
  *
  *     DeltaSink&lt;RowData&gt; deltaSink = DeltaSink.forRowData(
  *             new Path(deltaTablePath),
  *             new Configuration(),
  *             rowType)
- *         .withBucketAssigner(partitionAssigner)
+ *         .withPartitionComputer(partitionAssigner)
  *         .build();
  *     stream.sinkTo(deltaSink);
  * </pre>

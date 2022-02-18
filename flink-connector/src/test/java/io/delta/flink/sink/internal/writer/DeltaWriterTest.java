@@ -30,7 +30,8 @@ import java.util.List;
 import java.util.PriorityQueue;
 import java.util.Queue;
 
-import io.delta.flink.sink.DeltaTablePartitionAssigner;
+import io.delta.flink.sink.DeltaPartitionComputer;
+import io.delta.flink.sink.internal.DeltaTablePartitionAssigner;
 import io.delta.flink.sink.internal.committables.DeltaCommittable;
 import io.delta.flink.sink.utils.DeltaSinkTestUtils;
 import org.apache.flink.api.connector.sink.Sink;
@@ -220,7 +221,7 @@ public class DeltaWriterTest {
      * @return test instance of {@link DeltaTablePartitionAssigner}
      */
     public DeltaTablePartitionAssigner<RowData> getTestPartitionAssigner() {
-        DeltaTablePartitionAssigner.DeltaPartitionComputer<RowData> partitionComputer =
+        DeltaPartitionComputer<RowData> partitionComputer =
             (element, context) -> new LinkedHashMap<String, String>() {{
                     put("col1", Integer.toString(testRecordsCount % 2));
                 }};

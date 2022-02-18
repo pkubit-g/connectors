@@ -16,11 +16,13 @@
  * limitations under the License.
  */
 
-package io.delta.flink.sink;
+package io.delta.flink.sink.internal;
 
-import java.io.Serializable;
 import java.util.LinkedHashMap;
 
+import io.delta.flink.sink.DeltaPartitionComputer;
+import io.delta.flink.sink.DeltaSink;
+import io.delta.flink.sink.DeltaSinkBuilder;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
 import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.SimpleVersionedStringSerializer;
@@ -40,10 +42,24 @@ import org.apache.flink.table.utils.PartitionPathUtils;
  * To create new instance of the assigner and set it for the Delta sink:
  * <pre>
  *     /////////////////////////////////////////////////////////////////////////////////
+ *     // creates an instance of partition assigner that extracts partition values from
+ *     // {@link RowData} events
+ *     /////////////////////////////////////////////////////////////////////////////////
+ *     RowType rowType = ...;*
+ *     List&lt;String&gt; partitionCols = ...; // list of partition columns' names
+ *
+ *     DeltaPartitionComputer<RowData> rowDataPartitionComputer =
+ *         DeltaPartitionComputer.forRowData(rowType, partitionCols);
+ *
+ *     DeltaTablePartitionAssigner&lt;RowData&gt; partitionAssigner =
+ *         new DeltaTablePartitionAssigner&lt;&gt;(rowDataPartitionComputer);
+ *
+ *     ...
+ *
+ *     /////////////////////////////////////////////////////////////////////////////////
  *     // implements a custom partition computer
  *     /////////////////////////////////////////////////////////////////////////////////
- *     static class CustomPartitionColumnComputer implements
- *             DeltaTablePartitionAssigner.DeltaPartitionComputer&lt;RowData&gt; {
+ *     static class CustomPartitionColumnComputer implements DeltaPartitionComputer&lt;RowData&gt; {
  *
  *         &#64;Override
  *         public LinkedHashMap&lt;String, String&gt; generatePartitionValues(
@@ -62,21 +78,6 @@ import org.apache.flink.table.utils.PartitionPathUtils;
  *     /////////////////////////////////////////
  *     DeltaTablePartitionAssigner&lt;RowData&gt; partitionAssigner =
  *                 new DeltaTablePartitionAssigner&lt;&gt;(new CustomPartitionColumnComputer());
- *
- *     ...
- *
- *     /////////////////////////////////////////////////////////////////////////////////
- *     // creates an instance of partition assigner that extracts partition values from
- *     // {@link RowData} events
- *     /////////////////////////////////////////////////////////////////////////////////
- *     RowType rowType = ...;*
- *     List&lt;String&gt; partitionCols = ...; // list of partition columns' names
- *
- *     DeltaTablePartitionAssigner.DeltaRowDataPartitionComputer rowDataPartitionComputer =
- *         new DeltaTablePartitionAssigner.DeltaRowDataPartitionComputer(rowType, partitionCols);
- *
- *     DeltaTablePartitionAssigner&lt;RowData&gt; partitionAssigner =
- *         new DeltaTablePartitionAssigner&lt;&gt;(rowDataPartitionComputer);
  *
  *     ...
  *
@@ -120,30 +121,5 @@ public class DeltaTablePartitionAssigner<T> implements BucketAssigner<T, String>
     @Override
     public String toString() {
         return "DeltaTablePartitionAssigner";
-    }
-
-    public interface DeltaPartitionComputer<T> extends Serializable {
-
-        /**
-         * Compute partition values from record.
-         * <p>
-         * E.g.
-         * If the table has two partitioning columns 'date' and 'country' then this method should
-         * return linked hashmap like:
-         * LinkedHashMap(
-         * "date" -&gt; "2020-01-01",
-         * "country" -&gt; "x"
-         * )
-         * <p>
-         * for event that should be written to example path of:
-         * '/some_path/table_1/date=2020-01-01/country=x'.
-         *
-         * @param element input record.
-         * @param context {@link Context} that can be used during partition's
-         *                assignment
-         * @return partition values.
-         */
-        LinkedHashMap<String, String> generatePartitionValues(
-            T element, Context context);
     }
 }

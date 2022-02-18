@@ -30,27 +30,13 @@ public class DeltaSinkPartitionedTableExample extends DeltaSinkExampleBase {
 
     @Override
     DeltaSink<RowData> getDeltaSink(String tablePath) {
-        DeltaTablePartitionAssigner<RowData> partitionAssigner =
-                new DeltaTablePartitionAssigner<>(new MultiplePartitioningColumnComputer());
+        List<String> partitionCols = Arrays.asList("f1");
+        DeltaPartitionComputer<RowData> partitionComputer =
+            DeltaPartitionComputer.forRowData(ROW_TYPE, partitionCols);
 
         DeltaSinkBuilder<RowData> deltaSinkBuilder = DeltaSink.forRowData(
                 new Path(TABLE_PATH), new Configuration(), ROW_TYPE);
-        deltaSinkBuilder.withBucketAssigner(partitionAssigner);
+        deltaSinkBuilder.withPartitionComputer(partitionComputer);
         return deltaSinkBuilder.build();
-    }
-
-    static class MultiplePartitioningColumnComputer implements
-            DeltaTablePartitionAssigner.DeltaPartitionComputer<RowData> {
-
-        @Override
-        public LinkedHashMap<String, String> generatePartitionValues(
-                RowData element, BucketAssigner.Context context) {
-            String f1 = element.getString(0).toString();
-            int f3 = element.getInt(2);
-            LinkedHashMap<String, String> partitionSpec = new LinkedHashMap<>();
-            partitionSpec.put("f1", f1);
-            partitionSpec.put("f3", Integer.toString(f3));
-            return partitionSpec;
-        }
     }
 }
