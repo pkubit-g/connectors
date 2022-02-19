@@ -1,4 +1,4 @@
-package io.delta.flink.sink;
+package io.delta.flink.sink.internal;
 
 import java.io.Serializable;
 import java.util.LinkedHashMap;
@@ -19,8 +19,8 @@ public interface DeltaPartitionComputer<T> extends Serializable {
      * If the table has two partitioning columns 'date' and 'country' then this method should
      * return linked hashmap like:
      * LinkedHashMap(
-     * "date" -&gt; "2020-01-01",
-     * "country" -&gt; "x"
+     *     "date" -&gt; "2020-01-01",
+     *     "country" -&gt; "x"
      * )
      * <p>
      * for event that should be written to example path of:
@@ -35,8 +35,7 @@ public interface DeltaPartitionComputer<T> extends Serializable {
         T element, BucketAssigner.Context context);
 
     /**
-     * Implementation of {@link DeltaPartitionComputer} for stream which elements are instances of
-     * {@link RowData}.
+     * Implementation of {@link DeltaPartitionComputer} for stream of {@link RowData} elements.
      * <p>
      * This partition computer resolves partition values by extracting them from element's fields
      * by provided partitions' names. This behaviour can be overridden by providing static values
@@ -45,7 +44,7 @@ public interface DeltaPartitionComputer<T> extends Serializable {
     class DeltaRowDataPartitionComputer implements DeltaPartitionComputer<RowData> {
 
         private final LinkedHashMap<String, String> staticPartitionSpec;
-        RowType rowType;
+        static RowType rowType;
         List<String> partitionKeys;
 
         /**
@@ -55,11 +54,9 @@ public interface DeltaPartitionComputer<T> extends Serializable {
          * @param partitionKeys list of partition column names in the order they should be applied
          *                      when creating a destination path
          */
-        private DeltaRowDataPartitionComputer(RowType rowType,
+        public DeltaRowDataPartitionComputer(RowType rowType,
                                               List<String> partitionKeys) {
-            this.rowType = rowType;
-            this.partitionKeys = partitionKeys;
-            this.staticPartitionSpec = new LinkedHashMap<>();
+            this(rowType, partitionKeys, new LinkedHashMap<>());
         }
 
         /**
@@ -71,7 +68,7 @@ public interface DeltaPartitionComputer<T> extends Serializable {
          * @param staticPartitionSpec static values for partitions that should set explicitly
          *                            instead of being derived from the content of the records
          */
-        private DeltaRowDataPartitionComputer(RowType rowType,
+        public DeltaRowDataPartitionComputer(RowType rowType,
                                              List<String> partitionKeys,
                                              LinkedHashMap<String, String> staticPartitionSpec) {
             this.rowType = rowType;
@@ -107,33 +104,5 @@ public interface DeltaPartitionComputer<T> extends Serializable {
             }
             return partitionValues;
         }
-    }
-
-    /**
-     * Creates instance of partition computer for {@link RowData}
-     *
-     * @param rowType       logical schema of the records in the stream/table
-     * @param partitionKeys list of partition column names in the order they should be applied
-     *                      when creating a destination path
-     */
-    static DeltaPartitionComputer<RowData> forRowData(RowType rowType,
-                                                      List<String> partitionKeys) {
-        return new DeltaRowDataPartitionComputer(rowType, partitionKeys);
-    }
-
-    /**
-     * Creates instance of partition computer for {@link RowData}
-     *
-     * @param rowType             logical schema of the records in the stream/table
-     * @param partitionKeys       list of partition column names in the order they should be
-     *                            applied when creating a destination path
-     * @param staticPartitionSpec static values for partitions that should set explicitly
-     *                            instead of being derived from the content of the records
-     */
-    static DeltaPartitionComputer<RowData> forRowData(
-        RowType rowType,
-        List<String> partitionKeys,
-        LinkedHashMap<String, String> staticPartitionSpec) {
-        return new DeltaRowDataPartitionComputer(rowType, partitionKeys, staticPartitionSpec);
     }
 }

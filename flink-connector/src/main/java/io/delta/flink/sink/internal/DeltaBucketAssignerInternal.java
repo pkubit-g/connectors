@@ -20,7 +20,6 @@ package io.delta.flink.sink.internal;
 
 import java.util.LinkedHashMap;
 
-import io.delta.flink.sink.DeltaPartitionComputer;
 import io.delta.flink.sink.DeltaSink;
 import io.delta.flink.sink.DeltaSinkBuilder;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
@@ -45,14 +44,14 @@ import org.apache.flink.table.utils.PartitionPathUtils;
  *     // creates an instance of partition assigner that extracts partition values from
  *     // {@link RowData} events
  *     /////////////////////////////////////////////////////////////////////////////////
- *     RowType rowType = ...;*
+ *     RowType rowType = ...;
  *     List&lt;String&gt; partitionCols = ...; // list of partition columns' names
  *
  *     DeltaPartitionComputer<RowData> rowDataPartitionComputer =
  *         DeltaPartitionComputer.forRowData(rowType, partitionCols);
  *
- *     DeltaTablePartitionAssigner&lt;RowData&gt; partitionAssigner =
- *         new DeltaTablePartitionAssigner&lt;&gt;(rowDataPartitionComputer);
+ *     DeltaBucketAssignerInternal&lt;RowData&gt; partitionAssigner =
+ *         new DeltaBucketAssignerInternal&lt;&gt;(rowDataPartitionComputer);
  *
  *     ...
  *
@@ -76,8 +75,8 @@ import org.apache.flink.table.utils.PartitionPathUtils;
  *     /////////////////////////////////////////
  *     // creates partition assigner for a custom partition computer
  *     /////////////////////////////////////////
- *     DeltaTablePartitionAssigner&lt;RowData&gt; partitionAssigner =
- *                 new DeltaTablePartitionAssigner&lt;&gt;(new CustomPartitionColumnComputer());
+ *     DeltaBucketAssignerInternal&lt;RowData&gt; partitionAssigner =
+ *                 new DeltaBucketAssignerInternal&lt;&gt;(new CustomPartitionColumnComputer());
  *
  *     ...
  *
@@ -96,13 +95,13 @@ import org.apache.flink.table.utils.PartitionPathUtils;
  *
  * @param <T> The type of input elements.
  */
-public class DeltaTablePartitionAssigner<T> implements BucketAssigner<T, String> {
+public class DeltaBucketAssignerInternal<T> implements BucketAssigner<T, String> {
 
     private static final long serialVersionUID = -6033643154550226022L;
 
     private final DeltaPartitionComputer<T> partitionComputer;
 
-    public DeltaTablePartitionAssigner(DeltaPartitionComputer<T> partitionComputer) {
+    public DeltaBucketAssignerInternal(DeltaPartitionComputer<T> partitionComputer) {
         this.partitionComputer = partitionComputer;
     }
 
@@ -120,6 +119,6 @@ public class DeltaTablePartitionAssigner<T> implements BucketAssigner<T, String>
 
     @Override
     public String toString() {
-        return "DeltaTablePartitionAssigner";
+        return "DeltaBucketAssignerInternal";
     }
 }

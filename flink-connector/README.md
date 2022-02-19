@@ -143,17 +143,13 @@ that will be writing data to a partitioned table using one partitioning column `
 ```java
 package com.example;
 
-import io.delta.flink.sink.DeltaPartitionComputer;
+import io.delta.flink.sink.DeltaBucketAssigner;
 import io.delta.flink.sink.DeltaSink;
 import io.delta.flink.sink.DeltaSinkBuilder;
-import io.delta.flink.sink.internal.DeltaTablePartitionAssigner;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
-
-import java.util.LinkedHashMap;
 
 public class DeltaSinkExample {
 
@@ -165,13 +161,13 @@ public class DeltaSinkExample {
 
   public DataStream<RowData> createDeltaSink(DataStream<RowData> stream,
                                              String deltaTablePath) {
-    List<String> partitionCols = Arrays.asList("surname");  
-    DeltaPartitionComputer<RowData> partitionComputer =
-            DeltaPartitionComputer.forRowData(ROW_TYPE, partitionCols);
+    List<String> partitionCols = Arrays.asList("surname");
+    DeltaBucketAssigner<RowData> bucketAssigner =
+            DeltaBucketAssigner.forRowData(ROW_TYPE, partitionCols);
 
     DeltaSinkBuilder<RowData> deltaSinkBuilder = DeltaSink.forRowData(
             new Path(deltaTablePath), new Configuration(), ROW_TYPE);
-    deltaSinkBuilder.withPartitionComputer(partitionComputer);
+    deltaSinkBuilder.withBucketAssigner(bucketAssigner);
     DeltaSink<RowData> deltaSink = deltaSinkBuilder.build();
 
     stream.sinkTo(deltaSink);
@@ -201,7 +197,7 @@ No, currently only append is supported, other modes may be added in future relea
 If you are using DataStream API then you have to provide a
 `org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner` instance while building the sink instace. You
 are free to roll out your own implementation of bucket assigner or use utility one provided by the connector
-as `delta.io.flink.DeltaTablePartitionAssigner` ([see example implementation](../examples/flink-example/src/main/java/io/delta/flink/example/sink/DeltaSinkPartitionedTableExample.java)).
+as `delta.io.flink.DeltaBucketAssigner` ([see example implementation](../examples/flink-example/src/main/java/io/delta/flink/example/sink/DeltaSinkPartitionedTableExample.java)).
 
 #### Why do I need to specify the table schema? Shouldn’t it exist in the underlying Delta table metadata or cannot be extracted from the stream's metadata?
 

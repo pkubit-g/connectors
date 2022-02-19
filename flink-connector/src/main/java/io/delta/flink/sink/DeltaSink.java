@@ -41,31 +41,32 @@ import io.delta.standalone.DeltaLog;
  * custom implementation of writer factory, but it would require to pass all configuration options
  * as well.
  * <p>
- * To create new instance of the sink for stream of {@link RowData}:
+ * To create new instance of the sink to a non-partitioned Delta table for stream of
+ * {@link RowData}:
  * <pre>
  *     DataStream&lt;RowData&gt; stream = ...;
  *     RowType rowType = ...;
  *     ...
  *
  *     // sets a sink to a non-partitioned Delta table
- *     DeltaSink&lt;RowData&gt;; deltaSink = DeltaSink.forRowData(
+ *     DeltaSink&lt;RowData&gt; deltaSink = DeltaSink.forRowData(
  *             new Path(deltaTablePath),
  *             new Configuration(),
  *             rowType).build();
  *     stream.sinkTo(deltaSink);
+ * </pre>
  *
- *     ...
- *
- *     // sets a sink to a partitioned Delta table
+ * To create new instance of the sink to a partitioned Delta table for stream of {@link RowData}:
+ * <pre>
  *     List&lt;String&gt; partitionCols = ...; // list of partition columns' names
- *     DeltaPartitionComputer&lt;RowData&gt; rowDataPartitionComputer =
- *         DeltaPartitionComputer.forRowData(rowType, partitionCols);
+ *     DeltaBucketAssigner&lt;RowData&gt; bucketAssigner =
+ *         DeltaBucketAssigner.forRowData(rowType, partitionCols);
  *
  *     DeltaSink&lt;RowData&gt; deltaSink = DeltaSink.forRowData(
  *             new Path(deltaTablePath),
  *             new Configuration(),
  *             rowType)
- *         .withPartitionComputer(partitionAssigner)
+ *         .withBucketAssigner(bucketAssigner)
  *         .build();
  *     stream.sinkTo(deltaSink);
  * </pre>

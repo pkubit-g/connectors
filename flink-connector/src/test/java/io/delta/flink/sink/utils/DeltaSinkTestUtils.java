@@ -26,9 +26,9 @@ import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
-import io.delta.flink.sink.DeltaPartitionComputer;
 import io.delta.flink.sink.DeltaSink;
-import io.delta.flink.sink.internal.DeltaTablePartitionAssigner;
+import io.delta.flink.sink.internal.DeltaBucketAssignerInternal;
+import io.delta.flink.sink.internal.DeltaPartitionComputer;
 import io.delta.flink.sink.internal.committables.DeltaCommittable;
 import io.delta.flink.sink.internal.committables.DeltaGlobalCommittable;
 import org.apache.commons.io.FileUtils;
@@ -351,7 +351,7 @@ public class DeltaSinkTestUtils {
                     DeltaSinkTestUtils.getHadoopConf(),
                     DeltaSinkTestUtils.TEST_ROW_TYPE)
                 .withBucketAssigner(getTestPartitionAssigner())
-                    .build();
+                .build();
         }
         return DeltaSink
             .forRowData(
@@ -360,13 +360,13 @@ public class DeltaSinkTestUtils {
                 DeltaSinkTestUtils.TEST_ROW_TYPE).build();
     }
 
-    public static DeltaTablePartitionAssigner<RowData> getTestPartitionAssigner() {
+    public static DeltaBucketAssignerInternal<RowData> getTestPartitionAssigner() {
         DeltaPartitionComputer<RowData> partitionComputer =
             (element, context) -> new LinkedHashMap<String, String>() {{
                     put("col1", Integer.toString(ThreadLocalRandom.current().nextInt(0, 2)));
                     put("col2", Integer.toString(ThreadLocalRandom.current().nextInt(0, 2)));
                 }};
-        return new DeltaTablePartitionAssigner<>(partitionComputer);
+        return new DeltaBucketAssignerInternal<>(partitionComputer);
     }
 
     public static MiniCluster getMiniCluster() {
