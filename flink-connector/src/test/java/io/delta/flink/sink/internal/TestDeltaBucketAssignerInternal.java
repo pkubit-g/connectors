@@ -23,7 +23,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import javax.annotation.Nullable;
 
-import io.delta.flink.sink.DeltaBucketAssigner;
 import io.delta.flink.sink.utils.DeltaSinkTestUtils;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
 import org.apache.flink.table.data.RowData;
@@ -46,8 +45,8 @@ public class TestDeltaBucketAssignerInternal {
     public void testNoPartition() {
         // GIVEN
         TestContext context = new TestContext();
-        DeltaBucketAssignerInternal<RowData> partitionAssigner =
-            new DeltaBucketAssignerInternal<>(new RootPathAssigner());
+        DeltaBucketAssigner<RowData> partitionAssigner =
+            new DeltaBucketAssigner<>(new RootPathAssigner());
         RowData testRowData = DeltaSinkTestUtils.getTestRowData(1).get(0);
 
         // WHEN
@@ -61,8 +60,8 @@ public class TestDeltaBucketAssignerInternal {
     public void testOnePartitioningColumn() {
         // GIVEN
         TestContext context = new TestContext();
-        DeltaBucketAssignerInternal<Integer> partitionAssigner =
-            new DeltaBucketAssignerInternal<>(new OnePartitioningColumnComputer("value"));
+        DeltaBucketAssigner<Integer> partitionAssigner =
+            new DeltaBucketAssigner<>(new OnePartitioningColumnComputer("value"));
         Integer testEvent = 5;
 
         // WHEN
@@ -77,8 +76,8 @@ public class TestDeltaBucketAssignerInternal {
     public void testMultiplePartitioningColumns() {
         // GIVEN
         TestContext context = new TestContext();
-        DeltaBucketAssignerInternal<RowData> partitionAssigner =
-            new DeltaBucketAssignerInternal<>(new MultiplePartitioningColumnComputer());
+        DeltaBucketAssigner<RowData> partitionAssigner =
+            new DeltaBucketAssigner<>(new MultiplePartitioningColumnComputer());
         RowData testEvent = DeltaSinkTestUtils.getTestRowDataEvent("a", "b", 3);
 
         // WHEN
@@ -195,66 +194,6 @@ public class TestDeltaBucketAssignerInternal {
         // WHEN
         // below should fail
         partitionComputer.generatePartitionValues(record, context);
-    }
-
-    @Test
-    public void testforRowDataBucketAssigner() {
-        // GIVEN
-        TestContext context = new TestContext();
-        RowType testRowType = new RowType(Arrays.asList(
-            new RowType.RowField("partition_col1", new VarCharType(VarCharType.MAX_LENGTH)),
-            new RowType.RowField("col2", new VarCharType())
-        ));
-        DataFormatConverters.DataFormatConverter<RowData, Row> converter =
-            DataFormatConverters.getConverterForDataType(
-                TypeConversions.fromLogicalToDataType(testRowType)
-            );
-        List<String> partitionCols = Arrays.asList("partition_col1");
-
-        DeltaBucketAssigner<RowData> bucketAssigner =
-            DeltaBucketAssigner.forRowData(testRowType, partitionCols);
-
-        RowData record = converter.toInternal(Row.of("partition_val", "some_val"));
-
-        // WHEN
-        String partitionPath = bucketAssigner.getBucketId(record, context);
-
-        // THEN
-        String expected = "partition_col1=partition_val/";
-
-        assertEquals(expected, partitionPath);
-    }
-
-    @Test
-    public void testforRowDataBucketAssignerWithStaticPartitionValues() {
-        // GIVEN
-        TestContext context = new TestContext();
-        RowType testRowType = new RowType(Arrays.asList(
-            new RowType.RowField("partition_col1", new VarCharType()),
-            new RowType.RowField("partition_col2", new VarCharType()),
-            new RowType.RowField("col2", new VarCharType())
-        ));
-        DataFormatConverters.DataFormatConverter<RowData, Row> converter =
-            DataFormatConverters.getConverterForDataType(
-                TypeConversions.fromLogicalToDataType(testRowType)
-            );
-        List<String> partitionCols = Arrays.asList("partition_col1", "partition_col2");
-        LinkedHashMap<String, String> staticPartitionValues = new LinkedHashMap<String, String>() {{
-                put("partition_col2", "static_val");
-            }};
-
-        DeltaBucketAssigner<RowData> bucketAssigner =
-            DeltaBucketAssigner.forRowData(testRowType, partitionCols, staticPartitionValues);
-
-        RowData record = converter.toInternal(Row.of("partition_val", "some_val", "some_val_2"));
-
-        // WHEN
-        String partitionPath = bucketAssigner.getBucketId(record, context);
-
-        // THEN
-        String expected = "partition_col1=partition_val/partition_col2=static_val/";
-
-        assertEquals(expected, partitionPath);
     }
 
     ///////////////////////////////////////////////////////////////////////////

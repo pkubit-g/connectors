@@ -30,7 +30,7 @@ import java.util.List;
 import java.util.PriorityQueue;
 import java.util.Queue;
 
-import io.delta.flink.sink.internal.DeltaBucketAssignerInternal;
+import io.delta.flink.sink.internal.DeltaBucketAssigner;
 import io.delta.flink.sink.internal.DeltaPartitionComputer;
 import io.delta.flink.sink.internal.committables.DeltaCommittable;
 import io.delta.flink.sink.utils.DeltaSinkTestUtils;
@@ -218,14 +218,14 @@ public class DeltaWriterTest {
      * Simple partition assigner that assigns data to only two different partitions based on the
      * information whether the test record count is even or uneven.
      *
-     * @return test instance of {@link DeltaBucketAssignerInternal}
+     * @return test instance of {@link DeltaBucketAssigner}
      */
-    public DeltaBucketAssignerInternal<RowData> getTestPartitionAssigner() {
+    public DeltaBucketAssigner<RowData> getTestPartitionAssigner() {
         DeltaPartitionComputer<RowData> partitionComputer =
             (element, context) -> new LinkedHashMap<String, String>() {{
                     put("col1", Integer.toString(testRecordsCount % 2));
                 }};
-        return new DeltaBucketAssignerInternal<>(partitionComputer);
+        return new DeltaBucketAssigner<>(partitionComputer);
     }
 
     private void writeData(DeltaWriter<RowData> writer,

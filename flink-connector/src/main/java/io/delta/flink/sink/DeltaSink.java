@@ -18,12 +18,11 @@
 
 package io.delta.flink.sink;
 
+import io.delta.flink.sink.internal.DeltaSinkBuilder;
 import io.delta.flink.sink.internal.DeltaSinkInternal;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.formats.parquet.ParquetWriterFactory;
 import org.apache.flink.formats.parquet.row.ParquetRowDataBuilder;
-import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.BasePathBucketAssigner;
-import org.apache.flink.streaming.api.functions.sink.filesystem.rollingpolicies.OnCheckpointRollingPolicy;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.types.logical.RowType;
 import org.apache.hadoop.conf.Configuration;
@@ -37,9 +36,6 @@ import io.delta.standalone.DeltaLog;
  * <p>
  * For most use cases users should use {@link DeltaSink#forRowData} utility method to instantiate
  * the sink which provides proper writer factory implementation for the stream of {@link RowData}.
- * In some narrow cases users may use {@link DeltaSinkBuilder} directly e.g. in order to provide
- * custom implementation of writer factory, but it would require to pass all configuration options
- * as well.
  * <p>
  * To create new instance of the sink to a non-partitioned Delta table for stream of
  * {@link RowData}:
@@ -58,15 +54,13 @@ import io.delta.standalone.DeltaLog;
  *
  * To create new instance of the sink to a partitioned Delta table for stream of {@link RowData}:
  * <pre>
- *     List&lt;String&gt; partitionCols = ...; // list of partition columns' names
- *     DeltaBucketAssigner&lt;RowData&gt; bucketAssigner =
- *         DeltaBucketAssigner.forRowData(rowType, partitionCols);
+ *     List&lt;String&gt; partitionKeys = ...; // list of partition columns' names
  *
  *     DeltaSink&lt;RowData&gt; deltaSink = DeltaSink.forRowData(
  *             new Path(deltaTablePath),
  *             new Configuration(),
  *             rowType)
- *         .withBucketAssigner(bucketAssigner)
+ *         .withPartitionKeys(partitionKeys)
  *         .build();
  *     stream.sinkTo(deltaSink);
  * </pre>
@@ -92,7 +86,7 @@ public class DeltaSink<IN> extends DeltaSinkInternal<IN> {
     }
 
     /**
-     * Convenience method for creating a {@link DeltaSinkBuilder} for {@link DeltaSink} to a
+     * Convenience method for creating a {@link DeltaSinkRowDataBuilder} for {@link DeltaSink} to a
      * DeltaLake's table.
      *
      * @param basePath root path of the DeltaLake's table
@@ -102,24 +96,14 @@ public class DeltaSink<IN> extends DeltaSinkInternal<IN> {
      * @param rowType  Flink's logical type to indicate the structure of the events in the stream
      * @return builder for the DeltaSink
      */
-    public static DeltaSinkBuilder<RowData> forRowData(
+    public static DeltaSinkRowDataBuilder forRowData(
         final Path basePath,
         final Configuration conf,
         final RowType rowType
     ) {
-        conf.set("parquet.compression", "SNAPPY");
-        ParquetWriterFactory<RowData> writerFactory = ParquetRowDataBuilder.createWriterFactory(
-            rowType,
-            conf,
-            true // utcTimestamp
-        );
-
-        return new DeltaSinkBuilder.DefaultDeltaFormatBuilder<>(
+        return new DeltaSinkRowDataBuilder(
             basePath,
             conf,
-            writerFactory,
-            new BasePathBucketAssigner<>(),
-            OnCheckpointRollingPolicy.build(),
             rowType,
             false // mergeSchema
         );
