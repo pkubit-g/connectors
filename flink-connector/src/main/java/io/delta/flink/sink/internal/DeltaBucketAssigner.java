@@ -20,11 +20,9 @@ package io.delta.flink.sink.internal;
 
 import java.util.LinkedHashMap;
 
-import io.delta.flink.sink.DeltaSink;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
 import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.SimpleVersionedStringSerializer;
-import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.utils.PartitionPathUtils;
 
 /**
@@ -37,23 +35,16 @@ import org.apache.flink.table.utils.PartitionPathUtils;
  * It's still possible for users to roll out their own version of {@link BucketAssigner}
  * and pass it to the {@link DeltaSinkBuilder} during creation of the sink.
  * <p>
- * To create new instance of the assigner and set it for the Delta sink:
+ * This {@link DeltaBucketAssigner} is applicable only to {@link DeltaSinkBuilder} and not to
+ * {@link io.delta.flink.sink.DeltaSinkRowDataBuilder}. The former lets you use this
+ * {@link DeltaBucketAssigner} to provide the required custom bucketing behaviour, while the latter
+ * doesn't expose a custom bucketing API, and you can provide the partition column keys only.
+ * <p>
+ * Thus, this {@link DeltaBucketAssigner} is currently not exposed to the user through any public
+ * API.
+ * <p>
+ * In the future, if you'd like to implement your own custom bucketing...
  * <pre>
- *     /////////////////////////////////////////////////////////////////////////////////
- *     // creates an instance of partition assigner that extracts partition values from
- *     // {@link RowData} events
- *     /////////////////////////////////////////////////////////////////////////////////
- *     RowType rowType = ...;
- *     List&lt;String&gt; partitionCols = ...; // list of partition columns' names
- *
- *     DeltaPartitionComputer<RowData> rowDataPartitionComputer =
- *         DeltaPartitionComputer.forRowData(rowType, partitionCols);
- *
- *     DeltaBucketAssignerInternal&lt;RowData&gt; partitionAssigner =
- *         new DeltaBucketAssignerInternal&lt;&gt;(rowDataPartitionComputer);
- *
- *     ...
- *
  *     /////////////////////////////////////////////////////////////////////////////////
  *     // implements a custom partition computer
  *     /////////////////////////////////////////////////////////////////////////////////
@@ -80,16 +71,13 @@ import org.apache.flink.table.utils.PartitionPathUtils;
  *     ...
  *
  *     /////////////////////////////////////////////////////////////////////////////////
- *     // shows how to set a partition assigner for {@link DeltaSink}
+ *     // create the builder
  *     /////////////////////////////////////////////////////////////////////////////////
  *
- *     DeltaSink&lt;RowData&gt; deltaSink = DeltaSink.forRowData(
- *             new Path(deltaTablePath),
- *             new Configuration(),
- *             rowType)
- *         .withBucketAssigner(partitionAssigner)
- *         .build();
- *     stream.sinkTo(deltaSink);
+ *     DeltaSinkBuilder<RowData></RowData> foo = new DeltaSinkBuilder.DefaultDeltaFormatBuilder<>(
+ *         ...,
+ *         partitionAssigner,
+ *         ...)
  * </pre>
  *
  * @param <T> The type of input elements.
