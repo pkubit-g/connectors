@@ -107,7 +107,7 @@ The project is compiled using [SBT](https://www.scala-sbt.org/1.x/docs/Command-L
 - To publish the JAR, run `build/sbt flinkConnector/publishM2`
 
 ## Examples
-#### 1. Sink Creation
+#### 1. Sink Creation for non-partitioned tables
 
 In this example we show how to create a `DeltaSink` and plug it to an
 existing `org.apache.flink.streaming.api.datastream.DataStream`.
@@ -127,8 +127,12 @@ public class DeltaSinkExample {
     public DataStream<RowData> createDeltaSink(DataStream<RowData> stream,
                                                String deltaTablePath,
                                                RowType rowType) {
-        DeltaSink<RowData> deltaSink = DeltaSink.forRowData(
-            new Path(deltaTablePath), new Configuration(), rowType).build();
+        DeltaSink<RowData> deltaSink = DeltaSink
+            .forRowData(
+                new Path(deltaTablePath),
+                new Configuration(),
+                rowType)
+            .build();
         stream.sinkTo(deltaSink);
         return stream;
     }
@@ -137,8 +141,8 @@ public class DeltaSinkExample {
 
 #### 2. Sink Creation for partitioned tables
 
-In this example we show how to create a `DeltaSink` for `org.apache.flink.table.data.RowData` and
-that will be writing data to a partitioned table using one partitioning column `surname`.
+In this example we show how to create a `DeltaSink` for `org.apache.flink.table.data.RowData` to
+write data to a partitioned table using one partitioning column `surname`.
 
 ```java
 package com.example;
@@ -162,14 +166,13 @@ public class DeltaSinkExample {
   public DataStream<RowData> createDeltaSink(DataStream<RowData> stream,
                                              String deltaTablePath) {
     List<String> partitionCols = Arrays.asList("surname");
-    DeltaBucketAssigner<RowData> bucketAssigner =
-            DeltaBucketAssigner.forRowData(ROW_TYPE, partitionCols);
-
-    DeltaSinkBuilder<RowData> deltaSinkBuilder = DeltaSink.forRowData(
-            new Path(deltaTablePath), new Configuration(), ROW_TYPE);
-    deltaSinkBuilder.withBucketAssigner(bucketAssigner);
-    DeltaSink<RowData> deltaSink = deltaSinkBuilder.build();
-
+    DeltaSink<RowData> deltaSink = DeltaSink
+            .forRowData(
+                new Path(deltaTablePath),
+                new Configuration(),
+                rowType)
+            .withPartitionKeys(partitionCols)
+            .build();
     stream.sinkTo(deltaSink);
     return stream;
   }
@@ -180,28 +183,26 @@ public class DeltaSinkExample {
 
 #### Can I use this connector to read data from a Delta Lake table?
 
-No, currently we are supporting only writing to a Delta Lake table. `DeltaSource` with the support for reading data from
-Delta's tables will be added in future releases.
+No, currently we are supporting only writing to a Delta Lake table. A `DeltaSource` API with the support for reading data from
+Delta tables will be added in future releases.
 
 #### Can I use this connector to append data to a Delta Lake table?
 
-Yes, you can use this connector to append data to either an existing or a new Delta Lake Table (if there is no existing
+Yes, you can use this connector to append data to either an existing or a new Delta Lake table (if there is no existing
 Delta Log in a given path then it will be created by the connector).
 
 #### Can I use this connector with other modes (overwrite, upsert etc.) ?
 
-No, currently only append is supported, other modes may be added in future releases.
+No, currently only append is supported. Other modes may be added in future releases.
 
 #### Do I need to specify the partition columns when creating a Delta table?
 
-If you are using DataStream API then you have to provide a
-`org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner` instance while building the sink instace. You
-are free to roll out your own implementation of bucket assigner or use utility one provided by the connector
-as `delta.io.flink.DeltaBucketAssigner` ([see example implementation](../examples/flink-example/src/main/java/io/delta/flink/example/sink/DeltaSinkPartitionedTableExample.java)).
+If you'd like your data to be partitioned, then you should. If you are using the DataStream API, then
+you can provide the partition columns using the `DeltaSinkRowDataBuilder.withPartitionKeys(List<String> partitionKeys` API.
 
-#### Why do I need to specify the table schema? Shouldn’t it exist in the underlying Delta table metadata or cannot be extracted from the stream's metadata?
+#### Why do I need to specify the table schema? Shouldn’t it exist in the underlying Delta table metadata or be extracted from the stream's metadata?
 
-Unfortunately we cannot extract schema information from a generic DataStream and it is also required for interacting
+Unfortunately we cannot extract schema information from a generic DataStream as it is also required for interacting
 with DeltaLog. The sink must be aware of both Delta table's schema and the structure of the events in the stream in
 order not to violate the integrity of the table.
 
