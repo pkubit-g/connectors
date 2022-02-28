@@ -202,7 +202,7 @@ you can provide the partition columns using the `DeltaSinkRowDataBuilder.withPar
 
 #### Why do I need to specify the table schema? Shouldn’t it exist in the underlying Delta table metadata or be extracted from the stream's metadata?
 
-Unfortunately we cannot extract schema information from a generic DataStream as it is also required for interacting
+Unfortunately we cannot extract schema information from a generic DataStream, and it is also required for interacting
 with DeltaLog. The sink must be aware of both Delta table's schema and the structure of the events in the stream in
 order not to violate the integrity of the table.
 

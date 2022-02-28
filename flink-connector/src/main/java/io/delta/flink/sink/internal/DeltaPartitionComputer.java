@@ -87,6 +87,8 @@ public interface DeltaPartitionComputer<T> extends Serializable {
                 LogicalType keyType = rowType.getTypeAt(keyIndex);
 
                 if (staticPartitionSpec.containsKey(partitionKey)) {
+                    // We want the output partition values to be String's anyways, so no need
+                    // to parse/cast the staticPartitionSpec value
                     partitionValues.put(partitionKey, staticPartitionSpec.get(partitionKey));
                 } else if (keyType.getTypeRoot() == LogicalTypeRoot.VARCHAR) {
                     partitionValues.put(partitionKey, element.getString(keyIndex).toString());
