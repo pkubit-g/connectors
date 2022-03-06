@@ -54,13 +54,13 @@ import io.delta.standalone.DeltaLog;
  *
  * To create new instance of the sink to a partitioned Delta table for stream of {@link RowData}:
  * <pre>
- *     List&lt;String&gt; partitionKeys = ...; // list of partition columns' names
+ *     List&lt;String&gt; partitionCols = ...; // list of partition columns' names
  *
  *     DeltaSink&lt;RowData&gt; deltaSink = DeltaSink.forRowData(
  *             new Path(deltaTablePath),
  *             new Configuration(),
  *             rowType)
- *         .withPartitionKeys(partitionKeys)
+ *         .withPartitionColumns(partitionCols)
  *         .build();
  *     stream.sinkTo(deltaSink);
  * </pre>
@@ -86,7 +86,7 @@ public class DeltaSink<IN> extends DeltaSinkInternal<IN> {
     }
 
     /**
-     * Convenience method for creating a {@link DeltaSinkRowDataBuilder} for {@link DeltaSink} to a
+     * Convenience method for creating a {@link RowDataDeltaSinkBuilder} for {@link DeltaSink} to a
      * DeltaLake's table.
      *
      * @param basePath root path of the DeltaLake's table
@@ -96,12 +96,12 @@ public class DeltaSink<IN> extends DeltaSinkInternal<IN> {
      * @param rowType  Flink's logical type to indicate the structure of the events in the stream
      * @return builder for the DeltaSink
      */
-    public static DeltaSinkRowDataBuilder forRowData(
+    public static RowDataDeltaSinkBuilder forRowData(
         final Path basePath,
         final Configuration conf,
         final RowType rowType
     ) {
-        return new DeltaSinkRowDataBuilder(
+        return new RowDataDeltaSinkBuilder(
             basePath,
             conf,
             rowType,

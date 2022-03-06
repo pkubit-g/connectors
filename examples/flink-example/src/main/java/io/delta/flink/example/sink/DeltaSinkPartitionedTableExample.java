@@ -34,14 +34,14 @@ public class DeltaSinkPartitionedTableExample extends DeltaSinkExampleBase {
 
     @Override
     DeltaSink<RowData> getDeltaSink(String tablePath) {
-        List<String> partitionKeys = Arrays.asList("f1", "f3");
+        List<String> partitionCols = Arrays.asList("f1", "f3");
 
         DeltaSinkBuilder<RowData> deltaSinkBuilder = DeltaSink
             .forRowData(
                 new Path(TABLE_PATH),
                 new Configuration(),
                 ROW_TYPE)
-            .withPartitionKeys(partitionKeys);
+            .withPartitionColumns(partitionCols);
 
         return deltaSinkBuilder.build();
     }

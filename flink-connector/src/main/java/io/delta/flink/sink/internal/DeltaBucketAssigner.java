@@ -20,6 +20,7 @@ package io.delta.flink.sink.internal;
 
 import java.util.LinkedHashMap;
 
+import io.delta.flink.sink.RowDataDeltaSinkBuilder;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
 import org.apache.flink.streaming.api.functions.sink.filesystem.bucketassigners.SimpleVersionedStringSerializer;
@@ -36,7 +37,7 @@ import org.apache.flink.table.utils.PartitionPathUtils;
  * and pass it to the {@link DeltaSinkBuilder} during creation of the sink.
  * <p>
  * This {@link DeltaBucketAssigner} is applicable only to {@link DeltaSinkBuilder} and not to
- * {@link io.delta.flink.sink.DeltaSinkRowDataBuilder}. The former lets you use this
+ * {@link RowDataDeltaSinkBuilder}. The former lets you use this
  * {@link DeltaBucketAssigner} to provide the required custom bucketing behaviour, while the latter
  * doesn't expose a custom bucketing API, and you can provide the partition column keys only.
  * <p>
@@ -106,6 +107,6 @@ public class DeltaBucketAssigner<T> implements BucketAssigner<T, String> {
 
     @Override
     public String toString() {
-        return "DeltaBucketAssignerInternal";
+        return "DeltaBucketAssigner";
     }
 }

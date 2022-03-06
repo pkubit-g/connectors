@@ -20,7 +20,6 @@ package io.delta.flink.sink.internal;
 
 import java.util.Arrays;
 import java.util.LinkedHashMap;
-import java.util.List;
 import javax.annotation.Nullable;
 
 import io.delta.flink.sink.utils.DeltaSinkTestUtils;
@@ -39,7 +38,7 @@ import org.apache.flink.types.Row;
 import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 
-public class TestDeltaBucketAssignerInternal {
+public class TestDeltaBucketAssigner {
 
     @Test
     public void testNoPartition() {
@@ -105,9 +104,8 @@ public class TestDeltaBucketAssignerInternal {
             DataFormatConverters.getConverterForDataType(
                 TypeConversions.fromLogicalToDataType(testRowType)
             );
-        List<String> partitionCols =
-            Arrays.asList("partition_col1", "partition_col2", "partition_col3", "partition_col4",
-                "partition_col5");
+        String[] partitionCols = {"partition_col1", "partition_col2", "partition_col3",
+            "partition_col4", "partition_col5"};
 
         DeltaPartitionComputer<RowData> partitionComputer =
             new DeltaPartitionComputer.DeltaRowDataPartitionComputer(testRowType, partitionCols);
@@ -146,7 +144,7 @@ public class TestDeltaBucketAssignerInternal {
             DataFormatConverters.getConverterForDataType(
                 TypeConversions.fromLogicalToDataType(testRowType)
             );
-        List<String> partitionCols = Arrays.asList("partition_col1", "partition_col2");
+        String[] partitionCols = {"partition_col1", "partition_col2"};
         int staticPartCol2Value = 555;
         LinkedHashMap<String, String> staticPartitionValues = new LinkedHashMap<String, String>() {{
                 put("partition_col2", String.valueOf(staticPartCol2Value));
@@ -184,7 +182,7 @@ public class TestDeltaBucketAssignerInternal {
             DataFormatConverters.getConverterForDataType(
                 TypeConversions.fromLogicalToDataType(testRowType)
             );
-        List<String> partitionCols = Arrays.asList("partition_col1");
+        String[] partitionCols = {"partition_col1"};
 
         DeltaPartitionComputer<RowData> partitionComputer =
             new DeltaPartitionComputer.DeltaRowDataPartitionComputer(testRowType, partitionCols);

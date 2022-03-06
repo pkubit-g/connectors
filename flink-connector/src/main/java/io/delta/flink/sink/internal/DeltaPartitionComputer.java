@@ -2,7 +2,6 @@ package io.delta.flink.sink.internal;
 
 import java.io.Serializable;
 import java.util.LinkedHashMap;
-import java.util.List;
 
 import org.apache.flink.streaming.api.functions.sink.filesystem.BucketAssigner;
 import org.apache.flink.table.data.RowData;
@@ -44,35 +43,35 @@ public interface DeltaPartitionComputer<T> extends Serializable {
     class DeltaRowDataPartitionComputer implements DeltaPartitionComputer<RowData> {
 
         private final LinkedHashMap<String, String> staticPartitionSpec;
-        static RowType rowType;
-        List<String> partitionKeys;
+        private final RowType rowType;
+        String[] partitionColumns;
 
         /**
          * Creates instance of partition computer for {@link RowData}
          *
          * @param rowType       logical schema of the records in the stream/table
-         * @param partitionKeys list of partition column names in the order they should be applied
-         *                      when creating a destination path
+         * @param partitionColumns list of partition column names in the order they should be
+         *                         applied when creating a destination path
          */
         public DeltaRowDataPartitionComputer(RowType rowType,
-                                              List<String> partitionKeys) {
-            this(rowType, partitionKeys, new LinkedHashMap<>());
+                                             String[] partitionColumns) {
+            this(rowType, partitionColumns, new LinkedHashMap<>());
         }
 
         /**
          * Creates instance of partition computer for {@link RowData}
          *
          * @param rowType             logical schema of the records in the stream/table
-         * @param partitionKeys       list of partition column names in the order they should be
+         * @param partitionColumns       list of partition column names in the order they should be
          *                            applied when creating a destination path
          * @param staticPartitionSpec static values for partitions that should set explicitly
          *                            instead of being derived from the content of the records
          */
         public DeltaRowDataPartitionComputer(RowType rowType,
-                                             List<String> partitionKeys,
+                                             String[] partitionColumns,
                                              LinkedHashMap<String, String> staticPartitionSpec) {
             this.rowType = rowType;
-            this.partitionKeys = partitionKeys;
+            this.partitionColumns = partitionColumns;
             this.staticPartitionSpec = staticPartitionSpec;
         }
 
@@ -82,7 +81,7 @@ public interface DeltaPartitionComputer<T> extends Serializable {
             BucketAssigner.Context context) {
             LinkedHashMap<String, String> partitionValues = new LinkedHashMap<>();
 
-            for (String partitionKey : partitionKeys) {
+            for (String partitionKey : partitionColumns) {
                 int keyIndex = rowType.getFieldIndex(partitionKey);
                 LogicalType keyType = rowType.getTypeAt(keyIndex);
 

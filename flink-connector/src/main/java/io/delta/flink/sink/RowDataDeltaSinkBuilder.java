@@ -18,9 +18,6 @@
 
 package io.delta.flink.sink;
 
-import java.util.Collections;
-import java.util.List;
-
 import io.delta.flink.sink.internal.DeltaBucketAssigner;
 import io.delta.flink.sink.internal.DeltaPartitionComputer;
 import io.delta.flink.sink.internal.DeltaSinkBuilder;
@@ -39,11 +36,11 @@ import org.apache.hadoop.conf.Configuration;
  * <p>
  * For most common use cases use {@link DeltaSink#forRowData} utility method to instantiate the
  * sink. After instantiation of this builder you can either call
- * {@link DeltaSinkRowDataBuilder#build()} method to get the instance of a {@link DeltaSink} or
+ * {@link RowDataDeltaSinkBuilder#build()} method to get the instance of a {@link DeltaSink} or
  * configure additional behaviour (like merging of the schema or setting partition columns) and then
  * build the sink.
  */
-public class DeltaSinkRowDataBuilder {
+public class RowDataDeltaSinkBuilder {
 
     /**
      * Delta table's root path
@@ -71,7 +68,7 @@ public class DeltaSinkRowDataBuilder {
      * List of partition column names in the order they should be applied when creating a
      * destination path.
      */
-    private List<String> partitionKeys = Collections.emptyList();
+    private String[] partitionColumns = {};
 
     /**
      * Creates instance of the builder for {@link DeltaSink}.
@@ -85,7 +82,7 @@ public class DeltaSinkRowDataBuilder {
      *                      guaranteed as there will be still some checks performed whether
      *                      the updates to the schema are compatible.
      */
-    public DeltaSinkRowDataBuilder(
+    public RowDataDeltaSinkBuilder(
         Path tableBasePath,
         Configuration conf,
         RowType rowType,
@@ -108,7 +105,7 @@ public class DeltaSinkRowDataBuilder {
      *                    compatible.
      * @return builder for {@link DeltaSink}
      */
-    public DeltaSinkRowDataBuilder withMergeSchema(final boolean mergeSchema) {
+    public RowDataDeltaSinkBuilder withMergeSchema(final boolean mergeSchema) {
         this.mergeSchema = mergeSchema;
         return this;
     }
@@ -120,12 +117,12 @@ public class DeltaSinkRowDataBuilder {
      * for this sink and must be in the same order as expected order of occurrence in the partition
      * path that will be generated.
      *
-     * @param partitionKeys list of partition column names in the order they should be applied when
-     *                      creating destination path.
+     * @param partitionColumns list of partition columns' names in the order they should be applied
+     *                         when creating destination path.
      * @return builder for {@link DeltaSink}
      */
-    public DeltaSinkRowDataBuilder withPartitionKeys(List<String> partitionKeys) {
-        this.partitionKeys = partitionKeys;
+    public RowDataDeltaSinkBuilder withPartitionColumns(String... partitionColumns) {
+        this.partitionColumns = partitionColumns;
         return this;
     }
 
@@ -142,7 +139,7 @@ public class DeltaSinkRowDataBuilder {
             true // utcTimestamp
         );
 
-        DeltaSinkBuilder<RowData> sinkBuilderInternal =
+        DeltaSinkBuilder<RowData> sinkBuilder =
             new DeltaSinkBuilder.DefaultDeltaFormatBuilder<>(
                 tableBasePath,
                 conf,
@@ -152,16 +149,15 @@ public class DeltaSinkRowDataBuilder {
                 rowType,
                 mergeSchema
             );
-        return new DeltaSink<>(sinkBuilderInternal);
+        return new DeltaSink<>(sinkBuilder);
     }
 
     private BucketAssigner<RowData, String> resolveBucketAssigner() {
-        if (this.partitionKeys.isEmpty()) {
+        if (this.partitionColumns == null || this.partitionColumns.length == 0) {
             return new BasePathBucketAssigner<>();
         }
         DeltaPartitionComputer<RowData> partitionComputer =
-            new DeltaPartitionComputer.DeltaRowDataPartitionComputer(
-                rowType, partitionKeys);
+            new DeltaPartitionComputer.DeltaRowDataPartitionComputer(rowType, partitionColumns);
         return new DeltaBucketAssigner<>(partitionComputer);
     }
 }
