@@ -24,7 +24,7 @@ NOTE:
 #### Known limitations:
 - currently only DeltaSink is supported which means that this connector is only ably to write data to a Delta table and is not able to read from it,
 - current version supports only Flink Datastream API. Support for Flink Table API / SQL along with Flink Catalog's implementation for storing Delta table's metadata in an external metastore are planned to be added in the next releases,
-- current version provides Delta's transactional gurantess only for tables stored on HDFS and Microsoft Azure Storage 
+- current version provides Delta's transactional guarantees only for tables stored on HDFS and Microsoft Azure Storage 
 
 ### Usage
 
