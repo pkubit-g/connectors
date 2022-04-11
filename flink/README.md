@@ -227,42 +227,49 @@ their compatibility. If this check fails (e.g. the change consisted of removing 
 
 ## Known issues:
 
-- Due to the dependency conflict with some Apache Flink's packages, it may be needed to shade
+- (As of 0.4.0) Due to a dependency conflict with some Apache Flink packages, it may be necessary to shade
   classes from `org.apache.flink.streaming.api.functions.sink.filesystem` package when producing a fat-jar
   with a Flink job that uses this connector before deploying it to a Flink cluster.
-  Here's example configuration for achieving this:
+  
+  If that package is not shaded, you may experience errors like the following:
+  
+  ```
+  Caused by: java.lang.IllegalAccessError: tried to access method org.apache.flink.streaming.api.functions.sink.filesystem.OutputStreamBasedPartFileWriter.<init>(Ljava/lang/Object;Lorg/apache/flink/core/fs/RecoverableFsDataOutputStream;J)V from class org.apache.flink.streaming.api.functions.sink.filesystem.DeltaBulkPartWriter
+  ```
+  
+  Here is an example configuration for achieving this:
 
-```xml
-<plugin>
-    <groupId>org.apache.maven.plugins</groupId>
-    <artifactId>maven-shade-plugin</artifactId>
-    <version>3.3.0</version>
-    <executions>
-        <execution>
-            <phase>package</phase>
-            <goals>
-                <goal>shade</goal>
-            </goals>
-            <configuration>
-                <shadedArtifactAttached>true</shadedArtifactAttached>
-                <relocations>
-                    <relocation>
-                        <pattern>org.apache.flink.streaming.api.functions.sink.filesystem</pattern>
-                        <shadedPattern>shaded.org.apache.flink.streaming.api.functions.sink.filesystem</shadedPattern>
-                    </relocation>
-                </relocations>
-                <filters>
-                    <filter>
-                        <artifact>*:*</artifact>
-                        <excludes>
-                            <exclude>META-INF/*.SF</exclude>
-                            <exclude>META-INF/*.DSA</exclude>
-                            <exclude>META-INF/*.RSA</exclude>
-                        </excludes>
-                    </filter>
-                </filters>
-            </configuration>
-        </execution>
-    </executions>
-</plugin>
-```
+  ```xml
+  <plugin>
+      <groupId>org.apache.maven.plugins</groupId>
+      <artifactId>maven-shade-plugin</artifactId>
+      <version>3.3.0</version>
+      <executions>
+          <execution>
+              <phase>package</phase>
+              <goals>
+                  <goal>shade</goal>
+              </goals>
+              <configuration>
+                  <shadedArtifactAttached>true</shadedArtifactAttached>
+                  <relocations>
+                      <relocation>
+                          <pattern>org.apache.flink.streaming.api.functions.sink.filesystem</pattern>
+                          <shadedPattern>shaded.org.apache.flink.streaming.api.functions.sink.filesystem</shadedPattern>
+                      </relocation>
+                  </relocations>
+                  <filters>
+                      <filter>
+                          <artifact>*:*</artifact>
+                          <excludes>
+                              <exclude>META-INF/*.SF</exclude>
+                              <exclude>META-INF/*.DSA</exclude>
+                              <exclude>META-INF/*.RSA</exclude>
+                          </excludes>
+                      </filter>
+                  </filters>
+              </configuration>
+          </execution>
+      </executions>
+  </plugin>
+  ```
