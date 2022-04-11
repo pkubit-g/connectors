@@ -224,3 +224,45 @@ their compatibility. If this check fails (e.g. the change consisted of removing 
 - Before local debugging of `flink` tests in IntelliJ, run all `flink` tests using SBT. It will
   generate `Meta.java` object under your target directory that is providing the connector with correct version of the
   connector.
+
+## Known issues:
+
+- Due to the dependency conflict with some Apache Flink's packages, it may be needed to shade
+  classes from `org.apache.flink.streaming.api.functions.sink.filesystem` package when producing a fat-jar
+  with a Flink job that uses this connector before deploying it to a Flink cluster.
+  Here's example configuration for achieving this:
+
+```xml
+<plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-shade-plugin</artifactId>
+    <version>3.3.0</version>
+    <executions>
+        <execution>
+            <phase>package</phase>
+            <goals>
+                <goal>shade</goal>
+            </goals>
+            <configuration>
+                <shadedArtifactAttached>true</shadedArtifactAttached>
+                <relocations>
+                    <relocation>
+                        <pattern>org.apache.flink.streaming.api.functions.sink.filesystem</pattern>
+                        <shadedPattern>shaded.org.apache.flink.streaming.api.functions.sink.filesystem</shadedPattern>
+                    </relocation>
+                </relocations>
+                <filters>
+                    <filter>
+                        <artifact>*:*</artifact>
+                        <excludes>
+                            <exclude>META-INF/*.SF</exclude>
+                            <exclude>META-INF/*.DSA</exclude>
+                            <exclude>META-INF/*.RSA</exclude>
+                        </excludes>
+                    </filter>
+                </filters>
+            </configuration>
+        </execution>
+    </executions>
+</plugin>
+```
